@@ -284,7 +284,7 @@ private fun MonthComparisonSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MonthDropdown(label: String, months: List<String>, selected: String, onSelected: (String) -> Unit) {
+private fun RowScope.MonthDropdown(label: String, months: List<String>, selected: String, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = Modifier.weight(1f)) {
         OutlinedTextField(

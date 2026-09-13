@@ -35,7 +35,7 @@ import com.pitaka.app.ui.theme.parseHexColor
 import java.util.Date
 import kotlin.math.abs
 
-private enum class ViewMode { LIST, CARDS }
+/* private enum class ViewMode { LIST, CARDS } */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

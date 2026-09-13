@@ -36,7 +36,7 @@ import java.util.Date
 import kotlin.math.abs
 
 private enum class GoalFilter(val label: String) { ALL("All"), SAVINGS("Savings"), INVESTMENT("Investment") }
-private enum class ViewMode { LIST, CARDS }
+/* private enum class ViewMode { LIST, CARDS } */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
