@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.pitaka.app.ui.screens
 
 import androidx.compose.foundation.background
