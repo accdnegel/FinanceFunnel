@@ -5,7 +5,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.foundation.layout.calculateBottomPadding
+/*import androidx.compose.foundation.layout.calculateBottomPadding*/
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -83,7 +83,7 @@ fun PitakaNavGraph(viewModel: PitakaViewModel) {
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = androidx.compose.ui.Modifier.padding(bottom = padding.calculateBottomPadding())
+            modifier = androidx.compose.ui.Modifier.padding(padding)
         ) {
             composable(Routes.HOME) {
                 HomeScreen(
