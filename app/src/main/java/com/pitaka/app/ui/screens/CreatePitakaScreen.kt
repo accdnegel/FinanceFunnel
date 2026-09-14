@@ -18,7 +18,7 @@ import com.pitaka.app.ui.components.CurrencyDropdown
 fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, onDone: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var startingBalance by remember { mutableStateOf("") }
-    var currency by remember { mutableStateOf("USD") }
+    var currency by remember { mutableStateOf("PHP") }
     var selectedColor by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(pitakaId == null) }
 

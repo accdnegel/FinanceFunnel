@@ -13,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.LedgerEntry
 import com.pitaka.app.data.Pitaka
+import com.pitaka.app.data.ExpenseFunnel
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.EditEntryDialog
 import com.pitaka.app.ui.components.HealthBar
@@ -31,6 +34,8 @@ import com.pitaka.app.ui.theme.healthColor
 import com.pitaka.app.util.findSimilarCategory
 import java.time.YearMonth
 import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +44,7 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
     val currentMonthTotal by viewModel.currentMonthExpenseTotal.collectAsState(initial = 0.0)
     val allExpenses by viewModel.allExpenses.collectAsState(initial = emptyList())
     val pitakas by viewModel.pitakas.collectAsState(initial = emptyList())
+    val funnels by viewModel.expenseFunnels.collectAsState(initial = emptyList())
     val categorySuggestions by viewModel.expenseCategories.collectAsState(initial = emptyList())
     var editingEntry by remember { mutableStateOf<LedgerEntry?>(null) }
 
@@ -55,6 +61,12 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
     var expenseAmount by remember { mutableStateOf("") }
     var expenseCategory by remember { mutableStateOf("") }
     var selectedPitaka by remember { mutableStateOf<Pitaka?>(null) }
+    var selectedFunnel by remember { mutableStateOf<ExpenseFunnel?>(null) }
+    var showFunnelEditor by remember { mutableStateOf(false) }
+    var funnelName by remember { mutableStateOf("") }
+    var funnelLimit by remember { mutableStateOf("") }
+    var funnelFrom by remember { mutableStateOf<Long?>(null) }
+    var funnelUntil by remember { mutableStateOf<Long?>(null) }
     var categoryError by remember { mutableStateOf(false) }
     val similarCategory by remember(expenseCategory, categorySuggestions) {
         derivedStateOf { findSimilarCategory(expenseCategory, categorySuggestions) }
@@ -64,6 +76,8 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
 
     val limit = currentBudget?.limit
     val isInherited = currentBudget != null && currentBudget?.month != currentMonthKey
+    val now = System.currentTimeMillis()
+    val activeFunnels = funnels.filter { (it.validFrom == null || now >= it.validFrom) && (it.validUntil == null || now <= it.validUntil) }
     val ratio = if (limit != null && limit > 0) {
         ((limit - currentMonthTotal) / limit).toFloat().coerceIn(0f, 1f)
     } else 1f
@@ -134,6 +148,30 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
                 }
             }
 
+            if (funnels.isNotEmpty()) {
+                Text("Expense Funnels", fontWeight = FontWeight.Bold)
+                funnels.forEach { funnel ->
+                    val spent = allExpenses.filter { it.funnelId == funnel.id }.sumOf { it.amount }
+                    val remaining = funnel.limit - spent
+                    val funnelRatio = (remaining / funnel.limit.coerceAtLeast(0.01)).toFloat().coerceIn(0f, 1f)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(funnel.name, fontWeight = FontWeight.SemiBold)
+                            Text("${"%,.2f".format(remaining)} left", color = if (remaining < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                        }
+                        Text("Spent ${"%,.2f".format(spent)} / ${"%,.2f".format(funnel.limit)}", style = MaterialTheme.typography.bodySmall)
+                        HealthBar(ratio = funnelRatio, color = healthColor(funnelRatio))
+                        Text(
+                            "Validity: ${funnel.validFrom?.let { dateFormat.format(Date(it)) } ?: "Any date"} – ${funnel.validUntil?.let { dateFormat.format(Date(it)) } ?: "No end date"}",
+                            style = MaterialTheme.typography.labelSmall, color = Color.Gray
+                        )
+                    }
+                }
+            }
+
             HorizontalDivider()
 
             Text("Log Expense", fontWeight = FontWeight.Bold)
@@ -146,6 +184,15 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
                     selected = selectedPitaka,
                     onSelected = { selectedPitaka = it }
                 )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FunnelDropdown(
+                        funnels = funnels,
+                        selected = selectedFunnel,
+                        onSelected = { selectedFunnel = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedButton(onClick = { showFunnelEditor = true }) { Text("New") }
+                }
                 OutlinedTextField(
                     value = expenseName,
                     onValueChange = { expenseName = it },
@@ -190,14 +237,18 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
                         }
                     }
                 }
+                if (selectedFunnel != null && selectedFunnel !in activeFunnels) {
+                    Text("The selected funnel is outside its validity period.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
                 Button(
                     onClick = {
                         val amount = expenseAmount.toDoubleOrNull()
                         val pitaka = selectedPitaka
                         val missingCategory = expenseCategory.isBlank()
                         categoryError = missingCategory
-                        if (expenseName.isNotBlank() && amount != null && amount > 0 && pitaka != null && !missingCategory) {
-                            viewModel.recordExpense(pitaka.id, expenseName, amount, expenseCategory)
+                        val funnelValid = selectedFunnel == null || (selectedFunnel!!.validFrom == null || now >= selectedFunnel!!.validFrom) && (selectedFunnel!!.validUntil == null || now <= selectedFunnel!!.validUntil)
+                        if (expenseName.isNotBlank() && amount != null && amount > 0 && pitaka != null && !missingCategory && funnelValid) {
+                            viewModel.recordExpense(pitaka.id, expenseName, amount, expenseCategory, selectedFunnel?.id)
                             expenseName = ""
                             expenseAmount = ""
                             expenseCategory = ""
@@ -215,6 +266,7 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
                 Text("No expenses logged this month yet.", color = Color.Gray)
             } else {
                 thisMonthExpenses.forEach { entry ->
+                    var masked by remember(entry.id) { mutableStateOf(false) }
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -229,7 +281,8 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("$${"%,.2f".format(entry.amount)}", color = Color(0xFFD64545))
+                            Text(if (masked) "••••••" else "${entry.currency} ${"%,.2f".format(entry.amount)}", color = Color(0xFFD64545))
+                            IconButton(onClick = { masked = !masked }) { Icon(if (masked) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (masked) "Show amount" else "Hide amount") }
                             IconButton(onClick = { editingEntry = entry }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
                             }
@@ -244,6 +297,34 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
         }
     }
 
+    if (showFunnelEditor) {
+        AlertDialog(
+            onDismissRequest = { showFunnelEditor = false },
+            title = { Text("Create Expense Funnel") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = funnelName, onValueChange = { funnelName = it }, label = { Text("Funnel name") })
+                    OutlinedTextField(value = funnelLimit, onValueChange = { funnelLimit = it }, label = { Text("Allowable limit") })
+                    Text("Optional validity period", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DatePickerButton("Start date", funnelFrom) { funnelFrom = it }
+                        DatePickerButton("End date", funnelUntil) { funnelUntil = it }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val amount = funnelLimit.toDoubleOrNull()
+                    if (funnelName.isNotBlank() && amount != null && amount > 0 && (funnelFrom == null || funnelUntil == null || funnelFrom!! <= funnelUntil!!)) {
+                        viewModel.createExpenseFunnel(funnelName.trim(), amount, funnelFrom, funnelUntil, null)
+                        funnelName = ""; funnelLimit = ""; funnelFrom = null; funnelUntil = null; showFunnelEditor = false
+                    }
+                }) { Text("Create") }
+            },
+            dismissButton = { TextButton(onClick = { showFunnelEditor = false }) { Text("Cancel") } }
+        )
+    }
+
     editingEntry?.let { entry ->
         EditEntryDialog(
             entry = entry,
@@ -253,5 +334,35 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
             },
             onDismiss = { editingEntry = null }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FunnelDropdown(
+    funnels: List<ExpenseFunnel>,
+    selected: ExpenseFunnel?,
+    onSelected: (ExpenseFunnel?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
+        OutlinedTextField(
+            value = selected?.name ?: "No funnel / monthly limit",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Expense funnel") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("No funnel / monthly limit") }, onClick = { onSelected(null); expanded = false })
+            funnels.forEach { funnel ->
+                DropdownMenuItem(
+                    text = { Text("${funnel.name} — limit ${"%,.2f".format(funnel.limit)}") },
+                    onClick = { onSelected(funnel); expanded = false }
+                )
+            }
+        }
     }
 }

@@ -30,3 +30,15 @@ fun healthColor(ratio: Float): Color {
     val clamped = ratio.coerceIn(0f, 1f)
     return lerp(Color(0xFFD64545), Color(0xFF1E8E5A), clamped)
 }
+
+/** Warm, high-contrast Batik-inspired presets for Pitaka cards. */
+val batikColorPalette = listOf(
+    "#C62828", // indigo-red batik
+    "#E06A00", // tangerine
+    "#FFC107", // turmeric yellow
+    "#176B4D", // leaf green
+    "#006A9B", // ocean blue
+    "#5B2C6F", // deep violet
+    "#8D6E63", // earth brown
+    "#F5E6C8"  // natural cloth
+)

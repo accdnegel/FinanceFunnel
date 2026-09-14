@@ -20,7 +20,7 @@ import com.pitaka.app.ui.components.CurrencyDropdown
 fun CurrencySettingsScreen(viewModel: PitakaViewModel, onBack: () -> Unit) {
     val settings by viewModel.currencySettings.collectAsState(initial = null)
     val rates by viewModel.exchangeRates.collectAsState(initial = emptyList())
-    val baseCurrency = settings?.baseCurrency ?: "USD"
+    val baseCurrency = settings?.baseCurrency ?: "PHP"
 
     var newRateCode by remember { mutableStateOf("PHP") }
     var newRateValue by remember { mutableStateOf("") }

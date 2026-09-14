@@ -94,7 +94,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit) {
             ) {
                 Text("Total Net Worth", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
                 Text(
-                    "${currencySettings?.baseCurrency ?: "USD"} ${"%,.2f".format(totalNetWorth)}",
+                    "${currencySettings?.baseCurrency ?: "PHP"} ${"%,.2f".format(totalNetWorth)}",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -284,7 +284,7 @@ private fun MonthComparisonSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RowScope.MonthDropdown(label: String, months: List<String>, selected: String, onSelected: (String) -> Unit) {
+private fun MonthDropdown(label: String, months: List<String>, selected: String, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = Modifier.weight(1f)) {
         OutlinedTextField(

@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.LedgerEntry
 import com.pitaka.app.data.LedgerType
 import com.pitaka.app.data.commonCurrencies
-import com.pitaka.app.ui.theme.accentColorPalette
+import com.pitaka.app.ui.theme.batikColorPalette
 import com.pitaka.app.ui.theme.parseHexColor
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -28,6 +28,20 @@ import java.util.Date
 import java.util.Locale
 
 val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+
+@Composable
+fun MaskedAmount(visibleText: String, masked: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(if (masked) "••••••" else visibleText)
+        IconButton(onClick = onToggle, modifier = Modifier.size(32.dp)) {
+            Icon(
+                imageVector = if (masked) androidx.compose.material.icons.Icons.Default.VisibilityOff else androidx.compose.material.icons.Icons.Default.Visibility,
+                contentDescription = if (masked) "Show amount" else "Hide amount"
+            )
+        }
+    }
+}
+
 
 /** A progress bar whose fill color reflects "health" (red = low/at-risk, green = healthy). */
 @Composable
@@ -52,7 +66,7 @@ fun HealthBar(ratio: Float, color: Color = com.pitaka.app.ui.theme.healthColor(r
 @Composable
 fun ColorSwatchPicker(selected: String?, onSelected: (String?) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        accentColorPalette.forEach { hex ->
+        batikColorPalette.forEach { hex ->
             val color = parseHexColor(hex) ?: Color.Gray
             val isSelected = selected == hex
             Box(

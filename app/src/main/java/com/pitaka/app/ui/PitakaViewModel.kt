@@ -34,6 +34,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val pitakas: Flow<List<Pitaka>> = repository.observePitakas()
 
     val goals: Flow<List<GoalWithProgress>> = repository.observeGoals()
+    val expenseFunnels: Flow<List<ExpenseFunnel>> = repository.observeExpenseFunnels()
 
     // ---- Currency ----
 
@@ -54,7 +55,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Liquid total (all Pitakas), converted to the base/display currency. */
     val totalLiquid: Flow<Double> = combine(pitakas, exchangeRates, currencySettings) { list, rates, settings ->
-        val base = settings?.baseCurrency ?: "USD"
+        val base = settings?.baseCurrency ?: "PHP"
         list.sumOf { p -> convert(p.currentAmount, p.currency, base, rates) }
     }
 
@@ -172,9 +173,9 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.recordIncome(pitakaId, name, amount) }
     }
 
-    fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?) {
+    fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null) {
         viewModelScope.launch {
-            repository.recordExpense(pitakaId, name, amount, category?.trim()?.takeIf { it.isNotEmpty() })
+            repository.recordExpense(pitakaId, name, amount, category?.trim()?.takeIf { it.isNotEmpty() }, funnelId, currency)
         }
     }
 
@@ -182,8 +183,20 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.recordTransfer(fromPitakaId, toPitakaId, name, amount, secondaryAmount) }
     }
 
-    fun recordGoalContribution(sourcePitakaId: Long, goalId: Long, name: String, amount: Double) {
-        viewModelScope.launch { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount) }
+    fun recordGoalContribution(sourcePitakaId: Long, goalId: Long, name: String, amount: Double, currency: String? = null) {
+        viewModelScope.launch { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency) }
+    }
+
+    fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?) {
+        viewModelScope.launch { repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex) }
+    }
+
+    fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
+        viewModelScope.launch { repository.deleteExpenseFunnel(funnel) }
+    }
+
+    fun updateExpenseFunnel(funnel: ExpenseFunnel) {
+        viewModelScope.launch { repository.updateExpenseFunnel(funnel) }
     }
 
     fun deleteEntry(entry: LedgerEntry) {

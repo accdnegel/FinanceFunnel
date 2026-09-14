@@ -33,6 +33,7 @@ data class LedgerEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val type: LedgerType,
     val amount: Double,
+    val currency: String = "PHP",
     val name: String,
     val category: String? = null,
     val pitakaId: Long? = null,
@@ -40,5 +41,6 @@ data class LedgerEntry(
     val toPitakaId: Long? = null,
     val secondaryAmount: Double? = null,
     val goalId: Long? = null,
+    val funnelId: Long? = null,
     val date: Long = System.currentTimeMillis()
 )

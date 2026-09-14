@@ -13,7 +13,9 @@ data class Pitaka(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val currentAmount: Double,
-    val currency: String = "USD",
+    val currency: String = "PHP",
+    /** Serialized currency-to-balance map; supports multiple currencies without losing legacy fields. */
+    val currencyBalances: String = "PHP=0",
     val colorHex: String? = null,
     val lastUpdated: Long = System.currentTimeMillis(),
     val createdAt: Long = System.currentTimeMillis()

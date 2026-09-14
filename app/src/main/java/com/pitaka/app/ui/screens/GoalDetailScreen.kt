@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,7 +19,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.Goal
-import com.pitaka.app.data.GoalType
+import com.pitaka.app.data.CurrencyBalances
+import com.pitaka.app.data.displayLines
+import com.pitaka.app.data.Goal
+import com.pitaka.app.data.CurrencyBalances
+import com.pitaka.app.data.displayLinesType
 import com.pitaka.app.data.LedgerEntry
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
@@ -74,7 +80,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                         .padding(16.dp)
                 ) {
                     Text(
-                        "$${"%,.2f".format(progress)} / $${"%,.2f".format(g.targetAmount)}",
+                        CurrencyBalances.parse(g.currencyBalances).displayLines().ifBlank { "${g.currency} 0.00" },
                         style = MaterialTheme.typography.headlineSmall,
                         color = accentColor,
                         fontWeight = FontWeight.Bold
@@ -143,6 +149,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
             Text("Contribution History", fontWeight = FontWeight.Bold)
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(entries, key = { it.id }) { entry ->
+                    var masked by remember(entry.id) { mutableStateOf(false) }
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -153,7 +160,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                             Text(dateFormat.format(Date(entry.date)), color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("$${"%,.2f".format(entry.amount)}")
+                            Text(if (masked) "••••••" else "${entry.currency} ${"%,.2f".format(entry.amount)}")
                             IconButton(onClick = { editingEntry = entry }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
                             }

@@ -44,3 +44,24 @@ is pulled from the same palette.
 - Deleting a ledger entry (income, expense, transfer, or contribution) reverses its effect
   on the relevant Pitaka balance(s) automatically.
 - Database schema is pre-release (v1); no migrations have been needed yet.
+
+
+## Expense funnels
+
+Expense funnels are named spending allowances with an independent limit and optional start/end validity dates. Expenses can be assigned to a funnel while still being charged to a Pitaka; the Pitaka balance decreases normally, and the funnel's remaining balance is calculated from its linked expense entries.
+
+## Visual identity
+
+The UI uses the Pitaka logo palette and Batik-inspired card color presets. The font slot can be added at `app/src/main/res/font/batangas.ttf` when the licensed Batangas font file is available.
+
+
+## Development completion notes
+
+- PHP is the default currency.
+- Pitakas, goals, and expense funnels retain per-currency balances in a serialized balance map.
+- Ledger entries retain their transaction currency.
+- Cross-currency transfers use the destination currency for the destination balance.
+- Amount masking is available in transaction histories.
+- Recurring rules are applied on app launch when due.
+- The database currently uses destructive migration fallback; replace this with explicit migrations before production release.
+- Exchange rates are manually maintained and offline.

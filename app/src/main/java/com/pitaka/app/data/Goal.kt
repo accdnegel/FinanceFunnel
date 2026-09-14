@@ -23,6 +23,9 @@ data class Goal(
     val name: String,
     val type: GoalType,
     val targetAmount: Double,
+    val currency: String = "PHP",
+    /** Serialized currency-to-balance map; supports multiple currencies without losing legacy fields. */
+    val currencyBalances: String = "PHP=0",
     val targetDate: Long,
     val colorHex: String? = null,
     val createdAt: Long = System.currentTimeMillis()

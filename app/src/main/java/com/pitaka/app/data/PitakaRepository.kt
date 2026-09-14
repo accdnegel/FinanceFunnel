@@ -13,6 +13,7 @@ class PitakaRepository(private val db: AppDatabase) {
     private val budgetDao = db.monthlyBudgetDao()
     private val currencyDao = db.currencyDao()
     private val recurringDao = db.recurringRuleDao()
+    private val funnelDao = db.expenseFunnelDao()
 
     // ---- Pitakas ----
 
@@ -22,14 +23,14 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?): Long {
         return pitakaDao.insertPitaka(
-            Pitaka(name = name, currentAmount = startingBalance, currency = currency, colorHex = colorHex)
+            Pitaka(name = name, currentAmount = startingBalance, currency = currency, currencyBalances = CurrencyBalances.encode(mapOf(currency.uppercase() to startingBalance)), colorHex = colorHex)
         )
     }
 
     /** Metadata-only edit (name/currency/color) — never touches the balance. */
     suspend fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?) {
         val existing = pitakaDao.getPitaka(pitakaId) ?: return
-        pitakaDao.updatePitaka(existing.copy(name = name, currency = currency, colorHex = colorHex))
+        pitakaDao.updatePitaka(existing.copy(name = name, currency = currency, colorHex = colorHex, currencyBalances = if (existing.currencyBalances.isBlank()) CurrencyBalances.encode(mapOf(currency.uppercase() to existing.currentAmount)) else existing.currencyBalances))
     }
 
     /** Deletes a Pitaka and every ledger row that touches it (income/expense/transfers/contributions). */
@@ -71,7 +72,7 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?): Long {
         return goalDao.insertGoal(
-            Goal(name = name, type = type, targetAmount = targetAmount, targetDate = targetDate, colorHex = colorHex)
+            Goal(name = name, type = type, targetAmount = targetAmount, targetDate = targetDate, colorHex = colorHex, currencyBalances = "${"PHP"}=0")
         )
     }
 
@@ -88,6 +89,14 @@ class PitakaRepository(private val db: AppDatabase) {
      * history; only the goal-progress tracking for it goes away.
      */
     suspend fun deleteGoal(goal: Goal) = goalDao.deleteGoal(goal)
+
+    // ---- Expense funnels ----
+    fun observeExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAll()
+    fun observeFunnelSpent(funnelId: Long): Flow<Double> = funnelDao.observeSpent(funnelId)
+    suspend fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?): Long =
+        funnelDao.insert(ExpenseFunnel(name = name, limit = limit, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, currencyBalances = "PHP=0"))
+    suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
+    suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.delete(funnel)
 
     // ---- Ledger reads ----
 
@@ -205,7 +214,7 @@ class PitakaRepository(private val db: AppDatabase) {
             db.withTransaction {
                 when (rule.type) {
                     LedgerType.INCOME -> recordIncomeInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount)
-                    LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount, rule.category)
+                    LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount, rule.category, null, null)
                     else -> {} // recurring rules only support INCOME/EXPENSE
                 }
                 recurringDao.update(rule.copy(lastAppliedMonth = currentMonth))
@@ -216,24 +225,27 @@ class PitakaRepository(private val db: AppDatabase) {
     // ---- Money-movement operations (all atomic) ----
 
     suspend fun recordIncome(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis()) {
+        require(amount > 0) { "Income amount must be positive" }
         db.withTransaction { recordIncomeInternal(pitakaId, name, amount, date) }
     }
 
     private suspend fun recordIncomeInternal(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis()) {
-        val entry = LedgerEntry(type = LedgerType.INCOME, amount = amount, name = name, pitakaId = pitakaId, date = date)
+        val pitakaCurrency = pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"
+        val entry = LedgerEntry(type = LedgerType.INCOME, amount = amount, currency = pitakaCurrency, name = name, pitakaId = pitakaId, date = date)
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
     }
 
-    suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, date: Long = System.currentTimeMillis()) {
-        db.withTransaction { recordExpenseInternal(pitakaId, name, amount, category, date) }
+    suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, date: Long = System.currentTimeMillis()) {
+        require(amount > 0) { "Expense amount must be positive" }
+        db.withTransaction { recordExpenseInternal(pitakaId, name, amount, category, funnelId, currency, date) }
     }
 
     private suspend fun recordExpenseInternal(
-        pitakaId: Long, name: String, amount: Double, category: String?, date: Long = System.currentTimeMillis()
+        pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, date: Long = System.currentTimeMillis()
     ) {
         val entry = LedgerEntry(
-            type = LedgerType.EXPENSE, amount = amount, name = name, category = category, pitakaId = pitakaId, date = date
+            type = LedgerType.EXPENSE, amount = amount, currency = currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, date = date
         )
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
@@ -253,9 +265,11 @@ class PitakaRepository(private val db: AppDatabase) {
         date: Long = System.currentTimeMillis()
     ) {
         db.withTransaction {
+            val sourceCurrency = pitakaDao.getPitaka(fromPitakaId)?.currency ?: "PHP"
             val entry = LedgerEntry(
                 type = LedgerType.TRANSFER,
                 amount = amount,
+                currency = sourceCurrency,
                 name = name,
                 fromPitakaId = fromPitakaId,
                 toPitakaId = toPitakaId,
@@ -272,11 +286,13 @@ class PitakaRepository(private val db: AppDatabase) {
         goalId: Long,
         name: String,
         amount: Double,
+        currency: String? = null,
         date: Long = System.currentTimeMillis()
     ) {
+        require(amount > 0) { "Contribution amount must be positive" }
         db.withTransaction {
             val entry = LedgerEntry(
-                type = LedgerType.GOAL_CONTRIBUTION, amount = amount, name = name, pitakaId = sourcePitakaId, goalId = goalId, date = date
+                type = LedgerType.GOAL_CONTRIBUTION, amount = amount, currency = currency ?: (pitakaDao.getPitaka(sourcePitakaId)?.currency ?: "PHP"), name = name, pitakaId = sourcePitakaId, goalId = goalId, date = date
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
@@ -289,13 +305,22 @@ class PitakaRepository(private val db: AppDatabase) {
 
     private suspend fun applyEffect(entry: LedgerEntry) {
         when (entry.type) {
-            LedgerType.INCOME -> entry.pitakaId?.let { adjustBalance(it, entry.amount) }
-            LedgerType.EXPENSE -> entry.pitakaId?.let { adjustBalance(it, -entry.amount) }
-            LedgerType.GOAL_CONTRIBUTION -> entry.pitakaId?.let { adjustBalance(it, -entry.amount) }
-            LedgerType.ADJUSTMENT -> entry.pitakaId?.let { adjustBalance(it, entry.amount) }
+            LedgerType.INCOME -> entry.pitakaId?.let { adjustBalance(it, entry.amount, entry.currency) }
+            LedgerType.EXPENSE -> {
+                entry.pitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
+                entry.funnelId?.let { id -> funnelDao.get(id)?.let { funnelDao.update(it.copy(currencyBalances = CurrencyBalances.add(it.currencyBalances, entry.currency, entry.amount))) } }
+            }
+            LedgerType.GOAL_CONTRIBUTION -> {
+                entry.pitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
+                entry.goalId?.let { id -> goalDao.getGoal(id)?.let { goalDao.updateGoal(it.copy(currencyBalances = CurrencyBalances.add(it.currencyBalances, entry.currency, entry.amount))) } }
+            }
+            LedgerType.ADJUSTMENT -> entry.pitakaId?.let { adjustBalance(it, entry.amount, entry.currency) }
             LedgerType.TRANSFER -> {
-                entry.fromPitakaId?.let { adjustBalance(it, -entry.amount) }
-                entry.toPitakaId?.let { adjustBalance(it, entry.secondaryAmount ?: entry.amount) }
+                entry.fromPitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
+                entry.toPitakaId?.let { id ->
+                    val destinationCurrency = pitakaDao.getPitaka(id)?.currency ?: entry.currency
+                    adjustBalance(id, entry.secondaryAmount ?: entry.amount, destinationCurrency)
+                }
             }
         }
     }
@@ -309,11 +334,14 @@ class PitakaRepository(private val db: AppDatabase) {
         )
     }
 
-    private suspend fun adjustBalance(pitakaId: Long, delta: Double) {
+    private suspend fun adjustBalance(pitakaId: Long, delta: Double, currency: String = "PHP") {
         val pitaka = pitakaDao.getPitaka(pitakaId) ?: return
+        val balances = CurrencyBalances.add(pitaka.currencyBalances, currency, delta)
+        val primaryDelta = if (pitaka.currency.equals(currency, ignoreCase = true)) delta else 0.0
         pitakaDao.updatePitaka(
             pitaka.copy(
-                currentAmount = pitaka.currentAmount + delta,
+                currentAmount = pitaka.currentAmount + primaryDelta,
+                currencyBalances = balances,
                 lastUpdated = System.currentTimeMillis()
             )
         )

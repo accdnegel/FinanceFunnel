@@ -8,10 +8,10 @@ import androidx.room.TypeConverters
 
 @Database(
     entities = [
-        Pitaka::class, Goal::class, LedgerEntry::class, MonthlyBudget::class,
+        Pitaka::class, Goal::class, LedgerEntry::class, MonthlyBudget::class, ExpenseFunnel::class,
         CurrencySettings::class, ExchangeRate::class, RecurringRule::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -22,6 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ledgerDao(): LedgerDao
     abstract fun monthlyBudgetDao(): MonthlyBudgetDao
     abstract fun currencyDao(): CurrencyDao
+    abstract fun expenseFunnelDao(): ExpenseFunnelDao
     abstract fun recurringRuleDao(): RecurringRuleDao
 
     companion object {

@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-
 package com.pitaka.app.ui.screens
 
 import androidx.compose.foundation.background
@@ -30,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import com.pitaka.app.data.Pitaka
+import com.pitaka.app.data.CurrencyBalances
+import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.HealthBar
 import com.pitaka.app.ui.components.dateFormat
@@ -37,7 +37,7 @@ import com.pitaka.app.ui.theme.parseHexColor
 import java.util.Date
 import kotlin.math.abs
 
-/* private enum class ViewMode { LIST, CARDS } */
+private enum class ViewMode { LIST, CARDS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,7 +124,7 @@ private fun PitakaCard(pitaka: Pitaka, onClick: () -> Unit) {
                 Text(pitaka.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "${pitaka.currency} ${"%,.2f".format(pitaka.currentAmount)}",
+                    CurrencyBalances.parse(pitaka.currencyBalances).displayLines(),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = accentColor
@@ -217,7 +217,7 @@ private fun PitakaTcgCard(pitaka: Pitaka, modifier: Modifier = Modifier) {
             Text(pitaka.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2)
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                "${pitaka.currency} ${"%,.2f".format(pitaka.currentAmount)}",
+                CurrencyBalances.parse(pitaka.currencyBalances).displayLines(),
                 color = Color.White,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold

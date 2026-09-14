@@ -6,8 +6,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.LedgerEntry
 import com.pitaka.app.data.LedgerType
 import com.pitaka.app.data.Pitaka
+import com.pitaka.app.data.CurrencyBalances
+import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.AdjustBalanceDialog
 import com.pitaka.app.ui.components.ConfirmDeleteDialog
@@ -45,7 +53,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
     }
 
     val accentColor = parseHexColor(pitaka?.colorHex) ?: Color(0xFF0278CF)
-    val currency = pitaka?.currency ?: "USD"
+    val currency = pitaka?.currency ?: "PHP"
 
     Scaffold(
         topBar = {
@@ -76,7 +84,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                         .padding(16.dp)
                 ) {
                     Text(
-                        "${p.currency} ${"%,.2f".format(p.currentAmount)}",
+                        CurrencyBalances.parse(p.currencyBalances).displayLines(),
                         style = MaterialTheme.typography.headlineMedium,
                         color = accentColor,
                         fontWeight = FontWeight.Bold
@@ -179,6 +187,7 @@ private fun LedgerRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var masked by remember { mutableStateOf(false) }
     val (label, signedAmount, color) = describeEntry(entry, pitakaId, currency)
     val editable = entry.type != LedgerType.TRANSFER
     Row(
@@ -195,7 +204,10 @@ private fun LedgerRow(
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(signedAmount, color = color, fontWeight = FontWeight.SemiBold)
+            Text(if (masked) "••••••" else signedAmount, color = color, fontWeight = FontWeight.SemiBold)
+            IconButton(onClick = { masked = !masked }) {
+                Icon(if (masked) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (masked) "Show amount" else "Hide amount")
+            }
             if (editable) {
                 IconButton(onClick = onEdit) {
                     Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
