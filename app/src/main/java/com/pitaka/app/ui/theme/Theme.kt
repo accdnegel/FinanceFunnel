@@ -8,26 +8,32 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.pitaka.app.R
 
-// Batangas is loaded from app/src/main/res/font/batangas.ttf when the user supplies it.
-// Until then, the system sans-serif family remains the safe fallback.
-val PitakaFontFamily: FontFamily = FontFamily.SansSerif
+/** The bundled Batangas typeface used throughout Pitaka. */
+val PitakaFontFamily: FontFamily = FontFamily(
+    Font(
+        resId = R.font.batangas,
+        weight = FontWeight.Bold
+    )
+)
 
 private val PitakaTypography = Typography(
     displayLarge = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Bold, fontSize = 34.sp, lineHeight = 40.sp),
     displayMedium = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 36.sp),
     headlineLarge = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp),
-    headlineMedium = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 30.sp),
-    titleLarge = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 27.sp),
-    titleMedium = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 22.sp),
+    headlineMedium = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 30.sp),
+    titleLarge = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 27.sp),
+    titleMedium = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 22.sp),
     bodyLarge = TextStyle(fontFamily = PitakaFontFamily, fontSize = 16.sp, lineHeight = 24.sp),
     bodyMedium = TextStyle(fontFamily = PitakaFontFamily, fontSize = 14.sp, lineHeight = 20.sp),
     bodySmall = TextStyle(fontFamily = PitakaFontFamily, fontSize = 12.sp, lineHeight = 17.sp),
-    labelLarge = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp)
+    labelLarge = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp),
+    labelMedium = TextStyle(fontFamily = PitakaFontFamily, fontWeight = FontWeight.Bold, fontSize = 12.sp, lineHeight = 16.sp)
 )
 
 val PitakaOrange = Color(0xFFE06A00)
