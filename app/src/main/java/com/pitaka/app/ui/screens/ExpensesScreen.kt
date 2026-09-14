@@ -28,6 +28,7 @@ import com.pitaka.app.data.Pitaka
 import com.pitaka.app.data.ExpenseFunnel
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.EditEntryDialog
+import com.pitaka.app.ui.components.DatePickerButton
 import com.pitaka.app.ui.components.HealthBar
 import com.pitaka.app.ui.components.dateFormat
 import com.pitaka.app.ui.theme.healthColor
@@ -246,7 +247,11 @@ fun ExpensesScreen(viewModel: PitakaViewModel, onOpenBudgetHistory: () -> Unit) 
                         val pitaka = selectedPitaka
                         val missingCategory = expenseCategory.isBlank()
                         categoryError = missingCategory
-                        val funnelValid = selectedFunnel == null || (selectedFunnel!!.validFrom == null || now >= selectedFunnel!!.validFrom) && (selectedFunnel!!.validUntil == null || now <= selectedFunnel!!.validUntil)
+                        val funnelValid = selectedFunnel?.let { funnel ->
+                            val validFrom = funnel.validFrom
+                            val validUntil = funnel.validUntil
+                            (validFrom == null || now >= validFrom) && (validUntil == null || now <= validUntil)
+                        } ?: true
                         if (expenseName.isNotBlank() && amount != null && amount > 0 && pitaka != null && !missingCategory && funnelValid) {
                             viewModel.recordExpense(pitaka.id, expenseName, amount, expenseCategory, selectedFunnel?.id)
                             expenseName = ""

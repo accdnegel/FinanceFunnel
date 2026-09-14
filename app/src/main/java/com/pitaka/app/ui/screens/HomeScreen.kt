@@ -257,8 +257,8 @@ private fun MonthComparisonSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MonthDropdown("Month A", availableMonths, monthA) { monthA = it }
-            MonthDropdown("Month B", availableMonths, monthB) { monthB = it }
+            MonthDropdown("Month A", availableMonths, monthA, Modifier.weight(1f)) { monthA = it }
+            MonthDropdown("Month B", availableMonths, monthB, Modifier.weight(1f)) { monthB = it }
         }
 
         val incomeA = monthlyIncome.find { it.month == monthA }?.total ?: 0.0
@@ -284,9 +284,9 @@ private fun MonthComparisonSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MonthDropdown(label: String, months: List<String>, selected: String, onSelected: (String) -> Unit) {
+private fun MonthDropdown(label: String, months: List<String>, selected: String, modifier: Modifier = Modifier, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = Modifier.weight(1f)) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
         OutlinedTextField(
             value = monthLabel(selected) + " " + selected.substringBefore("-"),
             onValueChange = {},

@@ -37,7 +37,7 @@ import com.pitaka.app.ui.theme.parseHexColor
 import java.util.Date
 import kotlin.math.abs
 
-private enum class ViewMode { LIST, CARDS }
+private enum class PitakaViewMode { LIST, CARDS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +49,7 @@ fun PitakasScreen(
     onOpenPitaka: (Long) -> Unit
 ) {
     val pitakas by viewModel.pitakas.collectAsState(initial = emptyList())
-    var viewMode by remember { mutableStateOf(ViewMode.LIST) }
+    var viewMode by remember { mutableStateOf(PitakaViewMode.LIST) }
 
     Scaffold(
         topBar = {
@@ -75,13 +75,13 @@ fun PitakasScreen(
             if (pitakas.isNotEmpty()) {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                     SegmentedButton(
-                        selected = viewMode == ViewMode.LIST,
-                        onClick = { viewMode = ViewMode.LIST },
+                        selected = viewMode == PitakaViewMode.LIST,
+                        onClick = { viewMode = PitakaViewMode.LIST },
                         shape = SegmentedButtonDefaults.itemShape(0, 2)
                     ) { Text("List") }
                     SegmentedButton(
-                        selected = viewMode == ViewMode.CARDS,
-                        onClick = { viewMode = ViewMode.CARDS },
+                        selected = viewMode == PitakaViewMode.CARDS,
+                        onClick = { viewMode = PitakaViewMode.CARDS },
                         shape = SegmentedButtonDefaults.itemShape(1, 2)
                     ) { Text("Cards") }
                 }
@@ -92,7 +92,7 @@ fun PitakasScreen(
                     Text("No Pitakas yet. Tap + to add your first fund source.", color = Color.Gray)
                 }
             } else when (viewMode) {
-                ViewMode.LIST -> LazyColumn(
+                PitakaViewMode.LIST -> LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -101,7 +101,7 @@ fun PitakasScreen(
                         PitakaCard(pitaka = pitaka, onClick = { onOpenPitaka(pitaka.id) })
                     }
                 }
-                ViewMode.CARDS -> PitakaCardCarousel(
+                PitakaViewMode.CARDS -> PitakaCardCarousel(
                     pitakas = pitakas,
                     onOpenPitaka = onOpenPitaka,
                     modifier = Modifier.weight(1f)

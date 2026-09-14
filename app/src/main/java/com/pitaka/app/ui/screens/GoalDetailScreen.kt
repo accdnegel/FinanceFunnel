@@ -18,12 +18,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.pitaka.app.data.Goal
 import com.pitaka.app.data.CurrencyBalances
+import com.pitaka.app.data.Goal
+import com.pitaka.app.data.GoalType
 import com.pitaka.app.data.displayLines
-import com.pitaka.app.data.Goal
-import com.pitaka.app.data.CurrencyBalances
-import com.pitaka.app.data.displayLinesType
 import com.pitaka.app.data.LedgerEntry
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel

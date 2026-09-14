@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +37,7 @@ fun MaskedAmount(visibleText: String, masked: Boolean, onToggle: () -> Unit, mod
         Text(if (masked) "••••••" else visibleText)
         IconButton(onClick = onToggle, modifier = Modifier.size(32.dp)) {
             Icon(
-                imageVector = if (masked) androidx.compose.material.icons.Icons.Default.VisibilityOff else androidx.compose.material.icons.Icons.Default.Visibility,
+                imageVector = if (masked) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                 contentDescription = if (masked) "Show amount" else "Hide amount"
             )
         }
