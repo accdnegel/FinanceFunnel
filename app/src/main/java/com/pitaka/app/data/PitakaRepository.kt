@@ -137,7 +137,7 @@ class PitakaRepository(private val db: AppDatabase) {
     fun observeExpensesForFunnel(funnelId: Long): Flow<List<LedgerEntry>> = ledgerDao.observeExpensesForFunnel(funnelId)
     fun observeExpensesForMonth(month: String): Flow<List<LedgerEntry>> = ledgerDao.observeExpensesForMonth(month)
 
-    suspend fun getAllEntriesOnce(): List<LedgerEntry> = ledgerDao.getAllEntriesOnce()
+    suspend fun getAllEntriesOnce(): List<LedgerEntry> = ledgerDao.getAllEntriesOnce()\n    fun observeAllEntries(): Flow<List<LedgerEntry>> = ledgerDao.observeAllEntries()
 
     suspend fun deleteEntry(entry: LedgerEntry) {
         db.withTransaction {
