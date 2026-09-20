@@ -2,14 +2,10 @@
 
 package com.pitaka.app.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.pager.VerticalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -24,7 +20,6 @@ import com.pitaka.app.data.CurrencyBalances
 import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.BatikCardSurface
-import com.pitaka.app.ui.components.CardStylePicker
 import com.pitaka.app.ui.theme.parseHexColor
 
 @OptIn(ExperimentalMaterial3Api::class)
