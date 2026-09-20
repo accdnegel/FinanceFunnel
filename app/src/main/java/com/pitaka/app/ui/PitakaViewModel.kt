@@ -32,6 +32,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     // ---- Core data ----
 
     val pitakas: Flow<List<Pitaka>> = repository.observePitakas()
+    val rootPitakas: Flow<List<Pitaka>> = repository.observeRootPitakas()
+    fun childrenOfPitaka(id: Long): Flow<List<Pitaka>> = repository.observeChildren(id)
 
     val goals: Flow<List<GoalWithProgress>> = repository.observeGoals()
     val expenseFunnels: Flow<List<ExpenseFunnel>> = repository.observeExpenseFunnels()
@@ -141,12 +143,15 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     // ---- Actions ----
 
-    fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?) {
-        viewModelScope.launch { repository.createPitaka(name, startingBalance, currency, colorHex) }
+    fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid") {
+        viewModelScope.launch { repository.createPitaka(name, startingBalance, currency, colorHex, parentPitakaId, cardStyle) }
+    }
+    fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
+        viewModelScope.launch { repository.setPitakaParent(pitakaId, parentPitakaId) }
     }
 
-    fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?) {
-        viewModelScope.launch { repository.updatePitakaMeta(pitakaId, name, currency, colorHex) }
+    fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid") {
+        viewModelScope.launch { repository.updatePitakaMeta(pitakaId, name, currency, colorHex, cardStyle) }
     }
 
     fun deletePitaka(pitaka: Pitaka) {
@@ -173,10 +178,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.recordIncome(pitakaId, name, amount) }
     }
 
-    fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null) {
-        viewModelScope.launch {
-            repository.recordExpense(pitakaId, name, amount, category?.trim()?.takeIf { it.isNotEmpty() }, funnelId, currency)
-        }
+    fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, date: Long = System.currentTimeMillis()) {
+        viewModelScope.launch { repository.recordExpense(pitakaId, name, amount, category, funnelId, currency, date) }
     }
 
     fun recordTransfer(fromPitakaId: Long, toPitakaId: Long, name: String, amount: Double, secondaryAmount: Double? = null) {
@@ -203,9 +206,12 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.deleteEntry(entry) }
     }
 
-    fun updateEntry(entry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?) {
-        viewModelScope.launch { repository.updateEntry(entry, newName, newAmount, newCategory) }
+    fun updateEntry(entry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = entry.pitakaId) {
+        viewModelScope.launch { repository.updateEntry(entry, newName, newAmount, newCategory, newPitakaId) }
     }
+    fun observeExpensesForCategory(category: String): Flow<List<LedgerEntry>> = repository.observeExpensesForCategory(category)
+    fun observeExpensesForFunnel(funnelId: Long): Flow<List<LedgerEntry>> = repository.observeExpensesForFunnel(funnelId)
+    fun observeExpensesForMonth(month: String): Flow<List<LedgerEntry>> = repository.observeExpensesForMonth(month)
 }
 
 class PitakaViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
