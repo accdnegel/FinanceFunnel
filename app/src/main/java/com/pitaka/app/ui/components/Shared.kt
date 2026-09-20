@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -233,5 +235,71 @@ fun CurrencyDropdown(selected: String, onSelected: (String) -> Unit, modifier: M
                 )
             }
         }
+    }
+}
+
+
+@Composable
+fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
+    val styles = listOf("solid" to "Solid", "waves" to "Waves", "floral" to "Floral", "leaf" to "Leaf", "ocean" to "Ocean", "diamond" to "Diamond", "sun" to "Sun", "wildlife" to "Wildlife")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Card art")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(styles) { (id, label) ->
+                FilterChip(selected = selected == id, onClick = { onSelected(id) }, label = { Text(label) })
+            }
+        }
+    }
+}
+
+@Composable
+fun BatikCardSurface(style: String, baseColor: Color, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    Box(modifier = modifier.clip(RoundedCornerShape(22.dp)).background(baseColor)) {
+        androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+            when (style) {
+                "waves", "ocean" -> {
+                    repeat(5) { i ->
+                        val y = size.height * (0.52f + i * 0.12f)
+                        drawArc(Color(0xFF17C6D4).copy(alpha = .30f), 190f, 160f, false,
+                            androidx.compose.ui.geometry.Rect(-size.width*.15f, y-size.height*.18f, size.width*1.15f, y+size.height*.18f),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(size.height*.045f))
+                    }
+                }
+                "floral" -> {
+                    val cx=size.width*.78f; val cy=size.height*.30f
+                    repeat(6){i->
+                        val a=Math.toRadians((i*60).toDouble())
+                        val x=cx+size.width*.13f*kotlin.math.cos(a).toFloat()
+                        val y=cy+size.height*.13f*kotlin.math.sin(a).toFloat()
+                        drawCircle(Color(0xFFFFE082).copy(alpha=.65f),size.minDimension*.07f,androidx.compose.ui.geometry.Offset(x,y))
+                    }
+                    drawCircle(Color(0xFFFF8A00),size.minDimension*.045f,androidx.compose.ui.geometry.Offset(cx,cy))
+                }
+                "leaf" -> {
+                    repeat(7){i->
+                        val x=size.width*(.62f+i*.05f); val y=size.height*(.18f+i*.10f)
+                        drawOval(Color(0xFF75C043).copy(alpha=.55f),androidx.compose.ui.geometry.Rect(x-size.width*.04f,y-size.height*.08f,x+size.width*.04f,y+size.height*.08f))
+                    }
+                }
+                "diamond" -> {
+                    repeat(3){i->
+                        val left=size.width*(.62f+i*.08f); val top=size.height*(.12f+i*.09f)
+                        val path=androidx.compose.ui.graphics.Path().apply{moveTo(left,top);lineTo(left+size.width*.08f,top+size.height*.09f);lineTo(left,top+size.height*.18f);lineTo(left-size.width*.08f,top+size.height*.09f);close()}
+                        drawPath(path,Color(0xFFFFC107).copy(alpha=.7f))
+                    }
+                }
+                "sun" -> {
+                    val center=androidx.compose.ui.geometry.Offset(size.width*.78f,size.height*.25f)
+                    drawCircle(Color(0xFFFFC107).copy(alpha=.75f),size.minDimension*.12f,center)
+                    repeat(10){i->drawLine(Color(0xFFFFD54F).copy(alpha=.65f),center,center+androidx.compose.ui.geometry.Offset(kotlin.math.cos(i*0.628f),kotlin.math.sin(i*0.628f))*size.minDimension*.24f,strokeWidth=size.minDimension*.025f)}
+                }
+                "wildlife" -> {
+                    drawCircle(Color(0xFF101B4D).copy(alpha=.7f),size.minDimension*.12f,androidx.compose.ui.geometry.Offset(size.width*.78f,size.height*.28f))
+                    drawCircle(Color(0xFFFF8A00).copy(alpha=.9f),size.minDimension*.045f,androidx.compose.ui.geometry.Offset(size.width*.87f,size.height*.26f))
+                    drawOval(Color(0xFF0C7A63).copy(alpha=.7f),androidx.compose.ui.geometry.Rect(size.width*.62f,size.height*.35f,size.width*.92f,size.height*.58f))
+                }
+            }
+        }
+        content()
     }
 }
