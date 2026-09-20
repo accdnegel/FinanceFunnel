@@ -9,6 +9,7 @@ import com.pitaka.app.data.ExpenseFunnel
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.DatePickerButton
+import com.pitaka.app.ui.components.CurrencyDropdown
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -19,7 +20,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     var selectedPitaka by remember{mutableStateOf<Pitaka?>(null)}
     var selectedFunnel by remember{mutableStateOf<ExpenseFunnel?>(null)}
     var name by remember{mutableStateOf("")}; var amount by remember{mutableStateOf("")}; var category by remember{mutableStateOf("")}
-    var date by remember{mutableStateOf<Long?>(System.currentTimeMillis())}
+    var date by remember{mutableStateOf<Long?>(System.currentTimeMillis())};var currency by remember{mutableStateOf("PHP")}
     LaunchedEffect(pitakas){if(selectedPitaka==null)selectedPitaka=pitakas.firstOrNull()}
     Scaffold(topBar={TopAppBar(title={Text("New Expense")},navigationIcon={TextButton(onClick=onDone){Text("Back")}})}){padding->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
@@ -28,9 +29,10 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             OutlinedTextField(name,{name=it},label={Text("Expense name")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(amount,{amount=it},label={Text("Amount (PHP by default)")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(category,{category=it},label={Text("Category (optional)")},modifier=Modifier.fillMaxWidth())
+            CurrencyDropdown(currency){currency=it}
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
-            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null)viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,"PHP",date?:System.currentTimeMillis());onDone()},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
+            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null)viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,date?:System.currentTimeMillis());onDone()},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
         }
     }
 }
