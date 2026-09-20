@@ -93,9 +93,9 @@ fun CreateGoalScreen(viewModel: PitakaViewModel, goalId: Long? = null, onDone: (
                     val date = targetDate ?: System.currentTimeMillis()
                     if (name.isNotBlank() && amount > 0) {
                         if (goalId == null) {
-                            viewModel.createGoal(name, type, amount, date, selectedColor)
+                            viewModel.createGoal(name, type, amount, date, selectedColor, cardStyle)
                         } else {
-                            viewModel.updateGoal(goalId, name, type, amount, date, selectedColor)
+                            viewModel.updateGoal(goalId, name, type, amount, date, selectedColor, cardStyle)
                         }
                         onDone()
                     }
