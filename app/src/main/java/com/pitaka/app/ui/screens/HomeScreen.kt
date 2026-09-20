@@ -45,6 +45,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
     val expenses by viewModel.monthlyExpenses.collectAsState(initial=emptyList())
     val months by viewModel.availableMonths.collectAsState(initial=emptyList())
     val allExpenses by viewModel.allExpenses.collectAsState(initial=emptyList())
+    val allEntries by viewModel.allEntries.collectAsState(initial=emptyList())
     var selectedMonth by remember(months) { mutableStateOf(months.lastOrNull() ?: YearMonth.now().toString()) }
     var expandedNet by remember { mutableStateOf<String?>(null) }
     var expandedFlow by remember { mutableStateOf(false) }
@@ -90,7 +91,8 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
             val monthExpenses=allExpenses.filter{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(selectedMonth)}
             val monthIncome=income.find{it.month==selectedMonth}?.total ?: 0.0
             val monthOut=expenses.find{it.month==selectedMonth}?.total ?: monthExpenses.sumOf{it.amount}
-            CashFlowTable(monthIncome,monthOut,currency,monthExpenses,expandedFlow){expandedFlow=!expandedFlow}
+            val monthEntries=allEntries.filter{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(selectedMonth)}
+            CashFlowTable(monthIncome,monthOut,currency,monthEntries,expandedFlow){expandedFlow=!expandedFlow}
         }
     }
 }
@@ -123,12 +125,23 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
     val total=items.sumOf{it.total}.coerceAtLeast(.01)
     Canvas(Modifier.fillMaxWidth().height(210.dp).padding(8.dp)){var start=-90f;items.forEachIndexed{i,x->val sweep=(x.total/total*360).toFloat();drawArc(chartColors[i%chartColors.size],start,sweep,true);start+=sweep}}
 }
-@Composable private fun CashFlowTable(inflow:Double,outflow:Double,currency:String,items:List<com.pitaka.app.data.LedgerEntry>,expanded:Boolean,onClick:()->Unit){
+@Composable private fun CashFlowTable(inflow:Double,outflow:Double,currency:String,entries:List<com.pitaka.app.data.LedgerEntry>,expanded:Boolean,onClick:()->Unit){
+    val inflowItems=entries.filter{it.type==com.pitaka.app.data.LedgerType.INCOME}.sortedByDescending{it.amount}
+    val outflowItems=entries.filter{it.type==com.pitaka.app.data.LedgerType.EXPENSE}.sortedByDescending{it.amount}
     Card(shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().clickable(onClick=onClick)){Column(Modifier.padding(14.dp)){
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text("Cash Inflow",fontWeight=FontWeight.Bold);Text(currency+" "+"%,.2f".format(inflow),color=Color(0xFF1E8E5A))};Column(horizontalAlignment=Alignment.End){Text("Cash Outflow",fontWeight=FontWeight.Bold);Text(currency+" "+"%,.2f".format(outflow),color=Color(0xFFD64545))}}
-        Spacer(Modifier.height(10.dp))
-        val shown=if(expanded)items else items.take(5)
-        shown.forEach{Text(it.name+"  •  "+currency+" "+"%,.2f".format(it.amount),style=MaterialTheme.typography.bodySmall,modifier=Modifier.padding(vertical=3.dp))}
-        Text(if(expanded)"Tap to collapse" else "Tap to view all items",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(top=6.dp))
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+            FlowColumn("Cash Inflow",inflow,inflowItems,currency,Color(0xFF1E8E5A),expanded,Modifier.weight(1f))
+            FlowColumn("Cash Outflow",outflow,outflowItems,currency,Color(0xFFD64545),expanded,Modifier.weight(1f))
+        }
+        Text(if(expanded)"Tap to collapse" else "Tap to view the complete list",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(top=8.dp))
     }}
+}
+@Composable private fun FlowColumn(title:String,total:Double,items:List<com.pitaka.app.data.LedgerEntry>,currency:String,color:Color,expanded:Boolean,modifier:Modifier){
+    Column(modifier){
+        Text(title,fontWeight=FontWeight.Bold)
+        Text(currency+" "+"%,.2f".format(total),color=color,fontWeight=FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        (if(expanded)items else items.take(4)).forEach{Text(it.name+" • "+currency+" "+"%,.2f".format(it.amount),style=MaterialTheme.typography.bodySmall,modifier=Modifier.padding(vertical=2.dp))}
+        if(items.size>4&&!expanded)Text("+"+(items.size-4)+" more",style=MaterialTheme.typography.labelSmall,color=Color.Gray)
+    }
 }
