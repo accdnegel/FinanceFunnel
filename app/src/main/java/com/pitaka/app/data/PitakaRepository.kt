@@ -81,16 +81,16 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun getGoal(id: Long): Goal? = goalDao.getGoal(id)
 
-    suspend fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?): Long {
+    suspend fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid"): Long {
         return goalDao.insertGoal(
-            Goal(name = name, type = type, targetAmount = targetAmount, targetDate = targetDate, colorHex = colorHex, currencyBalances = "${"PHP"}=0")
+            Goal(name = name, type = type, targetAmount = targetAmount, targetDate = targetDate, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0")
         )
     }
 
-    suspend fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?) {
+    suspend fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
         val existing = goalDao.getGoal(goalId) ?: return
         goalDao.updateGoal(
-            existing.copy(name = name, type = type, targetAmount = targetAmount, targetDate = targetDate, colorHex = colorHex)
+            existing.copy(name = name, type = type, targetAmount = targetAmount, targetDate = targetDate, colorHex = colorHex, cardStyle = cardStyle)
         )
     }
 
