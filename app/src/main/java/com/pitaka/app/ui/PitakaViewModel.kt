@@ -162,12 +162,12 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.adjustPitakaBalanceManually(pitakaId, newBalance, note) }
     }
 
-    fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?) {
-        viewModelScope.launch { repository.createGoal(name, type, targetAmount, targetDate, colorHex) }
+    fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
+        viewModelScope.launch { repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle) }
     }
 
-    fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?) {
-        viewModelScope.launch { repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex) }
+    fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
+        viewModelScope.launch { repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle) }
     }
 
     fun deleteGoal(goal: Goal) {
