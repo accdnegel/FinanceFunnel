@@ -70,6 +70,22 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val totalNetWorth: Flow<Double> = combine(
         totalLiquid, totalSavingsProgress, totalInvestmentProgress
     ) { liquid, savings, investments -> liquid + savings + investments }
+    fun netWorthForMonth(month: String): Flow<Double> = combine(totalNetWorth, allEntries, currencySettings, exchangeRates) { current, entries, settings, rates ->
+        val base = settings?.baseCurrency ?: "PHP"
+        val cutoff = try {
+            YearMonth.parse(month).plusMonths(1).atDay(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } catch (_: Exception) { Long.MAX_VALUE }
+        val deltaAfter = entries.filter { it.date >= cutoff }.sumOf { entry ->
+            val converted = convert(kotlin.math.abs(entry.amount), entry.currency, base, rates)
+            when (entry.type) {
+                LedgerType.INCOME -> converted
+                LedgerType.EXPENSE -> -converted
+                LedgerType.ADJUSTMENT -> if (entry.amount >= 0) converted else -converted
+                else -> 0.0
+            }
+        }
+        current - deltaAfter
+    }
 
     private fun convert(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double {
         if (from == to) return amount
