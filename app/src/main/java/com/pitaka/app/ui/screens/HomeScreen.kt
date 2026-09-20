@@ -50,6 +50,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
     var expandedNet by remember { mutableStateOf<String?>(null) }
     var expandedFlow by remember { mutableStateOf(false) }
     val breakdown by viewModel.expenseBreakdownForMonth(selectedMonth).collectAsState(initial=emptyList())
+    val selectedNetWorth by viewModel.netWorthForMonth(selectedMonth).collectAsState(initial=netWorth)
     val scope=rememberCoroutineScope()
     val context=androidx.compose.ui.platform.LocalContext.current
     val currency=settings?.baseCurrency ?: "PHP"
@@ -63,7 +64,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
             SectionTitle("Total Net Worth")
             Card(shape=RoundedCornerShape(20.dp)){
                 Column(Modifier.padding(16.dp)){
-                    Text(currency + " " + "%,.2f".format(netWorth),style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
+                    Text(currency + " " + "%,.2f".format(selectedNetWorth),style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
                     Text("Selected month: " + monthLabel(selectedMonth),color=Color.Gray,style=MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(10.dp))
                     NetRow("Liquid",liquid,currency,expandedNet=="Liquid"){expandedNet=if(expandedNet=="Liquid")null else "Liquid"}
