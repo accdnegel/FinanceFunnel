@@ -5,8 +5,8 @@ package com.pitaka.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,10 +36,10 @@ fun PitakasScreen(viewModel: PitakaViewModel,onAddPitaka:()->Unit,onTransfer:()-
         IconButton(onClick=onRecurring){Icon(Icons.Default.Repeat,"Recurring")}
         IconButton(onClick=onTransfer){Icon(Icons.Default.SwapHoriz,"Transfer")}
     })}){padding->
-        if(roots.isEmpty()) Box(Modifier.fillMaxSize().padding(padding)){Text("No Pitakas yet. Tap + to add your first fund source.")} else
-        LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-            items(roots,key={it.id}){root->
-                HierarchyCard(root,pitakas,onOpenPitaka)
+        if(roots.isEmpty()) Box(Modifier.fillMaxSize().padding(padding)){Text("No Pitakas yet. Tap + to add your first fund source.")} else {
+            val pager=rememberPagerState(pageCount={roots.size})
+            VerticalPager(state=pager,contentPadding=PaddingValues(vertical=28.dp),pageSpacing=14.dp,modifier=Modifier.fillMaxSize().padding(padding)){
+                page->HierarchyCard(roots[page],pitakas,onOpenPitaka)
             }
         }
     }
