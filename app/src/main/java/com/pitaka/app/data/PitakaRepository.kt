@@ -47,6 +47,7 @@ class PitakaRepository(private val db: AppDatabase) {
     /** Deletes a Pitaka and every ledger row that touches it (income/expense/transfers/contributions). */
     suspend fun deletePitakaCascade(pitaka: Pitaka) {
         db.withTransaction {
+            pitakaDao.detachChildren(pitaka.id)
             ledgerDao.deleteEntriesForPitaka(pitaka.id)
             pitakaDao.deletePitaka(pitaka)
         }
