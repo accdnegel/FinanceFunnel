@@ -119,7 +119,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun entriesForPitaka(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForPitaka(id)
     fun entriesForGoal(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForGoal(id)
-    val allExpenses: Flow<List<LedgerEntry>> = repository.observeAllExpenses()
+    val allExpenses: Flow<List<LedgerEntry>> = repository.observeAllExpenses()\n    val allEntries: Flow<List<LedgerEntry>> = repository.observeAllEntries()
 
     suspend fun getPitaka(id: Long): Pitaka? = repository.getPitaka(id)
     suspend fun getGoal(id: Long): Goal? = repository.getGoal(id)
