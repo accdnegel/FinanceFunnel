@@ -2,6 +2,7 @@ package com.pitaka.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,7 +41,17 @@ import java.util.Date
 @Composable
 fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () -> Unit, onEdit: () -> Unit) {
     var pitaka by remember { mutableStateOf<Pitaka?>(null) }
-    val entries by viewModel.entriesForPitaka(pitakaId).collectAsState(initial = emptyList())
+    val allEntries by viewModel.allEntries.collectAsState(initial = emptyList())
+    val allPitakas by viewModel.pitakas.collectAsState(initial = emptyList())
+    var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val descendantIds = remember(allPitakas, pitakaId) {
+        fun descendants(id: Long): Set<Long> = allPitakas.filter { it.parentPitakaId == id }.flatMap { listOf(it.id) + descendants(it.id).toList() }.toSet()
+        setOf(pitakaId) + descendants(pitakaId)
+    }
+    val entries = allEntries.filter { e ->
+        val ids = listOfNotNull(e.pitakaId, e.fromPitakaId, e.toPitakaId).toSet()
+        (selectedIds.ifEmpty { descendantIds }).any { it in ids }
+    }
 
     var name by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
@@ -126,6 +137,13 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("History", fontWeight = FontWeight.Bold)
+            Text("Filter by Pitaka / Sub-Pitaka", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
+                allPitakas.filter { it.id in descendantIds }.forEach { p ->
+                    FilterChip(selected = p.id in selectedIds, onClick = { selectedIds = if (p.id in selectedIds) selectedIds - p.id else selectedIds + p.id }, label = { Text(p.name) }, modifier = Modifier.padding(end = 6.dp))
+                }
+            }
+            Text(if (selectedIds.isEmpty()) "Showing this Pitaka and all descendants" else "Showing selected Pitakas", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
 
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(entries, key = { it.id }) { entry ->
