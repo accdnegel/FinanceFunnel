@@ -16,4 +16,6 @@ interface PitakaDao {
     fun observeRootPitakas(): Flow<List<Pitaka>>
     @Query("SELECT COUNT(*) FROM pitakas WHERE parentPitakaId = :parentId")
     suspend fun countChildren(parentId: Long): Int
+    @Query("UPDATE pitakas SET parentPitakaId = NULL WHERE parentPitakaId = :parentId")
+    suspend fun detachChildren(parentId: Long)
 }
