@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.ExpenseFunnel
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.HealthBar
+import com.pitaka.app.ui.components.BatikCardSurface
 import com.pitaka.app.ui.components.dateFormat
 import java.time.YearMonth
 import java.util.Date
@@ -35,7 +36,7 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
             LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(10.dp),contentPadding=PaddingValues(vertical=10.dp)){
                 items(funnels,key={it.id}){f->
                     val spent=expenses.filter{it.funnelId==f.id}.sumOf{it.amount};val remaining=f.limit-spent
-                    Card(Modifier.fillMaxWidth().clickable{onOpenFunnel(f.id)}){
+                    BatikCardSurface(f.cardStyle,com.pitaka.app.ui.theme.parseHexColor(f.colorHex) ?: MaterialTheme.colorScheme.primary,Modifier.fillMaxWidth().clickable{onOpenFunnel(f.id)}){
                         Column(Modifier.padding(14.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(f.name,style=MaterialTheme.typography.titleMedium);Text(f.currency+" "+"%,.2f".format(remaining)+" left")};Text("Spent "+f.currency+" "+"%,.2f".format(spent)+" / "+"%,.2f".format(f.limit),style=MaterialTheme.typography.bodySmall);if(f.limit>0)HealthBar(((remaining/f.limit).toFloat()).coerceIn(0f,1f));Text("Tap for full history",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)}}
                 }
             }
