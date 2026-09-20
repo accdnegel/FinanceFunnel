@@ -39,7 +39,7 @@ private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PI
    composable(Routes.CREATE_GOAL){CreateGoalScreen(viewModel){nav.popBackStack()}}
    composable(Routes.EDIT_GOAL,arguments=listOf(navArgument("goalId"){type=NavType.LongType})){CreateGoalScreen(viewModel,it.arguments?.getLong("goalId")?:0L){nav.popBackStack()}}
    composable(Routes.GOAL_DETAIL,arguments=listOf(navArgument("goalId"){type=NavType.LongType})){val id=it.arguments?.getLong("goalId")?:0L;GoalDetailScreen(viewModel,id,{nav.popBackStack()},{nav.navigate(Routes.editGoal(id))})}
-   composable(Routes.EXPENSES){ExpensesScreen(viewModel,{nav.navigate(Routes.BUDGET_HISTORY)},{nav.navigate(Routes.FUNNEL_DETAIL+"/0")})}
+   composable(Routes.EXPENSES){ExpensesScreen(viewModel,{nav.navigate(Routes.BUDGET_HISTORY)},{id->nav.navigate(Routes.funnelDetail(id))})}
    composable(Routes.BUDGET_HISTORY){BudgetHistoryScreen(viewModel){nav.popBackStack()}}
    composable(Routes.CURRENCY_SETTINGS){CurrencySettingsScreen(viewModel){nav.popBackStack()}}
    composable(Routes.CREATE_EXPENSE){CreateExpenseScreen(viewModel){nav.popBackStack()}}
