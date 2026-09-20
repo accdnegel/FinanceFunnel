@@ -12,7 +12,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,11 +58,7 @@ fun GoalsScreen(
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Goals") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddGoal) {
-                Icon(Icons.Default.Add, contentDescription = "Add Goal")
-            }
-        }
+
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             val selectedIndex = GoalFilter.entries.indexOf(filter)
