@@ -11,7 +11,6 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
@@ -36,7 +35,7 @@ fun PitakasScreen(viewModel: PitakaViewModel,onAddPitaka:()->Unit,onTransfer:()-
     Scaffold(topBar={TopAppBar(title={Text("Pitakas")},actions={
         IconButton(onClick=onRecurring){Icon(Icons.Default.Repeat,"Recurring")}
         IconButton(onClick=onTransfer){Icon(Icons.Default.SwapHoriz,"Transfer")}
-    })},floatingActionButton={FloatingActionButton(onClick=onAddPitaka){Icon(Icons.Default.Add,"Add Pitaka")}}){padding->
+    })}){padding->
         if(roots.isEmpty()) Box(Modifier.fillMaxSize().padding(padding)){Text("No Pitakas yet. Tap + to add your first fund source.")} else
         LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
             items(roots,key={it.id}){root->
