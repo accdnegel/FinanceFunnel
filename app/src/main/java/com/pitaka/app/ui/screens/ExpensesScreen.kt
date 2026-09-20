@@ -24,6 +24,8 @@ import java.util.Date
 fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpenFunnel:(Long)->Unit){
     val expenses by viewModel.allExpenses.collectAsState(initial=emptyList())
     val funnels by viewModel.expenseFunnels.collectAsState(initial=emptyList())
+    val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
+    var editing by remember { mutableStateOf<com.pitaka.app.data.LedgerEntry?>(null) }
     val month=YearMonth.now().toString()
     val thisMonth=expenses.filter{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(month)}
     Scaffold(topBar={TopAppBar(title={Text("Spending")},actions={IconButton(onClick=onOpenBudgetHistory){Icon(Icons.Default.History,"Budget history")}})}){padding->
@@ -44,9 +46,14 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
                 var masked by remember(entry.id){mutableStateOf(false)}
                 Row(Modifier.fillMaxWidth().padding(vertical=7.dp),horizontalArrangement=Arrangement.SpaceBetween){
                     Column(Modifier.weight(1f)){Text(entry.name);Text((entry.category?:"Uncategorized Expense")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                    Row{Text(if(masked)"••••••" else entry.currency+" "+"%,.2f".format(entry.amount),color=MaterialTheme.colorScheme.error);IconButton({masked=!masked}){Icon(if(masked)Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mask")}}
+                    Row{Text(if(masked)"••••••" else entry.currency+" "+"%,.2f".format(entry.amount),color=MaterialTheme.colorScheme.error);IconButton({masked=!masked}){Icon(if(masked)Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mask")};TextButton({editing=entry}){Text("Edit")}}
                 }
             }
         }
     }
 }
+    editing?.let { entry ->
+        EditExpenseDialog(entry,pitakas,{name,amount,category,pitakaId->
+            viewModel.updateEntry(entry,name,amount,category,pitakaId);editing=null
+        },{editing=null})
+    }
