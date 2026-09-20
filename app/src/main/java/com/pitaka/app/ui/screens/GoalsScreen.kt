@@ -7,7 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -146,7 +146,7 @@ private fun GoalCardCarousel(goals: List<GoalWithProgress>, onOpenGoal: (Long) -
 
     Column(modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            HorizontalPager(
+            VerticalPager(
                 state = pagerState,
                 contentPadding = PaddingValues(horizontal = 44.dp),
                 pageSpacing = 16.dp,
@@ -181,7 +181,7 @@ private fun GoalCardCarousel(goals: List<GoalWithProgress>, onOpenGoal: (Long) -
             }
         }
         Text(
-            "Swipe to browse  •  Tap a card to open it",
+            "Scroll vertically  •  Tap a card to open it",
             style = MaterialTheme.typography.labelSmall,
             color = Color.Gray,
             textAlign = TextAlign.Center,
@@ -194,9 +194,7 @@ private fun GoalCardCarousel(goals: List<GoalWithProgress>, onOpenGoal: (Long) -
 private fun PiggyBankCard(goal: GoalWithProgress, modifier: Modifier = Modifier) {
     val isInvestment = goal.type == GoalType.INVESTMENT
     val baseColor = parseHexColor(goal.colorHex) ?: if (isInvestment) Color(0xFF056C3F) else Color(0xFF0278CF)
-    val gradient = Brush.verticalGradient(
-        listOf(lerpColor(baseColor, Color.White, 0.12f), lerpColor(baseColor, Color.Black, 0.35f))
-    )
+    val gradient = Brush.verticalGradient(listOf(lerpColor(baseColor, Color.White, 0.12f), lerpColor(baseColor, Color.Black, 0.35f)))
     val ratio = (goal.progress / goal.targetAmount.coerceAtLeast(0.01)).toFloat().coerceIn(0f, 1f)
 
     Box(
