@@ -9,11 +9,13 @@ data class ExpenseFunnel(
     val name: String,
     val limit: Double,
     val currency: String = "PHP",
-    /** Serialized currency-to-balance map; supports multiple currencies without losing legacy fields. */
     val currencyBalances: String = "PHP=0",
     val validFrom: Long? = null,
     val validUntil: Long? = null,
-    val colorHex: String? = null
+    val colorHex: String? = null,
+    val cardStyle: String = "solid",
+    /** System funnels are created by the app and are not user-created categories. */
+    val isSystem: Boolean = false
 )
 
 data class ExpenseFunnelWithSpend(
@@ -21,11 +23,12 @@ data class ExpenseFunnelWithSpend(
     val name: String,
     val limit: Double,
     val currency: String = "PHP",
-    /** Serialized currency-to-balance map; supports multiple currencies without losing legacy fields. */
     val currencyBalances: String = "PHP=0",
     val validFrom: Long?,
     val validUntil: Long?,
     val colorHex: String?,
+    val cardStyle: String = "solid",
+    val isSystem: Boolean = false,
     val spent: Double
 ) {
     val remaining: Double get() = limit - spent
