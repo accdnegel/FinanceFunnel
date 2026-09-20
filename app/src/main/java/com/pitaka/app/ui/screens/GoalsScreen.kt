@@ -30,6 +30,7 @@ import com.pitaka.app.data.GoalType
 import com.pitaka.app.data.GoalWithProgress
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.HealthBar
+import com.pitaka.app.ui.components.BatikCardSurface
 import com.pitaka.app.ui.components.dateFormat
 import com.pitaka.app.ui.theme.healthColor
 import com.pitaka.app.ui.theme.parseHexColor
@@ -189,16 +190,12 @@ private fun GoalCardCarousel(goals: List<GoalWithProgress>, onOpenGoal: (Long) -
 private fun PiggyBankCard(goal: GoalWithProgress, modifier: Modifier = Modifier) {
     val isInvestment = goal.type == GoalType.INVESTMENT
     val baseColor = parseHexColor(goal.colorHex) ?: if (isInvestment) Color(0xFF056C3F) else Color(0xFF0278CF)
-    val gradient = Brush.verticalGradient(listOf(lerpColor(baseColor, Color.White, 0.12f), lerpColor(baseColor, Color.Black, 0.35f)))
     val ratio = (goal.progress / goal.targetAmount.coerceAtLeast(0.01)).toFloat().coerceIn(0f, 1f)
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(0.68f)
-            .clip(RoundedCornerShape(24.dp))
-            .background(gradient)
-            .padding(20.dp)
+    BatikCardSurface(
+        style = goal.cardStyle,
+        baseColor = baseColor,
+        modifier = modifier.fillMaxWidth().aspectRatio(0.68f).padding(0.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
