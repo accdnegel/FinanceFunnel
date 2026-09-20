@@ -18,19 +18,30 @@ class PitakaRepository(private val db: AppDatabase) {
     // ---- Pitakas ----
 
     fun observePitakas(): Flow<List<Pitaka>> = pitakaDao.observePitakas()
+    fun observeRootPitakas(): Flow<List<Pitaka>> = pitakaDao.observeRootPitakas()
+    fun observeChildren(parentId: Long): Flow<List<Pitaka>> = pitakaDao.observeChildren(parentId)
 
     suspend fun getPitaka(id: Long): Pitaka? = pitakaDao.getPitaka(id)
 
-    suspend fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?): Long {
+    suspend fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid"): Long {
         return pitakaDao.insertPitaka(
-            Pitaka(name = name, currentAmount = startingBalance, currency = currency, currencyBalances = CurrencyBalances.encode(mapOf(currency.uppercase() to startingBalance)), colorHex = colorHex)
+            Pitaka(name = name, currentAmount = startingBalance, currency = currency.uppercase(), currencyBalances = CurrencyBalances.encode(mapOf(currency.uppercase() to startingBalance)), colorHex = colorHex, parentPitakaId = parentPitakaId, cardStyle = cardStyle)
         )
     }
 
+    suspend fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
+        val p = pitakaDao.getPitaka(pitakaId) ?: return
+        require(parentPitakaId == null || parentPitakaId != pitakaId) { "A Pitaka cannot be its own parent." }
+        pitakaDao.updatePitaka(p.copy(parentPitakaId = parentPitakaId))
+    }
+
+    suspend fun addSubPitaka(parentId: Long, name: String, startingBalance: Double, currency: String, colorHex: String?, cardStyle: String = "solid"): Long =
+        createPitaka(name, startingBalance, currency, colorHex, parentId, cardStyle)
+
     /** Metadata-only edit (name/currency/color) — never touches the balance. */
-    suspend fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?) {
+    suspend fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid") {
         val existing = pitakaDao.getPitaka(pitakaId) ?: return
-        pitakaDao.updatePitaka(existing.copy(name = name, currency = currency, colorHex = colorHex, currencyBalances = if (existing.currencyBalances.isBlank()) CurrencyBalances.encode(mapOf(currency.uppercase() to existing.currentAmount)) else existing.currencyBalances))
+        pitakaDao.updatePitaka(existing.copy(name = name, currency = currency.uppercase(), colorHex = colorHex, cardStyle = cardStyle, currencyBalances = if (existing.currencyBalances.isBlank()) CurrencyBalances.encode(mapOf(currency.uppercase() to existing.currentAmount)) else existing.currencyBalances))
     }
 
     /** Deletes a Pitaka and every ledger row that touches it (income/expense/transfers/contributions). */
@@ -92,9 +103,12 @@ class PitakaRepository(private val db: AppDatabase) {
 
     // ---- Expense funnels ----
     fun observeExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAll()
+    suspend fun getSystemUnclassifiedFunnel(): ExpenseFunnel {
+        return funnelDao.getByName("Unclassified Expense") ?: funnelDao.insertAndReturn(ExpenseFunnel(name = "Unclassified Expense", limit = 0.0, currency = "PHP", currencyBalances = "PHP=0", isSystem = true)).let { funnelDao.get(it)!! }
+    }
     fun observeFunnelSpent(funnelId: Long): Flow<Double> = funnelDao.observeSpent(funnelId)
-    suspend fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?): Long =
-        funnelDao.insert(ExpenseFunnel(name = name, limit = limit, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, currencyBalances = "PHP=0"))
+    suspend fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid"): Long =
+        funnelDao.insert(ExpenseFunnel(name = name, limit = limit, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0"))
     suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
     suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.delete(funnel)
 
@@ -119,6 +133,9 @@ class PitakaRepository(private val db: AppDatabase) {
     fun observeAvailableMonths(): Flow<List<String>> = ledgerDao.observeAvailableMonths()
 
     fun observeExpenseTotalForMonth(month: String): Flow<Double> = ledgerDao.observeExpenseTotalForMonth(month)
+    fun observeExpensesForCategory(category: String): Flow<List<LedgerEntry>> = ledgerDao.observeExpensesForCategory(category)
+    fun observeExpensesForFunnel(funnelId: Long): Flow<List<LedgerEntry>> = ledgerDao.observeExpensesForFunnel(funnelId)
+    fun observeExpensesForMonth(month: String): Flow<List<LedgerEntry>> = ledgerDao.observeExpensesForMonth(month)
 
     suspend fun getAllEntriesOnce(): List<LedgerEntry> = ledgerDao.getAllEntriesOnce()
 
@@ -130,10 +147,10 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     /** Edits name/amount/category in place, reversing the old balance effect and applying the new one. */
-    suspend fun updateEntry(oldEntry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?) {
+    suspend fun updateEntry(oldEntry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = oldEntry.pitakaId) {
         db.withTransaction {
             reverseEffect(oldEntry)
-            val updated = oldEntry.copy(name = newName, amount = newAmount, category = newCategory)
+            val updated = oldEntry.copy(name = newName, amount = newAmount, category = newCategory?.trim()?.takeIf { it.isNotEmpty() } ?: if (oldEntry.type == LedgerType.EXPENSE) "Uncategorized Expense" else null, pitakaId = newPitakaId)
             ledgerDao.updateEntry(updated)
             applyEffect(updated)
         }
@@ -238,7 +255,10 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, date: Long = System.currentTimeMillis()) {
         require(amount > 0) { "Expense amount must be positive" }
-        db.withTransaction { recordExpenseInternal(pitakaId, name, amount, category, funnelId, currency, date) }
+        db.withTransaction {
+            val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
+            recordExpenseInternal(pitakaId, name, amount, category?.trim()?.takeIf { it.isNotEmpty() } ?: "Uncategorized Expense", resolvedFunnel, currency ?: "PHP", date)
+        }
     }
 
     private suspend fun recordExpenseInternal(
