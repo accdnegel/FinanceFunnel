@@ -93,7 +93,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPattern(pattern
             drawCircle(a, radius=minOf(w,h)*.30f, center=Offset(w*.82f,h*.18f))
             repeat(6){ i -> drawArc(b.copy(alpha=.85f),180f,90f,false,Rect(-w*.25f,h*(.40f+i*.11f),w*1.15f,h*(.72f+i*.11f)),style=Stroke(w*.10f)) }
         }
-        Pattern.FLOWER, Pattern.FLORAL, Pattern.GOLDEN_FLOWER -> {
+        Pattern.FLOWER, Pattern.FLORAL -> {
             val c=Offset(w*.78f,h*.50f); repeat(8){i->val ang=2*PI*i/8;drawOval(a,Rect(c.x+cos(ang).toFloat()*w*.06f-w*.07f,c.y+sin(ang).toFloat()*h*.20f-h*.11f,c.x+cos(ang).toFloat()*w*.06f+w*.07f,c.y+sin(ang).toFloat()*h*.20f+h*.11f))};drawCircle(b,radius=w*.06f,center=c)
         }
         Pattern.TURTLE, Pattern.WHALE -> {
