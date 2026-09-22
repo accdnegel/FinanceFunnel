@@ -1,91 +1,64 @@
 package com.pitaka.app.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.ui.components.CardStylePicker
 import com.pitaka.app.ui.components.ColorSwatchPicker
 import com.pitaka.app.ui.components.CurrencyDropdown
 
-/** Used for both creating a new Pitaka and editing an existing one's name/currency/color.
- *  The starting balance field only appears when creating — once a Pitaka exists, its
- *  balance only changes through logged transactions (or the explicit "Adjust Balance"
- *  action on its detail screen), never through this form. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, onDone: () -> Unit) {
+fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, parentPitakaId: Long? = null, onDone: () -> Unit) {
+    val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
     var name by remember { mutableStateOf("") }
     var startingBalance by remember { mutableStateOf("") }
     var currency by remember { mutableStateOf("PHP") }
     var selectedColor by remember { mutableStateOf<String?>(null) }
+    var cardStyle by remember { mutableStateOf("solid") }
+    var parentId by remember { mutableStateOf(parentPitakaId) }
     var loaded by remember { mutableStateOf(pitakaId == null) }
 
     LaunchedEffect(pitakaId) {
-        if (pitakaId != null) {
-            viewModel.getPitaka(pitakaId)?.let { p ->
-                name = p.name
-                currency = p.currency
-                selectedColor = p.colorHex
-            }
-            loaded = true
+        if (pitakaId != null) viewModel.getPitaka(pitakaId)?.let { p ->
+            name=p.name; currency=p.currency; selectedColor=p.colorHex; cardStyle=p.cardStyle; parentId=p.parentPitakaId
         }
+        loaded=true
     }
+    if(!loaded) return
 
-    if (!loaded) return
-
-    Scaffold(topBar = { TopAppBar(title = { Text(if (pitakaId == null) "New Pitaka" else "Edit Pitaka") }) }) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Pitaka Name (e.g. Payroll Bank, Cash, GCash)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (pitakaId == null) {
-                OutlinedTextField(
-                    value = startingBalance,
-                    onValueChange = { startingBalance = it },
-                    label = { Text("Starting Balance") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                Text(
-                    "To change the balance, use \"Adjust Balance\" on this Pitaka's detail screen instead.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            CurrencyDropdown(selected = currency, onSelected = { currency = it })
-
-            Text("Card Color")
-            ColorSwatchPicker(selected = selectedColor, onSelected = { selectedColor = it })
-            Text(
-                "Leave unselected to use the default color.",
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Button(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        if (pitakaId == null) {
-                            val balance = startingBalance.toDoubleOrNull() ?: 0.0
-                            viewModel.createPitaka(name, balance, currency, selectedColor)
-                        } else {
-                            viewModel.updatePitakaMeta(pitakaId, name, currency, selectedColor)
-                        }
-                        onDone()
+    Scaffold(topBar={TopAppBar(title={Text(if(pitakaId==null) "New Pitaka" else "Edit Pitaka")})}){padding->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+            OutlinedTextField(name,{name=it},label={Text("Pitaka Name")},modifier=Modifier.fillMaxWidth())
+            if(pitakaId==null) OutlinedTextField(startingBalance,{startingBalance=it},label={Text("Starting Balance")},modifier=Modifier.fillMaxWidth())
+            CurrencyDropdown(currency,{currency=it})
+            if(pitakas.isNotEmpty()){
+                var expanded by remember{mutableStateOf(false)}
+                ExposedDropdownMenuBox(expanded,{expanded=!expanded}){
+                    OutlinedTextField(value=pitakas.find{it.id==parentId}?.name ?: "No parent (top level)",onValueChange={},readOnly=true,label={Text("Parent Pitaka (optional)")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(expanded)},modifier=Modifier.menuAnchor().fillMaxWidth())
+                    ExposedDropdownMenu(expanded,{expanded=false}){
+                        DropdownMenuItem(text={Text("No parent (top level)")},onClick={parentId=null;expanded=false})
+                        pitakas.filter{it.id!=pitakaId}.forEach{p->DropdownMenuItem(text={Text(p.name)},onClick={parentId=p.id;expanded=false})}
                     }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (pitakaId == null) "Create Pitaka" else "Save Changes")
+                }
             }
+            Text("Appearance",style=MaterialTheme.typography.titleMedium)
+            Text("Card color",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            ColorSwatchPicker(selectedColor){selectedColor=it}
+            CardStylePicker(cardStyle){cardStyle=it}
+            Spacer(Modifier.height(8.dp))
+            Button(onClick={
+                if(name.isNotBlank()){
+                    if(pitakaId==null) viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,cardStyle)
+                    else viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,cardStyle)
+                    onDone()
+                }
+            },modifier=Modifier.fillMaxWidth()){Text(if(pitakaId==null)"Create Pitaka" else "Save Changes")}
         }
     }
 }

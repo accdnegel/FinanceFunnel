@@ -10,6 +10,7 @@ data class GoalWithProgress(
     val targetAmount: Double,
     val targetDate: Long,
     val colorHex: String?,
+    val cardStyle: String,
     val createdAt: Long,
     val progress: Double // sum of GOAL_CONTRIBUTION entries linked to this goal
 )
@@ -31,7 +32,7 @@ interface GoalDao {
 
     @Query(
         """
-        SELECT g.id, g.name, g.type, g.targetAmount, g.targetDate, g.colorHex, g.createdAt,
+        SELECT g.id, g.name, g.type, g.targetAmount, g.targetDate, g.colorHex, g.cardStyle, g.createdAt,
                COALESCE((
                    SELECT SUM(l.amount) FROM ledger_entries l
                    WHERE l.goalId = g.id AND l.type = 'GOAL_CONTRIBUTION'

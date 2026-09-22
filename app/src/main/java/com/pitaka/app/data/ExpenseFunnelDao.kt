@@ -12,6 +12,10 @@ interface ExpenseFunnelDao {
     fun observeAll(): Flow<List<ExpenseFunnel>>
     @Query("SELECT * FROM expense_funnels WHERE id = :id")
     suspend fun get(id: Long): ExpenseFunnel?
+    @Query("SELECT * FROM expense_funnels WHERE name = :name LIMIT 1")
+    suspend fun getByName(name: String): ExpenseFunnel?
+    @Insert
+    suspend fun insertAndReturn(funnel: ExpenseFunnel): Long
     @Query("SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE type = 'EXPENSE' AND funnelId = :funnelId")
     fun observeSpent(funnelId: Long): Flow<Double>
 }
