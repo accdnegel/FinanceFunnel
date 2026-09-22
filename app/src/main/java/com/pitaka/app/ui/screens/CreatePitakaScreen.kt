@@ -1,6 +1,8 @@
 package com.pitaka.app.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -31,7 +33,7 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
     if(!loaded) return
 
     Scaffold(topBar={TopAppBar(title={Text(if(pitakaId==null) "New Pitaka" else "Edit Pitaka")})}){padding->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
             OutlinedTextField(name,{name=it},label={Text("Pitaka Name")},modifier=Modifier.fillMaxWidth())
             if(pitakaId==null) OutlinedTextField(startingBalance,{startingBalance=it},label={Text("Starting Balance")},modifier=Modifier.fillMaxWidth())
             CurrencyDropdown(currency,{currency=it})
@@ -45,10 +47,11 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
                     }
                 }
             }
-            Text("Card color")
+            Text("Appearance",style=MaterialTheme.typography.titleMedium)
+            Text("Card color",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             ColorSwatchPicker(selectedColor){selectedColor=it}
             CardStylePicker(cardStyle){cardStyle=it}
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(8.dp))
             Button(onClick={
                 if(name.isNotBlank()){
                     if(pitakaId==null) viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,cardStyle)
