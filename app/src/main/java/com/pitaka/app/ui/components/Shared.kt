@@ -344,42 +344,105 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPattern(pattern
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val current = if (selected == "solid") null else cardStyleById(selected)
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Card Style", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            TextButton(onClick = { open = true }) { Text(if (current == null) "Choose" else "Change") }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("Card Style", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    current?.name ?: "Solid Color",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = { open = true }) { Text("Change") }
         }
         BatikCardSurface(
             style = selected,
             baseColor = current?.base ?: MaterialTheme.colorScheme.primary,
-            modifier = Modifier.fillMaxWidth().height(130.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = 132.dp, max = 168.dp)
         ) {
-            Text("PITAKA",color=Color.White.copy(alpha=.8f),style=MaterialTheme.typography.labelSmall)
-            Text(if(current==null) "Solid Color" else current.name,color=Color.White,fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleLarge)
+            Text("PITAKA", color = Color.White.copy(alpha = .82f), style = MaterialTheme.typography.labelMedium)
+            Text(current?.name ?: "Solid Color", color = Color.White, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
-            Text("Preview",color=Color.White.copy(alpha=.85f),style=MaterialTheme.typography.labelSmall)
+            Text("Preview", color = Color.White.copy(alpha = .82f), style = MaterialTheme.typography.bodySmall)
         }
     }
+
     if (open) {
-        AlertDialog(
+        ModalBottomSheet(
             onDismissRequest = { open = false },
-            title = { Text("Select Card Style") },
-            text = {
-                LazyVerticalGrid(columns=GridCells.Fixed(3), modifier=Modifier.heightIn(max=480.dp), verticalArrangement=Arrangement.spacedBy(8.dp), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Choose Card Style", style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            "Select a Batik-inspired design",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(onClick = { open = false }) { Text("Done") }
+                }
+                Spacer(Modifier.height(14.dp))
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 620.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     items(cardStyles()) { style ->
-                        BatikCardSurface(style.id,style.base,Modifier.height(96.dp).clickable{onSelected(style.id);open=false}) {
-                            Text("PITAKA",color=Color.White.copy(alpha=.8f),style=MaterialTheme.typography.labelSmall)
-                            Spacer(Modifier.weight(1f))
-                            Text(style.name,color=Color.White,fontWeight=FontWeight.Bold,style=MaterialTheme.typography.labelSmall,maxLines=2)
+                        val isSelected = selected == style.id
+                        Column(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(
+                                    if (isSelected) 3.dp else 1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    onSelected(style.id)
+                                    open = false
+                                }
+                                .padding(5.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            BatikCardSurface(
+                                style.id,
+                                style.base,
+                                Modifier.fillMaxWidth().aspectRatio(1.35f)
+                            ) {
+                                Text("PITAKA", color = Color.White.copy(alpha = .8f), style = MaterialTheme.typography.labelSmall)
+                            }
+                            Text(
+                                style.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
                         }
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick={open=false}) { Text("Done") } }
-        )
+            }
+        }
     }
 }
