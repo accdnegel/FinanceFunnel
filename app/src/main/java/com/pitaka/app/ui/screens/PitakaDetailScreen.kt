@@ -1,6 +1,7 @@
 package com.pitaka.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,7 +41,7 @@ import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () -> Unit, onEdit: () -> Unit) {
+fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () -> Unit, onEdit: () -> Unit, onOpenChild: (Long) -> Unit = {}) {
     var pitaka by remember { mutableStateOf<Pitaka?>(null) }
     val allEntries by viewModel.allEntries.collectAsState(initial = emptyList())
     val allPitakas by viewModel.pitakas.collectAsState(initial = emptyList())
@@ -122,7 +123,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { /* navigation is handled by the card below */ }
+                            .clickable { onOpenChild(child.id) }
                             .padding(vertical = 6.dp)
                     ) {
                         Column(Modifier.weight(1f)) {
@@ -133,7 +134,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                                 color = Color.Gray
                             )
                         }
-                        TextButton(onClick = { /* replaced by parent screen navigation callback in next UI pass */ }) { Text("Open") }
+                        TextButton(onClick = { onOpenChild(child.id) }) { Text("Open") }
                     }
                 }
                 HorizontalDivider()
