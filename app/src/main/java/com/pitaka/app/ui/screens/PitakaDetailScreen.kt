@@ -39,7 +39,7 @@ import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () -> Unit, onEdit: () -> Unit) {
+fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () -> Unit, onEdit: () -> Unit, onOpenChild: (Long) -> Unit) {
     var pitaka by remember { mutableStateOf<Pitaka?>(null) }
     val allEntries by viewModel.allEntries.collectAsState(initial = emptyList())
     val allPitakas by viewModel.pitakas.collectAsState(initial = emptyList())
@@ -104,9 +104,53 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(16.dp))
+            val childPitakas = allPitakas.filter { it.parentPitakaId == pitakaId }
+
+            if (childPitakas.isNotEmpty()) {
+                Text("Sub-Pitakas", fontWeight = FontWeight.Bold)
+                Text(
+                    "Open a sub-Pitaka to view its own balance and history.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    childPitakas.forEach { child ->
+                        val childColor = parseHexColor(child.colorHex) ?: accentColor
+                        com.pitaka.app.ui.components.BatikCardSurface(
+                            child.cardStyle,
+                            childColor,
+                            Modifier
+                                .fillMaxWidth()
+                                .height(112.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .clickable { onOpenChild(child.id) }
+                        ) {
+                            Column(Modifier.fillMaxSize().padding(14.dp)) {
+                                Text(
+                                    "SUB-PITAKA",
+                                    color = Color.White.copy(alpha = .78f),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                Text(
+                                    child.name,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    CurrencyBalances.parse(child.currencyBalances).displayLines(),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             Text("Record Income", fontWeight = FontWeight.Bold)
             OutlinedTextField(
