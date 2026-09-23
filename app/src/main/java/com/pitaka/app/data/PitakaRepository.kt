@@ -131,6 +131,12 @@ class PitakaRepository(private val db: AppDatabase) {
 
     fun observeExpenseCategories(): Flow<List<String>> = ledgerDao.observeExpenseCategories()
 
+    private suspend fun canonicalExpenseCategory(category: String?): String {
+        val cleaned = category?.trim().orEmpty()
+        if (cleaned.isEmpty()) return "Uncategorized Expense"
+        return ledgerDao.findCanonicalExpenseCategory(cleaned) ?: cleaned
+    }
+
     fun observeAvailableMonths(): Flow<List<String>> = ledgerDao.observeAvailableMonths()
 
     fun observeExpenseTotalForMonth(month: String): Flow<Double> = ledgerDao.observeExpenseTotalForMonth(month)
@@ -152,7 +158,8 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun updateEntry(oldEntry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = oldEntry.pitakaId) {
         db.withTransaction {
             reverseEffect(oldEntry)
-            val updated = oldEntry.copy(name = newName, amount = newAmount, category = newCategory?.trim()?.takeIf { it.isNotEmpty() } ?: if (oldEntry.type == LedgerType.EXPENSE) "Uncategorized Expense" else null, pitakaId = newPitakaId)
+            val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
+            val updated = oldEntry.copy(name = newName, amount = newAmount, category = normalizedCategory, pitakaId = newPitakaId)
             ledgerDao.updateEntry(updated)
             applyEffect(updated)
         }
@@ -259,7 +266,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(amount > 0) { "Expense amount must be positive" }
         db.withTransaction {
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
-            recordExpenseInternal(pitakaId, name, amount, category?.trim()?.takeIf { it.isNotEmpty() } ?: "Uncategorized Expense", resolvedFunnel, currency ?: "PHP", date)
+            recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, currency ?: "PHP", date)
         }
     }
 
