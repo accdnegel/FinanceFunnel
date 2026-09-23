@@ -426,7 +426,9 @@ class PitakaRepository(private val db: AppDatabase) {
         applyEffect(
             entry.copy(
                 amount = -entry.amount,
-                secondaryAmount = entry.secondaryAmount?.let { -it }
+                secondaryAmount = entry.secondaryAmount?.let { -it },
+                funnelAmount = entry.funnelAmount?.let { -it },
+                goalAmount = entry.goalAmount?.let { -it }
             )
         )
     }
