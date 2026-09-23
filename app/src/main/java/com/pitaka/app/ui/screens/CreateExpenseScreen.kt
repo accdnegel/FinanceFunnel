@@ -10,6 +10,7 @@ import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.DatePickerButton
 import com.pitaka.app.ui.components.CurrencyDropdown
+import com.pitaka.app.ui.components.ExpenseCategoryField
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -17,6 +18,7 @@ import java.util.Calendar
 fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
     val funnels by viewModel.expenseFunnels.collectAsState(initial=emptyList())
+    val categories by viewModel.expenseCategories.collectAsState(initial=emptyList())
     var selectedPitaka by remember{mutableStateOf<Pitaka?>(null)}
     var selectedFunnel by remember{mutableStateOf<ExpenseFunnel?>(null)}
     var name by remember{mutableStateOf("")}; var amount by remember{mutableStateOf("")}; var category by remember{mutableStateOf("")}
@@ -28,7 +30,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             FunnelDropdown(funnels,selectedFunnel){selectedFunnel=it}
             OutlinedTextField(name,{name=it},label={Text("Expense name")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(amount,{amount=it},label={Text("Amount (PHP by default)")},modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(category,{category=it},label={Text("Category (optional)")},modifier=Modifier.fillMaxWidth())
+            ExpenseCategoryField(category,categories){category=it}
             CurrencyDropdown(currency, onSelected={currency=it})
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
