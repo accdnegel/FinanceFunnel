@@ -280,6 +280,7 @@ private val palette = listOf(
     CardStyle("template_24","Leaf & Wave",Color(0xFF0278CF),R.drawable.pitaka_template_24),
     CardStyle("template_25","Abstract Batik",Color(0xFF0278CF),R.drawable.pitaka_template_25),
     CardStyle("template_26","Rainbow Waves",Color(0xFF0278CF),R.drawable.pitaka_template_26),
+    CardStyle("template_27","Floral Red",Color(0xFF0278CF),R.drawable.pitaka_template_27),
 )
 
 fun cardStyles(): List<CardStyle> = palette
@@ -321,7 +322,11 @@ fun BatikCardSurface(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
+fun CardStylePicker(
+    selected: String,
+    solidColor: Color,
+    onSelected: (String) -> Unit
+) {
     var open by remember { mutableStateOf(false) }
     val current = if (selected == "solid") null else cardStyles().firstOrNull { it.id == selected }
 
@@ -332,7 +337,7 @@ fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Card Style", style = MaterialTheme.typography.titleMedium)
+                Text("Card Design", style = MaterialTheme.typography.titleMedium)
                 Text(
                     current?.name ?: "Solid Color",
                     style = MaterialTheme.typography.bodySmall,
@@ -341,15 +346,31 @@ fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
             }
             TextButton(onClick = { open = true }) { Text("Change") }
         }
+
+        // Always show the actual card that will be created.
         BatikCardSurface(
             style = selected,
-            baseColor = current?.base ?: MaterialTheme.colorScheme.primary,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 132.dp, max = 168.dp)
+            baseColor = if (selected == "solid") solidColor else (current?.base ?: solidColor),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 132.dp, max = 168.dp)
         ) {
-            Text("PITAKA", color = Color.White.copy(alpha = .82f), style = MaterialTheme.typography.labelMedium)
-            Text(current?.name ?: "Solid Color", color = Color.White, style = MaterialTheme.typography.titleLarge)
+            Text(
+                "PITAKA",
+                color = Color.White.copy(alpha = .82f),
+                style = MaterialTheme.typography.labelMedium
+            )
+            Text(
+                current?.name ?: "Solid Color",
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge
+            )
             Spacer(Modifier.weight(1f))
-            Text("Preview", color = Color.White.copy(alpha = .82f), style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Preview",
+                color = Color.White.copy(alpha = .82f),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 
@@ -359,7 +380,10 @@ fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
-                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp)
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp)
             ) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -367,23 +391,74 @@ fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Choose Card Style", style = MaterialTheme.typography.headlineSmall)
+                        Text("Choose Card Design", style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            "Select a Pitaka design",
+                            "Choose either a solid color or a Batik template.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     TextButton(onClick = { open = false }) { Text("Done") }
                 }
+
                 Spacer(Modifier.height(14.dp))
+
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 620.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 620.dp),
                     contentPadding = PaddingValues(bottom = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Solid Color is a real design option, not a fallback.
+                    item {
+                        val isSelected = selected == "solid"
+                        Column(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(
+                                    if (isSelected) 3.dp else 1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outlineVariant,
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    onSelected("solid")
+                                    open = false
+                                }
+                                .padding(5.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            BatikCardSurface(
+                                style = "solid",
+                                baseColor = solidColor,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1.35f)
+                            ) {
+                                Text(
+                                    "PITAKA",
+                                    color = Color.White.copy(alpha = .8f),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "Solid",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                            Text(
+                                "Solid Color",
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+                    }
+
                     items(cardStyles()) { style ->
                         val isSelected = selected == style.id
                         Column(
@@ -391,7 +466,8 @@ fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
                                 .clip(RoundedCornerShape(16.dp))
                                 .border(
                                     if (isSelected) 3.dp else 1.dp,
-                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outlineVariant,
                                     RoundedCornerShape(16.dp)
                                 )
                                 .clickable {
@@ -404,9 +480,21 @@ fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
                             BatikCardSurface(
                                 style = style.id,
                                 baseColor = style.base,
-                                modifier = Modifier.fillMaxWidth().aspectRatio(1.35f)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1.35f)
                             ) {
-                                Text("PITAKA", color = Color.White.copy(alpha = .8f), style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    "PITAKA",
+                                    color = Color.White.copy(alpha = .8f),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    style.name,
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             }
                             Text(
                                 style.name,
