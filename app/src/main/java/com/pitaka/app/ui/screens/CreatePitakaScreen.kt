@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.data.CurrencyBalances
 import com.pitaka.app.ui.components.CardStylePicker
 import com.pitaka.app.ui.components.ColorSwatchPicker
 import com.pitaka.app.ui.components.CurrencyDropdown
@@ -23,6 +24,7 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
     var cardStyle by remember { mutableStateOf("solid") }
     var parentId by remember { mutableStateOf(parentPitakaId) }
     var loaded by remember { mutableStateOf(pitakaId == null) }
+    var showFirstChildConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(pitakaId) {
         if (pitakaId != null) viewModel.getPitaka(pitakaId)?.let { p ->
@@ -71,11 +73,48 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
             Spacer(Modifier.height(8.dp))
             Button(onClick={
                 if(name.isNotBlank()){
-                    if(pitakaId==null) viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,cardStyle)
-                    else viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,cardStyle)
-                    onDone()
+                    if(pitakaId==null){
+                        val parent = parentId?.let { id -> pitakas.find { it.id == id } }
+                        val stored = parent?.let { CurrencyBalances.parse(it.currencyBalances) }.orEmpty()
+                        val hasExistingBalance = parent != null && (stored.values.any { it != 0.0 } || (stored.isEmpty() && parent.currentAmount != 0.0))
+                        val firstChild = parent != null && pitakas.none { it.parentPitakaId == parent.id }
+                        if(firstChild && hasExistingBalance) showFirstChildConfirm = true
+                        else {
+                            viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,cardStyle)
+                            onDone()
+                        }
+                    } else {
+                        viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,cardStyle)
+                        onDone()
+                    }
                 }
             },modifier=Modifier.fillMaxWidth()){Text(if(pitakaId==null)"Create Pitaka" else "Save Changes")}
         }
     }
+    if (showFirstChildConfirm) {
+        val parent = parentId?.let { id -> pitakas.find { it.id == id } }
+        val balances = parent?.let { CurrencyBalances.parse(it.currencyBalances) }.orEmpty()
+        AlertDialog(
+            onDismissRequest = { showFirstChildConfirm = false },
+            title = { Text("Convert this Pitaka into a parent?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("This will create the first sub-Pitaka under the selected Pitaka.")
+                    if (balances.isNotEmpty()) {
+                        Text("Existing balance: " + balances.entries.joinToString(" • ") { it.key + " " + "%,.2f".format(it.value) })
+                    }
+                    Text("The existing balance will be preserved in the new sub-Pitaka. The parent becomes a container and its stored balance is set to zero, preventing double-counting.")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showFirstChildConfirm = false
+                    viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,cardStyle)
+                    onDone()
+                }) { Text("Continue") }
+            },
+            dismissButton = { TextButton(onClick = { showFirstChildConfirm = false }) { Text("Cancel") } }
+        )
+    }
+
 }
