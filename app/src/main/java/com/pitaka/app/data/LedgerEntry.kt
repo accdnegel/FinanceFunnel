@@ -4,29 +4,21 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 enum class LedgerType {
-    INCOME,            // money enters a Pitaka from outside the system (e.g. salary)
-    EXPENSE,           // money leaves a Pitaka via actual spending (counts toward the monthly cap)
-    TRANSFER,          // money moves from one Pitaka to another (net worth unchanged)
-    GOAL_CONTRIBUTION, // money leaves a Pitaka into a Goal's progress (net worth unchanged;
-                       // does NOT count toward the monthly expense cap)
-    ADJUSTMENT         // manual correction to a Pitaka's balance, bypassing the normal logs.
-                       // `amount` is signed here (positive or negative) unlike other types.
+    INCOME,
+    EXPENSE,
+    TRANSFER,
+    GOAL_CONTRIBUTION,
+    ADJUSTMENT
 }
 
 /**
- * A single unified ledger row. Which fields are meaningful depends on `type`:
+ * Unified audit ledger. [amount]/[currency] are always the actual transaction values.
  *
- * - INCOME:            pitakaId = destination Pitaka (amount added)
- * - EXPENSE:           pitakaId = source Pitaka (amount removed), category is set
- * - TRANSFER:          fromPitakaId / toPitakaId used instead of pitakaId. `amount` is removed
- *                      from fromPitaka in its own currency; `secondaryAmount` (if set, for
- *                      cross-currency transfers) is what's added to toPitaka in ITS currency.
- *                      If secondaryAmount is null, the same `amount` applies to both sides.
- * - GOAL_CONTRIBUTION: pitakaId = source Pitaka (amount removed), goalId = destination Goal
- * - ADJUSTMENT:        pitakaId = the Pitaka being corrected, amount is signed (+/-)
+ * [funnelAmount]/[funnelCurrency] are the values applied to the selected Expense Funnel.
+ * They may differ from the actual transaction when the user explicitly chooses conversion.
  *
- * Total net worth (all Pitakas + all Goal progress) only changes via INCOME, EXPENSE, and
- * ADJUSTMENT — TRANSFER and GOAL_CONTRIBUTION are pure reallocations.
+ * [goalAmount]/[goalCurrency] are the values applied to the selected Goal. They may differ
+ * from the actual transaction when the user explicitly chooses conversion.
  */
 @Entity(tableName = "ledger_entries")
 data class LedgerEntry(
@@ -42,5 +34,9 @@ data class LedgerEntry(
     val secondaryAmount: Double? = null,
     val goalId: Long? = null,
     val funnelId: Long? = null,
+    val funnelAmount: Double? = null,
+    val funnelCurrency: String? = null,
+    val goalAmount: Double? = null,
+    val goalCurrency: String? = null,
     val date: Long = System.currentTimeMillis()
 )
