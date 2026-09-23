@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import com.pitaka.app.data.CurrencyBalances
+import com.pitaka.app.data.displayLines
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -23,6 +25,11 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
     var cardStyle by remember { mutableStateOf("solid") }
     var parentId by remember { mutableStateOf(parentPitakaId) }
     var loaded by remember { mutableStateOf(pitakaId == null) }
+    var showFirstChildWarning by remember { mutableStateOf(false) }
+    var pendingParentId by remember { mutableStateOf<Long?>(null) }
+    var pendingStartingBalance by remember { mutableStateOf(0.0) }
+    var pendingCurrency by remember { mutableStateOf("PHP") }
+    var pendingParentBalances by remember { mutableStateOf("") }
 
     LaunchedEffect(pitakaId) {
         if (pitakaId != null) viewModel.getPitaka(pitakaId)?.let { p ->
@@ -54,11 +61,54 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
             Spacer(Modifier.height(8.dp))
             Button(onClick={
                 if(name.isNotBlank()){
-                    if(pitakaId==null) viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,cardStyle)
-                    else viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,cardStyle)
-                    onDone()
+                    if(pitakaId==null) {
+                        val amount = startingBalance.toDoubleOrNull() ?: 0.0
+                        val parent = parentId?.let { id -> pitakas.firstOrNull { it.id == id } }
+                        val firstChild = parent != null && pitakas.none { it.parentPitakaId == parent.id }
+                        val parentBalances = parent?.let { CurrencyBalances.parse(it.currencyBalances) } ?: emptyMap()
+                        if (firstChild && parentBalances.values.any { kotlin.math.abs(it) > 0.0000001 }) {
+                            pendingParentId = parent.id
+                            pendingStartingBalance = amount
+                            pendingCurrency = currency
+                            pendingParentBalances = parentBalances.displayLines()
+                            showFirstChildWarning = true
+                        } else {
+                            viewModel.createPitaka(name, amount, currency, selectedColor, parentId, cardStyle)
+                            onDone()
+                        }
+                    } else {
+                        viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,cardStyle)
+                        onDone()
+                    }
                 }
             },modifier=Modifier.fillMaxWidth()){Text(if(pitakaId==null)"Create Pitaka" else "Save Changes")}
+
+            if (showFirstChildWarning) {
+                AlertDialog(
+                    onDismissRequest = { showFirstChildWarning = false },
+                    title = { Text("Convert this Pitaka into a parent?") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("This Pitaka already has money in it. Adding its first sub-Pitaka will move the existing balance into the new sub-Pitaka so the parent total does not lose money.")
+                            Text("Existing parent balance", style = MaterialTheme.typography.labelMedium)
+                            Text(pendingParentBalances, style = MaterialTheme.typography.bodyMedium)
+                            Text("New sub-Pitaka starting balance", style = MaterialTheme.typography.labelMedium)
+                            Text(pendingCurrency.uppercase() + " " + "%,.2f".format(pendingStartingBalance))
+                            Text("The resulting sub-Pitaka will contain the existing balance plus this starting amount.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showFirstChildWarning = false
+                            viewModel.createPitaka(name, pendingStartingBalance, pendingCurrency, selectedColor, pendingParentId, cardStyle)
+                            onDone()
+                        }) { Text("Continue") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showFirstChildWarning = false }) { Text("Cancel") }
+                    }
+                )
+            }
         }
     }
 }
