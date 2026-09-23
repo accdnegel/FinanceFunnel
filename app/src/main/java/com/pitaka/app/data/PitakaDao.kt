@@ -10,6 +10,7 @@ interface PitakaDao {
     @Delete suspend fun deletePitaka(pitaka: Pitaka)
     @Query("SELECT * FROM pitakas WHERE id = :id") suspend fun getPitaka(id: Long): Pitaka?
     @Query("SELECT * FROM pitakas ORDER BY createdAt DESC") fun observePitakas(): Flow<List<Pitaka>>
+    @Query("SELECT * FROM pitakas ORDER BY createdAt DESC") suspend fun observePitakasOnce(): List<Pitaka>
     @Query("SELECT * FROM pitakas WHERE parentPitakaId = :parentId ORDER BY createdAt DESC")
     fun observeChildren(parentId: Long): Flow<List<Pitaka>>
     @Query("SELECT * FROM pitakas WHERE parentPitakaId IS NULL ORDER BY createdAt DESC")
