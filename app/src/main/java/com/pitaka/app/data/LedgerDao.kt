@@ -21,7 +21,7 @@ interface LedgerDao {
     fun observeEntriesForGoal(goalId: Long): Flow<List<LedgerEntry>>
     @Query("SELECT * FROM ledger_entries WHERE type = 'EXPENSE' ORDER BY date DESC")
     fun observeAllExpenses(): Flow<List<LedgerEntry>>
-    @Query("SELECT * FROM ledger_entries WHERE type = 'EXPENSE' AND category = :category ORDER BY date DESC")
+    @Query("SELECT * FROM ledger_entries WHERE type = 'EXPENSE' AND LOWER(TRIM(category)) = LOWER(TRIM(:category)) ORDER BY date DESC")
     fun observeExpensesForCategory(category: String): Flow<List<LedgerEntry>>
     @Query("SELECT * FROM ledger_entries WHERE type = 'EXPENSE' AND funnelId = :funnelId ORDER BY date DESC")
     fun observeExpensesForFunnel(funnelId: Long): Flow<List<LedgerEntry>>
@@ -29,11 +29,11 @@ interface LedgerDao {
     fun observeMonthlyExpenses(): Flow<List<MonthlyAmount>>
     @Query("""SELECT strftime('%Y-%m', date / 1000, 'unixepoch') AS month, COALESCE(SUM(amount),0) AS total FROM ledger_entries WHERE type='INCOME' GROUP BY month ORDER BY month ASC""")
     fun observeMonthlyIncome(): Flow<List<MonthlyAmount>>
-    @Query("""SELECT COALESCE(NULLIF(TRIM(category),''),'Uncategorized Expense') AS name, COALESCE(SUM(amount),0) AS total FROM ledger_entries WHERE type='EXPENSE' GROUP BY name ORDER BY total DESC""")
+    @Query("""SELECT CASE WHEN TRIM(category)='' OR category IS NULL THEN 'Uncategorized Expense' ELSE MIN(TRIM(category)) END AS name, COALESCE(SUM(amount),0) AS total FROM ledger_entries WHERE type='EXPENSE' GROUP BY CASE WHEN TRIM(category)='' OR category IS NULL THEN 'uncategorized expense' ELSE LOWER(TRIM(category)) END ORDER BY total DESC""")
     fun observeExpenseBreakdown(): Flow<List<CategorySpend>>
-    @Query("""SELECT COALESCE(NULLIF(TRIM(category),''),'Uncategorized Expense') AS name, COALESCE(SUM(amount),0) AS total FROM ledger_entries WHERE type='EXPENSE' AND strftime('%Y-%m',date/1000,'unixepoch')=:month GROUP BY name ORDER BY total DESC""")
+    @Query("""SELECT CASE WHEN TRIM(category)='' OR category IS NULL THEN 'Uncategorized Expense' ELSE MIN(TRIM(category)) END AS name, COALESCE(SUM(amount),0) AS total FROM ledger_entries WHERE type='EXPENSE' AND strftime('%Y-%m',date/1000,'unixepoch')=:month GROUP BY CASE WHEN TRIM(category)='' OR category IS NULL THEN 'uncategorized expense' ELSE LOWER(TRIM(category)) END ORDER BY total DESC""")
     fun observeExpenseBreakdownForMonth(month:String): Flow<List<CategorySpend>>
-    @Query("SELECT DISTINCT TRIM(category) AS category FROM ledger_entries WHERE type='EXPENSE' AND category IS NOT NULL AND TRIM(category)!='' ORDER BY category ASC")
+    @Query("""SELECT MIN(TRIM(category)) AS category FROM ledger_entries WHERE type='EXPENSE' AND category IS NOT NULL AND TRIM(category)!='' GROUP BY LOWER(TRIM(category)) ORDER BY LOWER(TRIM(category)) ASC""")
     fun observeExpenseCategories(): Flow<List<String>>
     @Query("SELECT DISTINCT strftime('%Y-%m',date/1000,'unixepoch') AS month FROM ledger_entries ORDER BY month ASC")
     fun observeAvailableMonths(): Flow<List<String>>
