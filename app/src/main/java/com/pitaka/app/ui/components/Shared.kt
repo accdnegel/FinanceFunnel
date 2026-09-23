@@ -345,6 +345,42 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPattern(pattern
     }
 }
 
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOval(color: Color, rect: Rect) {
+    drawOval(color = color, topLeft = Offset(rect.left, rect.top), size = androidx.compose.ui.geometry.Size(rect.width, rect.height))
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawArc(
+    color: Color,
+    startAngle: Float,
+    sweepAngle: Float,
+    useCenter: Boolean,
+    rect: Rect,
+    style: Stroke
+) {
+    drawArc(
+        color = color,
+        startAngle = startAngle,
+        sweepAngle = sweepAngle,
+        useCenter = useCenter,
+        topLeft = Offset(rect.left, rect.top),
+        size = androidx.compose.ui.geometry.Size(rect.width, rect.height),
+        style = style
+    )
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRoundRect(
+    color: Color,
+    rect: Rect,
+    radius: Float
+) {
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(rect.left, rect.top),
+        size = androidx.compose.ui.geometry.Size(rect.width, rect.height),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CardStylePicker(selected: String, onSelected: (String) -> Unit) {
