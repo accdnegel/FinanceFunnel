@@ -32,7 +32,7 @@ private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PI
    composable(Routes.PITAKAS){PitakasScreen(viewModel,{nav.navigate(Routes.CREATE_PITAKA)},{nav.navigate(Routes.TRANSFER)},{nav.navigate(Routes.RECURRING)},{nav.navigate(Routes.pitakaDetail(it))})}
    composable(Routes.CREATE_PITAKA){CreatePitakaScreen(viewModel,onDone={nav.popBackStack()})}
    composable(Routes.EDIT_PITAKA,arguments=listOf(navArgument("pitakaId"){type=NavType.LongType})){CreatePitakaScreen(viewModel,it.arguments?.getLong("pitakaId")?:0L,onDone={nav.popBackStack()})}
-   composable(Routes.PITAKA_DETAIL,arguments=listOf(navArgument("pitakaId"){type=NavType.LongType})){val id=it.arguments?.getLong("pitakaId")?:0L;PitakaDetailScreen(viewModel,id,{nav.popBackStack()},{nav.navigate(Routes.editPitaka(id))})}
+   composable(Routes.PITAKA_DETAIL,arguments=listOf(navArgument("pitakaId"){type=NavType.LongType})){val id=it.arguments?.getLong("pitakaId")?:0L;PitakaDetailScreen(viewModel,id,{nav.popBackStack()},{nav.navigate(Routes.editPitaka(id))},{childId->nav.navigate(Routes.pitakaDetail(childId))})}
    composable(Routes.TRANSFER){TransferScreen(viewModel){nav.popBackStack()}}
    composable(Routes.RECURRING){RecurringRulesScreen(viewModel){nav.popBackStack()}}
    composable(Routes.GOALS){GoalsScreen(viewModel,{nav.navigate(Routes.CREATE_GOAL)},{nav.navigate(Routes.goalDetail(it))})}
