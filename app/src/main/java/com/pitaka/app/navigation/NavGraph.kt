@@ -20,7 +20,7 @@ object Routes{
  fun pitakaDetail(id:Long)="pitaka_detail/$id";fun editPitaka(id:Long)="edit_pitaka/$id";fun goalDetail(id:Long)="goal_detail/$id";fun editGoal(id:Long)="edit_goal/$id";fun categoryDetail(c:String)="category_detail/"+java.net.URLEncoder.encode(c,"UTF-8");fun funnelDetail(id:Long)="funnel_detail/$id"
 }
 private data class Tab(val route:String,val label:String,val icon:androidx.compose.ui.graphics.vector.ImageVector)
-private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PITAKAS,"Pitakas",Icons.Default.AccountBalanceWallet),Tab(Routes.GOALS,"Goals",Icons.Default.Flag),Tab(Routes.EXPENSES,"Expenses",Icons.Default.Receipt))
+private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PITAKAS,"Pitakas",Icons.Default.AccountBalanceWallet),Tab(Routes.GOALS,"Goals",Icons.Default.Flag),Tab(Routes.EXPENSES,"Spending",Icons.Default.Receipt))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PitakaNavGraph(viewModel:PitakaViewModel){
