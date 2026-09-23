@@ -48,9 +48,26 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
                 }
             }
             Text("Appearance",style=MaterialTheme.typography.titleMedium)
-            Text("Card color",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            ColorSwatchPicker(selectedColor){selectedColor=it}
-            CardStylePicker(cardStyle){cardStyle=it}
+            Text(
+                if (cardStyle == "solid") "Solid color" else "Batik template color",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            ColorSwatchPicker(selectedColor) { selectedColor = it }
+            Text(
+                if (cardStyle == "solid")
+                    "Choose the color used for your solid card."
+                else
+                    "This color is used for the card's supporting color; the selected Batik template provides the artwork.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            CardStylePicker(
+                selected = cardStyle,
+                solidColor = selectedColor?.let { com.pitaka.app.ui.theme.parseHexColor(it) }
+                    ?: MaterialTheme.colorScheme.primary,
+                onSelected = { cardStyle = it }
+            )
             Spacer(Modifier.height(8.dp))
             Button(onClick={
                 if(name.isNotBlank()){

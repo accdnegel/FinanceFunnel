@@ -24,15 +24,15 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     LaunchedEffect(pitakas){if(selectedPitaka==null)selectedPitaka=pitakas.firstOrNull()}
     Scaffold(topBar={TopAppBar(title={Text("New Expense")},navigationIcon={TextButton(onClick=onDone){Text("Back")}})}){padding->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-            if(pitakas.isNotEmpty()) PitakaDropdown("Charge to",pitakas,selectedPitaka){selectedPitaka=it} else Text("Create a Pitaka first.")
+            if(pitakas.isNotEmpty()) CreateExpensePitakaDropdown(label="Charge to",pitakas=pitakas,selected=selectedPitaka,onSelected={selectedPitaka=it}) else Text("Create a Pitaka first.")
             FunnelDropdown(funnels,selectedFunnel){selectedFunnel=it}
             OutlinedTextField(name,{name=it},label={Text("Expense name")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(amount,{amount=it},label={Text("Amount (PHP by default)")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(category,{category=it},label={Text("Category (optional)")},modifier=Modifier.fillMaxWidth())
-            CurrencyDropdown(currency){currency=it}
+            CurrencyDropdown(currency, onSelected={currency=it})
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
-            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null)viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,date?:System.currentTimeMillis());onDone()},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
+            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null){viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,date?:System.currentTimeMillis());onDone()}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
         }
     }
 }
@@ -45,7 +45,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     }
 }
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun PitakaDropdown(label:String,pitakas:List<Pitaka>,selected:Pitaka?,onSelected:(Pitaka)->Unit){
+@Composable private fun CreateExpensePitakaDropdown(label:String,pitakas:List<Pitaka>,selected:Pitaka?,onSelected:(Pitaka)->Unit){
     var open by remember{mutableStateOf(false)}
     ExposedDropdownMenuBox(open,{open=!open}){
         OutlinedTextField(value=selected?.name?:"Select Pitaka",onValueChange={},readOnly=true,label={Text(label)},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())

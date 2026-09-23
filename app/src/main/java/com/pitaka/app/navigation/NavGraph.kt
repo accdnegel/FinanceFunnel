@@ -5,7 +5,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
 import androidx.navigation.*
 import androidx.navigation.compose.*
 import com.pitaka.app.ui.PitakaViewModel
@@ -20,19 +24,19 @@ object Routes{
  fun pitakaDetail(id:Long)="pitaka_detail/$id";fun editPitaka(id:Long)="edit_pitaka/$id";fun goalDetail(id:Long)="goal_detail/$id";fun editGoal(id:Long)="edit_goal/$id";fun categoryDetail(c:String)="category_detail/"+java.net.URLEncoder.encode(c,"UTF-8");fun funnelDetail(id:Long)="funnel_detail/$id"
 }
 private data class Tab(val route:String,val label:String,val icon:androidx.compose.ui.graphics.vector.ImageVector)
-private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PITAKAS,"Pitakas",Icons.Default.AccountBalanceWallet),Tab(Routes.GOALS,"Goals",Icons.Default.Flag),Tab(Routes.EXPENSES,"Expenses",Icons.Default.Receipt))
+private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PITAKAS,"Pitakas",Icons.Default.AccountBalanceWallet),Tab(Routes.GOALS,"Goals",Icons.Default.Flag),Tab(Routes.EXPENSES,"Spending",Icons.Default.Receipt))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PitakaNavGraph(viewModel:PitakaViewModel){
- val nav=rememberNavController();val back by nav.currentBackStackEntryAsState();val route=back?.destination?.hierarchy?.firstOrNull()?.route;var showAdd by remember{mutableStateOf(false)}
- Scaffold(bottomBar={if(tabs.any{it.route==route})NavigationBar{tabs.forEach{t->NavigationBarItem(selected=route==t.route,onClick={nav.navigate(t.route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},icon={Icon(t.icon,t.label)},label={Text(t.label)})}}},
+ val nav=rememberNavController();val back by nav.currentBackStackEntryAsState();val route=back?.destination?.route;var showAdd by remember{mutableStateOf(false)}
+ Scaffold(bottomBar={if(tabs.any{it.route==route})NavigationBar{tabs.forEach{t->NavigationBarItem(selected=route==t.route,onClick={nav.navigate(t.route){popUpTo(Routes.HOME){saveState=true};launchSingleTop=true;restoreState=true}},icon={Icon(t.icon,t.label)},label={Text(t.label)})}}},
  floatingActionButton={if(tabs.any{it.route==route})FloatingActionButton(onClick={showAdd=true}){Icon(Icons.Default.Add,"Add")}}){padding->
   NavHost(nav,Routes.HOME,Modifier.padding(padding)){
    composable(Routes.HOME){HomeScreen(viewModel,{nav.navigate(Routes.CURRENCY_SETTINGS)},{c->nav.navigate(Routes.categoryDetail(c))})}
    composable(Routes.PITAKAS){PitakasScreen(viewModel,{nav.navigate(Routes.CREATE_PITAKA)},{nav.navigate(Routes.TRANSFER)},{nav.navigate(Routes.RECURRING)},{nav.navigate(Routes.pitakaDetail(it))})}
    composable(Routes.CREATE_PITAKA){CreatePitakaScreen(viewModel,onDone={nav.popBackStack()})}
    composable(Routes.EDIT_PITAKA,arguments=listOf(navArgument("pitakaId"){type=NavType.LongType})){CreatePitakaScreen(viewModel,it.arguments?.getLong("pitakaId")?:0L,onDone={nav.popBackStack()})}
-   composable(Routes.PITAKA_DETAIL,arguments=listOf(navArgument("pitakaId"){type=NavType.LongType})){val id=it.arguments?.getLong("pitakaId")?:0L;PitakaDetailScreen(viewModel,id,{nav.popBackStack()},{nav.navigate(Routes.editPitaka(id))})}
+   composable(Routes.PITAKA_DETAIL,arguments=listOf(navArgument("pitakaId"){type=NavType.LongType})){val id=it.arguments?.getLong("pitakaId")?:0L;PitakaDetailScreen(viewModel,id,{nav.popBackStack()},{nav.navigate(Routes.editPitaka(id))},{childId -> nav.navigate(Routes.pitakaDetail(childId))})}
    composable(Routes.TRANSFER){TransferScreen(viewModel){nav.popBackStack()}}
    composable(Routes.RECURRING){RecurringRulesScreen(viewModel){nav.popBackStack()}}
    composable(Routes.GOALS){GoalsScreen(viewModel,{nav.navigate(Routes.CREATE_GOAL)},{nav.navigate(Routes.goalDetail(it))})}
