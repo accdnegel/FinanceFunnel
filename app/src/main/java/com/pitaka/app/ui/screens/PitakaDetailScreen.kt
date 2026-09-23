@@ -29,6 +29,7 @@ import com.pitaka.app.data.LedgerType
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.data.CurrencyBalances
 import com.pitaka.app.data.displayLines
+import com.pitaka.app.data.hierarchicalBalanceMap
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.AdjustBalanceDialog
 import com.pitaka.app.ui.components.ConfirmDeleteDialog
@@ -65,6 +66,9 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
 
     val accentColor = parseHexColor(pitaka?.colorHex) ?: Color(0xFF0278CF)
     val currency = pitaka?.currency ?: "PHP"
+    val children = allPitakas.filter { it.parentPitakaId == pitakaId }
+    val isParent = children.isNotEmpty()
+    val hierarchyBalances = hierarchicalBalanceMap(allPitakas, pitakaId)
 
     Scaffold(
         topBar = {
@@ -72,7 +76,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                 title = { Text(pitaka?.name ?: "") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
-                    IconButton(onClick = { showAdjustDialog = true }) {
+                    if (!isParent) IconButton(onClick = { showAdjustDialog = true }) {
                         Icon(Icons.Default.Tune, contentDescription = "Adjust Balance")
                     }
                     IconButton(onClick = onEdit) {
@@ -95,7 +99,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                         .padding(16.dp)
                 ) {
                     Text(
-                        CurrencyBalances.parse(p.currencyBalances).displayLines(),
+                        hierarchyBalances.displayLines(),
                         style = MaterialTheme.typography.headlineMedium,
                         color = accentColor,
                         fontWeight = FontWeight.Bold
@@ -105,10 +109,46 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Record Income", fontWeight = FontWeight.Bold)
+            if (isParent) {
+                Text("Sub-Pitakas", fontWeight = FontWeight.Bold)
+                Text(
+                    "This parent total is calculated only from its sub-Pitakas.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                children.forEach { child ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { /* navigation is handled by the card below */ }
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(child.name, fontWeight = FontWeight.Medium)
+                            Text(
+                                CurrencyBalances.parse(child.currencyBalances).displayLines(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+                        TextButton(onClick = { /* replaced by parent screen navigation callback in next UI pass */ }) { Text("Open") }
+                    }
+                }
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Parent Pitaka", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                Text(
+                    "Income, expenses, transfers, and adjustments should be recorded against a sub-Pitaka, not the parent.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            } else {
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Record Income", fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -121,7 +161,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                 label = { Text("Amount ($currency)") },
                 modifier = Modifier.fillMaxWidth()
             )
-            Button(
+                Button(
                 onClick = {
                     val amount = amountText.toDoubleOrNull()
                     if (name.isNotBlank() && amount != null && amount > 0) {
@@ -131,8 +171,9 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-            ) {
-                Text("Add Income")
+                ) {
+                    Text("Add Income")
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
