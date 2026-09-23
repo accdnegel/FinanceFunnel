@@ -28,7 +28,7 @@ class PitakaRepository(private val db: AppDatabase) {
         return db.withTransaction {
             val code = currency.uppercase()
             val parent = parentPitakaId?.let { pitakaDao.getPitaka(it) }
-            val parentHasChildren = parent?.let { pitakaDao.countChildren(it.id) ?: 0 > 0 } ?: false
+            val parentHasChildren = parent?.let { pitakaDao.countChildren(it.id) > 0 } ?: false
 
             val starting = mutableMapOf(code to startingBalance)
 
