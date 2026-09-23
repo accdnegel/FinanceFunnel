@@ -57,5 +57,5 @@ private fun Modifier.waveReveal(progress:Float)=drawWithContent{
         for(i in 0..steps){val x=size.width*i/steps;val y=boundary+sin(i.toFloat()/steps*6.28318f)*size.height*.035f;lineTo(x,y)}
         lineTo(size.width,size.height);close()
     }
-    clipPath(path){drawContent()}
+    clipPath(path){this@drawWithContent.drawContent()}
 }
