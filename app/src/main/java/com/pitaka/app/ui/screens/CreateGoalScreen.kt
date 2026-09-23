@@ -83,7 +83,7 @@ fun CreateGoalScreen(viewModel: PitakaViewModel, goalId: Long? = null, onDone: (
 
             Text("Card Color")
             ColorSwatchPicker(selected = selectedColor, onSelected = { selectedColor = it })
-            CardStylePicker(cardStyle) { cardStyle = it }
+            CardStylePicker(selected = cardStyle, solidColor = com.pitaka.app.ui.components.parseHexColor(selectedColor) ?: MaterialTheme.colorScheme.primary) { cardStyle = it }
 
             Spacer(modifier = Modifier.weight(1f))
 
