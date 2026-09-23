@@ -326,7 +326,7 @@ class PitakaRepository(private val db: AppDatabase) {
         pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, date: Long = System.currentTimeMillis()
     ) {
         val entry = LedgerEntry(
-            type = LedgerType.EXPENSE, amount = amount, currency = currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, date = date
+            type = LedgerType.EXPENSE, amount = amount, currency = currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = amount, funnelCurrency = currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), date = date
         )
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
@@ -373,7 +373,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(amount > 0) { "Contribution amount must be positive" }
         db.withTransaction {
             val entry = LedgerEntry(
-                type = LedgerType.GOAL_CONTRIBUTION, amount = amount, currency = currency ?: (pitakaDao.getPitaka(sourcePitakaId)?.currency ?: "PHP"), name = name, pitakaId = sourcePitakaId, goalId = goalId, date = date
+                type = LedgerType.GOAL_CONTRIBUTION, amount = amount, currency = currency ?: (pitakaDao.getPitaka(sourcePitakaId)?.currency ?: "PHP"), name = name, pitakaId = sourcePitakaId, goalId = goalId, goalAmount = amount, goalCurrency = currency ?: (goalDao.getGoal(goalId)?.currency ?: "PHP"), date = date
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
@@ -395,11 +395,11 @@ class PitakaRepository(private val db: AppDatabase) {
             LedgerType.INCOME -> entry.pitakaId?.let { adjustBalance(it, entry.amount, entry.currency) }
             LedgerType.EXPENSE -> {
                 entry.pitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
-                entry.funnelId?.let { id -> funnelDao.get(id)?.let { funnelDao.update(it.copy(currencyBalances = CurrencyBalances.add(it.currencyBalances, entry.currency, entry.amount))) } }
+                entry.funnelId?.let { id -> funnelDao.get(id)?.let { funnelDao.update(it.copy(currencyBalances = CurrencyBalances.add(it.currencyBalances, entry.funnelCurrency ?: entry.currency, entry.funnelAmount ?: entry.amount))) } }
             }
             LedgerType.GOAL_CONTRIBUTION -> {
                 entry.pitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
-                entry.goalId?.let { id -> goalDao.getGoal(id)?.let { goalDao.updateGoal(it.copy(currencyBalances = CurrencyBalances.add(it.currencyBalances, entry.currency, entry.amount))) } }
+                entry.goalId?.let { id -> goalDao.getGoal(id)?.let { goalDao.updateGoal(it.copy(currencyBalances = CurrencyBalances.add(it.currencyBalances, entry.goalCurrency ?: entry.currency, entry.goalAmount ?: entry.amount))) } }
             }
             LedgerType.ADJUSTMENT -> entry.pitakaId?.let { adjustBalance(it, entry.amount, entry.currency) }
             LedgerType.TRANSFER -> {
