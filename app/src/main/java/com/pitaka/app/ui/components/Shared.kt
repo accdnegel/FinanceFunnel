@@ -140,6 +140,45 @@ fun ConfirmDeleteDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExpenseCategoryField(
+    value: String,
+    categories: List<String>,
+    onValueChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val query = value.trim()
+    val suggestions = categories
+        .filter { query.isBlank() || it.contains(query, ignoreCase = true) }
+        .take(8)
+
+    ExposedDropdownMenuBox(
+        expanded = expanded && suggestions.isNotEmpty(),
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { onValueChange(it); expanded = true },
+            label = { Text("Category") },
+            singleLine = true,
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded && suggestions.isNotEmpty()) }
+        )
+        ExposedDropdownMenu(
+            expanded = expanded && suggestions.isNotEmpty(),
+            onDismissRequest = { expanded = false }
+        ) {
+            suggestions.forEach { suggestion ->
+                DropdownMenuItem(
+                    text = { Text(suggestion) },
+                    onClick = { onValueChange(suggestion); expanded = false }
+                )
+            }
+        }
+    }
+}
+
 /** Edits name/amount/category (category only shown for EXPENSE entries) in place. */
 @Composable
 fun EditEntryDialog(
