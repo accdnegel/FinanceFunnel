@@ -81,12 +81,14 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    val totalSavingsProgress: Flow<Double> = repository.observeTotalProgressForType(GoalType.SAVINGS)
-    val totalInvestmentProgress: Flow<Double> = repository.observeTotalProgressForType(GoalType.INVESTMENT)
-
-    // NOTE: Goal progress is currently tracked as a raw number without its own currency —
-    // if you fund one Goal from Pitakas of different currencies, its progress figure mixes
-    // currencies as-is. Flagged as a known v1 simplification.
+    val totalSavingsProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        list.filter { it.type == GoalType.SAVINGS }.sumOf { convert(it.progress, it.currency, base, rates) }
+    }
+    val totalInvestmentProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        list.filter { it.type == GoalType.INVESTMENT }.sumOf { convert(it.progress, it.currency, base, rates) }
+    }
     val totalNetWorth: Flow<Double> = combine(
         totalLiquid, totalSavingsProgress, totalInvestmentProgress
     ) { liquid, savings, investments -> liquid + savings + investments }
