@@ -84,11 +84,10 @@ class PitakaRepository(private val db: AppDatabase) {
             require(pitakaDao.getPitaka(parentPitakaId) != null) { "Parent Pitaka not found." }
             // Walk upward from the proposed parent; if we encounter the Pitaka being moved,
             // the change would create a cycle.
-            var cursor = parentPitakaId
-            while (true) {
+            var cursor: Long? = parentPitakaId
+            while (cursor != null) {
                 if (cursor == pitakaId) require(false) { "This parent selection would create a hierarchy cycle." }
-                val next = pitakaDao.getPitaka(cursor)?.parentPitakaId ?: break
-                cursor = next
+                cursor = pitakaDao.getPitaka(cursor)?.parentPitakaId
             }
         }
         pitakaDao.updatePitaka(p.copy(parentPitakaId = parentPitakaId))
