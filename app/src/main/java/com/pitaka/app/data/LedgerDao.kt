@@ -21,7 +21,9 @@ interface LedgerDao {
     fun observeEntriesForGoal(goalId: Long): Flow<List<LedgerEntry>>
     @Query("SELECT * FROM ledger_entries WHERE type = 'EXPENSE' ORDER BY date DESC")
     fun observeAllExpenses(): Flow<List<LedgerEntry>>
-    @Query("SELECT * FROM ledger_entries WHERE type = 'EXPENSE' AND category = :category ORDER BY date DESC")
+    @Query("SELECT * FROM ledger_entries WHERE type = 'EXPENSE' AND LOWER(TRIM(category)) = LOWER(TRIM(:category)) ORDER BY date DESC")
+    fun observeExpensesForCategory(category: String): Flow<List<LedgerEntry>>
+
     @Query("SELECT MIN(TRIM(category)) AS category FROM ledger_entries WHERE type='EXPENSE' AND category IS NOT NULL AND TRIM(category)!='' GROUP BY LOWER(TRIM(category)) ORDER BY LOWER(TRIM(category)) ASC")
     fun observeExpenseCategories(): Flow<List<String>>
     @Query("SELECT * FROM ledger_entries WHERE type = 'EXPENSE' AND funnelId = :funnelId ORDER BY date DESC")
