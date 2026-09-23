@@ -368,12 +368,22 @@ class PitakaRepository(private val db: AppDatabase) {
         name: String,
         amount: Double,
         currency: String? = null,
+        goalAmount: Double? = null,
+        goalCurrency: String? = null,
         date: Long = System.currentTimeMillis()
     ) {
         require(amount > 0) { "Contribution amount must be positive" }
         db.withTransaction {
+            val txCurrency = currency ?: (pitakaDao.getPitaka(sourcePitakaId)?.currency ?: "PHP")
+            val goal = goalDao.getGoal(goalId) ?: throw IllegalArgumentException("Goal not found.")
+            val targetCurrency = goalCurrency ?: goal.currency
+            val applied = goalAmount ?: if (targetCurrency.equals(txCurrency, true)) amount
+                else throw IllegalArgumentException("Currency conversion is required.")
+            require(applied > 0) { "Goal amount must be positive" }
             val entry = LedgerEntry(
-                type = LedgerType.GOAL_CONTRIBUTION, amount = amount, currency = currency ?: (pitakaDao.getPitaka(sourcePitakaId)?.currency ?: "PHP"), name = name, pitakaId = sourcePitakaId, goalId = goalId, goalAmount = amount, goalCurrency = currency ?: (goalDao.getGoal(goalId)?.currency ?: "PHP"), date = date
+                type = LedgerType.GOAL_CONTRIBUTION, amount = amount, currency = txCurrency, name = name,
+                pitakaId = sourcePitakaId, goalId = goalId, goalAmount = applied,
+                goalCurrency = targetCurrency, date = date
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
