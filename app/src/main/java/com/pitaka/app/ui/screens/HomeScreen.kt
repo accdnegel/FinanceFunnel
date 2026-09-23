@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pitaka.app.data.CategorySpend
+import com.pitaka.app.data.Pitaka
+import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.util.buildLedgerCsv
 import com.pitaka.app.util.exportAndShareCsv
@@ -33,8 +35,9 @@ private fun monthLabel(key:String)=try { YearMonth.parse(key).month.getDisplayNa
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, onOpenCategory: (String) -> Unit = {}) {
+fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, onOpenCategory: (String) -> Unit = {}, onOpenPitaka: (Long) -> Unit = {}) {
     val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
+    val rootPitakas by viewModel.rootPitakas.collectAsState(initial=emptyList())
     val goals by viewModel.goals.collectAsState(initial=emptyList())
     val settings by viewModel.currencySettings.collectAsState(initial=null)
     val liquid by viewModel.totalLiquid.collectAsState(initial=0.0)
@@ -68,7 +71,10 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
                     Text("Selected month: " + monthLabel(selectedMonth),color=Color.Gray,style=MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(10.dp))
                     NetRow("Liquid",liquid,currency,expandedNet=="Liquid"){expandedNet=if(expandedNet=="Liquid")null else "Liquid"}
-                    if(expandedNet=="Liquid") pitakas.forEach { p -> AssetRow(p.name,p.currencyBalances) }
+                    if(expandedNet=="Liquid") rootPitakas.forEach { p ->
+                        val balances = viewModel.effectivePitakaBalances(p.id, pitakas)
+                        AssetRow(p.name, balances.displayLines(), Modifier.clickable { onOpenPitaka(p.id) })
+                    }
                     NetRow("Savings",savings,currency,expandedNet=="Savings"){expandedNet=if(expandedNet=="Savings")null else "Savings"}
                     if(expandedNet=="Savings") goals.filter{it.type==com.pitaka.app.data.GoalType.SAVINGS}.forEach{g->AssetRow(g.name,g.progress.toString()+" "+currency)}
                     NetRow("Investments",investments,currency,expandedNet=="Investments"){expandedNet=if(expandedNet=="Investments")null else "Investments"}
@@ -107,7 +113,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
     }
 }
 @Composable private fun NetRow(label:String,value:Double,currency:String,expanded:Boolean,onClick:()->Unit)=Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(vertical=8.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(if(expanded)"▾ $label" else "▸ $label");Text(currency+" "+"%,.2f".format(value),fontWeight=FontWeight.SemiBold)}
-@Composable private fun AssetRow(name:String,balance:String)=Text("    "+name+"  •  "+balance,style=MaterialTheme.typography.bodySmall,color=Color.Gray,modifier=Modifier.padding(vertical=3.dp))
+@Composable private fun AssetRow(name:String,balance:String,modifier:Modifier=Modifier)=Text("    "+name+"  •  "+balance,style=MaterialTheme.typography.bodySmall,color=Color.Gray,modifier=modifier.padding(vertical=3.dp))
 @Composable private fun CombinedMonthlyChart(income:List<com.pitaka.app.data.MonthlyAmount>,expense:List<com.pitaka.app.data.MonthlyAmount>){
     val keys=(income.map{it.month}+expense.map{it.month}).distinct().sorted().takeLast(8)
     if(keys.isEmpty()){Text("No monthly data yet.",color=Color.Gray);return}
