@@ -338,6 +338,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPattern(pattern
         Pattern.CORAL -> {repeat(5){i->drawLine(a,Offset(w*(.65f+i*.06f),h*.95f),Offset(w*(.55f+i*.09f),h*.25f),w*.035f);drawLine(b,Offset(w*(.55f+i*.09f),h*.45f),Offset(w*(.45f+i*.09f),h*.28f),w*.025f)}}
         Pattern.SUNSET, Pattern.SEA_WAVES -> {drawCircle(a,w*.20f,Offset(w*.78f,h*.20f));repeat(5){i->drawArc(b.copy(alpha=.8f),180f,180f,false,Rect(-w*.15f,h*(.45f+i*.10f),w*1.10f,h*(.72f+i*.10f)),style=Stroke(w*.075f))}}
         Pattern.STAR -> {val c=Offset(w*.78f,h*.52f);repeat(5){i->val ang=-PI/2+2*PI*i/5;drawLine(a,c,Offset(c.x+cos(ang).toFloat()*w*.20f,c.y+sin(ang).toFloat()*h*.20f),w*.08f)}}
+        Pattern.PALM -> { drawCircle(b, w*.12f, Offset(w*.80f,h*.22f)); drawLine(a, Offset(w*.78f,h*.85f), Offset(w*.80f,h*.30f), w*.035f); repeat(4){i -> drawOval(a, Rect(w*(.62f+i*.07f), h*(.15f+i*.04f), w*(.82f+i*.07f), h*(.34f+i*.04f))) } }
         Pattern.LEAF, Pattern.LEAF_BURST -> {repeat(5){i->drawOval(a,Rect(w*(.55f+i*.07f),h*(.12f+i*.10f),w*(.72f+i*.07f),h*(.50f+i*.10f)))}}
         Pattern.SEAHORSE -> {drawArc(a,0f,300f,false,Rect(w*.62f,h*.18f,w*.86f,h*.78f),style=Stroke(w*.055f));drawCircle(b,w*.055f,Offset(w*.82f,h*.20f));repeat(4){i->drawLine(b,Offset(w*(.63f+i*.07f),h*.72f),Offset(w*(.58f+i*.07f),h*.88f),w*.025f)}}
         Pattern.FLAME -> {repeat(4){i->drawOval(a,Rect(w*(.58f+i*.07f),h*(.15f+i*.05f),w*(.73f+i*.07f),h*(.75f+i*.04f)))}}
