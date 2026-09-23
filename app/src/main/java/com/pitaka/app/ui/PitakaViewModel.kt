@@ -56,9 +56,9 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /** Liquid total (all Pitakas), converted to the base/display currency. */
-    val totalLiquid: Flow<Double> = combine(pitakas, exchangeRates, currencySettings) { list, rates, settings ->
+    val totalLiquid: Flow<Double> = combine(rootPitakas, pitakas, exchangeRates, currencySettings) { roots, all, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        list.sumOf { p -> convert(p.currentAmount, p.currency, base, rates) }
+        roots.sumOf { root -> hierarchicalBalanceMap(all, root.id).entries.sumOf { (code, amount) -> convert(amount, code, base, rates) } }
     }
 
     val totalSavingsProgress: Flow<Double> = repository.observeTotalProgressForType(GoalType.SAVINGS)
