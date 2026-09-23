@@ -117,6 +117,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         return amount * fromRate / toRate
     }
 
+    fun convertCurrency(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double = convert(amount, from, to, rates)
+
     // ---- Monthly expense budgets ----
 
     val currentMonthKey: String = YearMonth.now().toString()
