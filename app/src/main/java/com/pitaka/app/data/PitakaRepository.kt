@@ -24,14 +24,73 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun getPitaka(id: Long): Pitaka? = pitakaDao.getPitaka(id)
 
     suspend fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid"): Long {
-        return pitakaDao.insertPitaka(
-            Pitaka(name = name, currentAmount = startingBalance, currency = currency.uppercase(), currencyBalances = CurrencyBalances.encode(mapOf(currency.uppercase() to startingBalance)), colorHex = colorHex, parentPitakaId = parentPitakaId, cardStyle = cardStyle)
-        )
+        require(startingBalance >= 0) { "Starting balance cannot be negative." }
+        val code = currency.trim().uppercase().ifBlank { "PHP" }
+
+        return db.withTransaction {
+            val parent = parentPitakaId?.let { pitakaDao.getPitaka(it) }
+            require(parentPitakaId == null || parent != null) { "Parent Pitaka not found." }
+
+            // A lone Pitaka becoming a parent must not lose its existing money. Its first
+            // child inherits every existing currency balance, then receives the child's
+            // starting amount. The parent becomes a pure container.
+            if (parent != null && pitakaDao.countChildren(parent.id) == 0) {
+                val inherited = CurrencyBalances.parse(parent.currencyBalances)
+                if (inherited.isEmpty() && parent.currentAmount != 0.0) {
+                    inherited[parent.currency.uppercase()] = parent.currentAmount
+                }
+                inherited[code] = (inherited[code] ?: 0.0) + startingBalance
+
+                val childId = pitakaDao.insertPitaka(
+                    Pitaka(
+                        name = name,
+                        currentAmount = inherited[code] ?: 0.0,
+                        currency = code,
+                        currencyBalances = CurrencyBalances.encode(inherited),
+                        colorHex = colorHex,
+                        parentPitakaId = parent.id,
+                        cardStyle = cardStyle
+                    )
+                )
+                pitakaDao.updatePitaka(
+                    parent.copy(
+                        currentAmount = 0.0,
+                        currencyBalances = CurrencyBalances.encode(emptyMap()),
+                        lastUpdated = System.currentTimeMillis()
+                    )
+                )
+                childId
+            } else {
+                pitakaDao.insertPitaka(
+                    Pitaka(
+                        name = name,
+                        currentAmount = startingBalance,
+                        currency = code,
+                        currencyBalances = CurrencyBalances.encode(mapOf(code to startingBalance)),
+                        colorHex = colorHex,
+                        parentPitakaId = parentPitakaId,
+                        cardStyle = cardStyle
+                    )
+                )
+            }
+        }
     }
 
     suspend fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
         val p = pitakaDao.getPitaka(pitakaId) ?: return
         require(parentPitakaId == null || parentPitakaId != pitakaId) { "A Pitaka cannot be its own parent." }
+
+        if (parentPitakaId != null) {
+            require(pitakaDao.getPitaka(parentPitakaId) != null) { "Parent Pitaka not found." }
+            // Walk upward from the proposed parent; if we encounter the Pitaka being moved,
+            // the change would create a cycle.
+            var cursor = parentPitakaId
+            while (true) {
+                if (cursor == pitakaId) require(false) { "This parent selection would create a hierarchy cycle." }
+                val next = pitakaDao.getPitaka(cursor)?.parentPitakaId ?: break
+                cursor = next
+            }
+        }
         pitakaDao.updatePitaka(p.copy(parentPitakaId = parentPitakaId))
     }
 
@@ -152,7 +211,8 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun updateEntry(oldEntry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = oldEntry.pitakaId) {
         db.withTransaction {
             reverseEffect(oldEntry)
-            val updated = oldEntry.copy(name = newName, amount = newAmount, category = newCategory?.trim()?.takeIf { it.isNotEmpty() } ?: if (oldEntry.type == LedgerType.EXPENSE) "Uncategorized Expense" else null, pitakaId = newPitakaId)
+            val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
+            val updated = oldEntry.copy(name = newName, amount = newAmount, category = normalizedCategory, pitakaId = newPitakaId)
             ledgerDao.updateEntry(updated)
             applyEffect(updated)
         }
@@ -259,7 +319,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(amount > 0) { "Expense amount must be positive" }
         db.withTransaction {
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
-            recordExpenseInternal(pitakaId, name, amount, category?.trim()?.takeIf { it.isNotEmpty() } ?: "Uncategorized Expense", resolvedFunnel, currency ?: "PHP", date)
+            recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, currency ?: "PHP", date)
         }
     }
 
@@ -324,6 +384,12 @@ class PitakaRepository(private val db: AppDatabase) {
     // ---- Balance effect helpers ----
     // applyEffect() is linear in `amount`, so reverseEffect() can just negate amount(s) and
     // re-apply the same formula — this correctly undoes any entry type, including edits.
+
+    private suspend fun canonicalExpenseCategory(category: String?): String {
+        val cleaned = category?.trim().orEmpty()
+        if (cleaned.isEmpty()) return "Uncategorized Expense"
+        return ledgerDao.findCanonicalExpenseCategory(cleaned) ?: cleaned
+    }
 
     private suspend fun applyEffect(entry: LedgerEntry) {
         when (entry.type) {
