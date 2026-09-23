@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Pitaka::class, Goal::class, LedgerEntry::class, MonthlyBudget::class, ExpenseFunnel::class, CurrencySettings::class, ExchangeRate::class, RecurringRule::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -35,10 +35,34 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN funnelAmount REAL")
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN funnelCurrency TEXT")
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN goalAmount REAL")
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN goalCurrency TEXT")
+
+                // Preserve the meaning of all historical rows. Existing transactions were
+                // recorded as one amount/currency, so those values are also the applied
+                // funnel/goal values.
+                db.execSQL("""
+                    UPDATE ledger_entries
+                    SET funnelAmount = amount,
+                        funnelCurrency = currency
+                    WHERE type = 'EXPENSE' AND funnelId IS NOT NULL
+                """.trimIndent())
+                db.execSQL("""
+                    UPDATE ledger_entries
+                    SET goalAmount = amount,
+                        goalCurrency = currency
+                    WHERE type = 'GOAL_CONTRIBUTION' AND goalId IS NOT NULL
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pitaka.db")
-                .addMigrations(MIGRATION_4_5)
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
                 .build().also { INSTANCE = it }
         }
     }
