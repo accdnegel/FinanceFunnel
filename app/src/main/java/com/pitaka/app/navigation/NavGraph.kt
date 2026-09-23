@@ -28,7 +28,7 @@ private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PI
  Scaffold(bottomBar={if(tabs.any{it.route==route})NavigationBar{tabs.forEach{t->NavigationBarItem(selected=route==t.route,onClick={nav.navigate(t.route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},icon={Icon(t.icon,t.label)},label={Text(t.label)})}}},
  floatingActionButton={if(tabs.any{it.route==route})FloatingActionButton(onClick={showAdd=true}){Icon(Icons.Default.Add,"Add")}}){padding->
   NavHost(nav,Routes.HOME,Modifier.padding(padding)){
-   composable(Routes.HOME){HomeScreen(viewModel,{nav.navigate(Routes.CURRENCY_SETTINGS)},{c->nav.navigate(Routes.categoryDetail(c))})}
+   composable(Routes.HOME){HomeScreen(viewModel,{nav.navigate(Routes.CURRENCY_SETTINGS)},{c->nav.navigate(Routes.categoryDetail(c))},{id->nav.navigate(Routes.pitakaDetail(id))})}
    composable(Routes.PITAKAS){PitakasScreen(viewModel,{nav.navigate(Routes.CREATE_PITAKA)},{nav.navigate(Routes.TRANSFER)},{nav.navigate(Routes.RECURRING)},{nav.navigate(Routes.pitakaDetail(it))})}
    composable(Routes.CREATE_PITAKA){CreatePitakaScreen(viewModel,onDone={nav.popBackStack()})}
    composable(Routes.EDIT_PITAKA,arguments=listOf(navArgument("pitakaId"){type=NavType.LongType})){CreatePitakaScreen(viewModel,it.arguments?.getLong("pitakaId")?:0L,onDone={nav.popBackStack()})}
