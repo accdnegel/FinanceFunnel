@@ -314,19 +314,19 @@ class PitakaRepository(private val db: AppDatabase) {
         applyEffect(entry)
     }
 
-    suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, date: Long = System.currentTimeMillis()) {
+    suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
         require(amount > 0) { "Expense amount must be positive" }
         db.withTransaction {
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
-            recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, currency ?: "PHP", date)
+            recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, currency ?: "PHP", funnelAmount, funnelCurrency, date)
         }
     }
 
     private suspend fun recordExpenseInternal(
-        pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, date: Long = System.currentTimeMillis()
+        pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()
     ) {
         val entry = LedgerEntry(
-            type = LedgerType.EXPENSE, amount = amount, currency = currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = amount, funnelCurrency = currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), date = date
+            type = LedgerType.EXPENSE, amount = amount, currency = currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = funnelAmount ?: amount, funnelCurrency = funnelCurrency ?: currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), date = date
         )
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
