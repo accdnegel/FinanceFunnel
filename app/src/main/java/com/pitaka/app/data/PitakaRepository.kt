@@ -30,9 +30,41 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     suspend fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
-        val p = pitakaDao.getPitaka(pitakaId) ?: return
-        require(parentPitakaId == null || parentPitakaId != pitakaId) { "A Pitaka cannot be its own parent." }
-        pitakaDao.updatePitaka(p.copy(parentPitakaId = parentPitakaId))
+        db.withTransaction {
+            val p = pitakaDao.getPitaka(pitakaId) ?: return@withTransaction
+            require(parentPitakaId == null || parentPitakaId != pitakaId) { "A Pitaka cannot be its own parent." }
+
+            // Prevent cycles such as A -> B -> A.
+            if (parentPitakaId != null) {
+                var cursor: Long? = parentPitakaId
+                while (cursor != null) {
+                    require(cursor != pitakaId) { "A Pitaka cannot be placed under one of its descendants." }
+                    cursor = pitakaDao.getPitaka(cursor)?.parentPitakaId
+                }
+            }
+            pitakaDao.updatePitaka(p.copy(parentPitakaId = parentPitakaId))
+        }
+    }
+
+    /**
+     * Returns the balance represented by a Pitaka in hierarchy terms.
+     * A parent is a container: once it has children, only descendant balances count.
+     * A leaf owns its own balances.
+     */
+    suspend fun getHierarchicalBalances(pitakaId: Long): Map<String, Double> {
+        val all = pitakaDao.observePitakasOnce()
+        fun collect(id: Long): Map<String, Double> {
+            val children = all.filter { it.parentPitakaId == id }
+            if (children.isEmpty()) return CurrencyBalances.parse(all.first { it.id == id }.currencyBalances)
+            val result = mutableMapOf<String, Double>()
+            children.forEach { child ->
+                collect(child.id).forEach { (currency, amount) ->
+                    result[currency] = (result[currency] ?: 0.0) + amount
+                }
+            }
+            return result
+        }
+        return collect(pitakaId)
     }
 
     suspend fun addSubPitaka(parentId: Long, name: String, startingBalance: Double, currency: String, colorHex: String?, cardStyle: String = "solid"): Long =
