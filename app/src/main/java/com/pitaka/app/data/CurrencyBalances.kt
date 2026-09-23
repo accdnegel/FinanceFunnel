@@ -27,3 +27,25 @@ object CurrencyBalances {
 fun String.supportedCurrencies(): Set<String> = CurrencyBalances.parse(this).keys
 
 fun Map<String, Double>.displayLines(): String = entries.sortedBy { it.key }.joinToString(" • ") { "${it.key} ${"%,.2f".format(it.value)}" }
+
+
+/** Aggregates balances for a Pitaka hierarchy. A parent is a container, so once it has
+ * children its own stored balance is excluded and only descendant balances are summed. */
+fun hierarchicalBalanceMap(pitakas: List<Pitaka>, pitakaId: Long): Map<String, Double> {
+    val byParent = pitakas.groupBy { it.parentPitakaId }
+    fun collect(id: Long): Map<String, Double> {
+        val children = byParent[id].orEmpty()
+        if (children.isEmpty()) {
+            val leaf = pitakas.firstOrNull { it.id == id } ?: return emptyMap()
+            return CurrencyBalances.parse(leaf.currencyBalances)
+        }
+        val result = mutableMapOf<String, Double>()
+        children.forEach { child ->
+            collect(child.id).forEach { (currency, amount) ->
+                result[currency] = (result[currency] ?: 0.0) + amount
+            }
+        }
+        return result
+    }
+    return collect(pitakaId)
+}
