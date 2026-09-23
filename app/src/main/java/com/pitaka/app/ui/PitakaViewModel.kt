@@ -217,8 +217,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.recordIncome(pitakaId, name, amount) }
     }
 
-    fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, date: Long = System.currentTimeMillis()) {
-        viewModelScope.launch { repository.recordExpense(pitakaId, name, amount, category, funnelId, currency, date) }
+    fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
+        viewModelScope.launch { repository.recordExpense(pitakaId, name, amount, category, funnelId, currency, funnelAmount, funnelCurrency, date) }
     }
 
     fun recordTransfer(fromPitakaId: Long, toPitakaId: Long, name: String, amount: Double, secondaryAmount: Double? = null) {
