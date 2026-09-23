@@ -24,9 +24,47 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun getPitaka(id: Long): Pitaka? = pitakaDao.getPitaka(id)
 
     suspend fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid"): Long {
-        return pitakaDao.insertPitaka(
-            Pitaka(name = name, currentAmount = startingBalance, currency = currency.uppercase(), currencyBalances = CurrencyBalances.encode(mapOf(currency.uppercase() to startingBalance)), colorHex = colorHex, parentPitakaId = parentPitakaId, cardStyle = cardStyle)
-        )
+        require(startingBalance >= 0) { "Starting balance cannot be negative." }
+        return db.withTransaction {
+            val code = currency.uppercase()
+            val parent = parentPitakaId?.let { pitakaDao.getPitaka(it) }
+            val parentHasChildren = parent?.let { pitakaDao.countChildren(it.id) ?: 0 > 0 } ?: false
+
+            val starting = mutableMapOf(code to startingBalance)
+
+            // If an existing standalone Pitaka is being turned into a parent by
+            // adding its first child, move its already-held money into that child.
+            // This prevents the parent's old balance from disappearing when parent
+            // totals switch to child-only aggregation.
+            if (parent != null && !parentHasChildren) {
+                CurrencyBalances.parse(parent.currencyBalances).forEach { (existingCode, amount) ->
+                    starting[existingCode] = (starting[existingCode] ?: 0.0) + amount
+                }
+            }
+
+            val childId = pitakaDao.insertPitaka(
+                Pitaka(
+                    name = name,
+                    currentAmount = starting[code] ?: 0.0,
+                    currency = code,
+                    currencyBalances = CurrencyBalances.encode(starting),
+                    colorHex = colorHex,
+                    parentPitakaId = parentPitakaId,
+                    cardStyle = cardStyle
+                )
+            )
+
+            if (parent != null && !parentHasChildren) {
+                pitakaDao.updatePitaka(
+                    parent.copy(
+                        currentAmount = 0.0,
+                        currencyBalances = CurrencyBalances.encode(mapOf(parent.currency to 0.0)),
+                        lastUpdated = System.currentTimeMillis()
+                    )
+                )
+            }
+            childId
+        }
     }
 
     suspend fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
