@@ -25,6 +25,7 @@ import java.util.Date
 fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpenFunnel:(Long)->Unit){
     val expenses by viewModel.allExpenses.collectAsState(initial=emptyList())
     val funnels by viewModel.expenseFunnels.collectAsState(initial=emptyList())
+    val categories by viewModel.expenseCategories.collectAsState(initial=emptyList())
     val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
     var editing by remember { mutableStateOf<com.pitaka.app.data.LedgerEntry?>(null) }
     val month=YearMonth.now().toString()
@@ -53,7 +54,7 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
         }
     }
     editing?.let { entry ->
-        EditExpenseDialog(entry,pitakas,{name,amount,category,pitakaId->
+        EditExpenseDialog(entry,pitakas,categories,{name,amount,category,pitakaId->
             viewModel.updateEntry(entry,name,amount,category,pitakaId);editing=null
         },{editing=null})
     }
