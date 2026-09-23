@@ -225,8 +225,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.recordTransfer(fromPitakaId, toPitakaId, name, amount, secondaryAmount) }
     }
 
-    fun recordGoalContribution(sourcePitakaId: Long, goalId: Long, name: String, amount: Double, currency: String? = null) {
-        viewModelScope.launch { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency) }
+    fun recordGoalContribution(sourcePitakaId: Long, goalId: Long, name: String, amount: Double, currency: String? = null, goalAmount: Double? = null, goalCurrency: String? = null) {
+        viewModelScope.launch { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency, goalAmount, goalCurrency) }
     }
 
     fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid") {
