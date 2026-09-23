@@ -35,6 +35,22 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val rootPitakas: Flow<List<Pitaka>> = repository.observeRootPitakas()
     fun childrenOfPitaka(id: Long): Flow<List<Pitaka>> = repository.observeChildren(id)
 
+    fun effectivePitakaBalances(pitakaId: Long, all: List<Pitaka>): Map<String, Double> {
+        val byParent = all.groupBy { it.parentPitakaId }
+        fun collect(id: Long): Map<String, Double> {
+            val children = byParent[id].orEmpty()
+            if (children.isEmpty()) return CurrencyBalances.parse(all.firstOrNull { it.id == id }?.currencyBalances)
+            val result = mutableMapOf<String, Double>()
+            children.forEach { child ->
+                collect(child.id).forEach { (code, amount) ->
+                    result[code] = (result[code] ?: 0.0) + amount
+                }
+            }
+            return result
+        }
+        return collect(pitakaId)
+    }
+
     val goals: Flow<List<GoalWithProgress>> = repository.observeGoals()
     val expenseFunnels: Flow<List<ExpenseFunnel>> = repository.observeExpenseFunnels()
 
@@ -58,7 +74,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     /** Liquid total (all Pitakas), converted to the base/display currency. */
     val totalLiquid: Flow<Double> = combine(pitakas, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        list.sumOf { p -> convert(p.currentAmount, p.currency, base, rates) }
+        list.filter { it.parentPitakaId == null }.sumOf { root ->
+            effectivePitakaBalances(root.id, list).entries.sumOf { (code, amount) ->
+                convert(amount, code, base, rates)
+            }
+        }
     }
 
     val totalSavingsProgress: Flow<Double> = repository.observeTotalProgressForType(GoalType.SAVINGS)
