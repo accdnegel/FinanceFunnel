@@ -29,7 +29,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             OutlinedTextField(name,{name=it},label={Text("Expense name")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(amount,{amount=it},label={Text("Amount (PHP by default)")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(category,{category=it},label={Text("Category (optional)")},modifier=Modifier.fillMaxWidth())
-            CurrencyDropdown(currency){currency=it}
+            CurrencyDropdown(currency, onSelected={currency=it})
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
             Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null){viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,date?:System.currentTimeMillis());onDone()}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
