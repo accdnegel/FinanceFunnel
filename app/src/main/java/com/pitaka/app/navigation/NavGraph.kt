@@ -5,7 +5,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
 import androidx.navigation.*
 import androidx.navigation.compose.*
 import com.pitaka.app.ui.PitakaViewModel
@@ -24,7 +28,7 @@ private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PI
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PitakaNavGraph(viewModel:PitakaViewModel){
- val nav=rememberNavController();val back by nav.currentBackStackEntryAsState();val route=back?.destination?.hierarchy?.firstOrNull()?.route;var showAdd by remember{mutableStateOf(false)}
+ val nav=rememberNavController();val back by nav.currentBackStackEntryAsState();val route=back?.destination?.route;var showAdd by remember{mutableStateOf(false)}
  Scaffold(bottomBar={if(tabs.any{it.route==route})NavigationBar{tabs.forEach{t->NavigationBarItem(selected=route==t.route,onClick={nav.navigate(t.route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},icon={Icon(t.icon,t.label)},label={Text(t.label)})}}},
  floatingActionButton={if(tabs.any{it.route==route})FloatingActionButton(onClick={showAdd=true}){Icon(Icons.Default.Add,"Add")}}){padding->
   NavHost(nav,Routes.HOME,Modifier.padding(padding)){
