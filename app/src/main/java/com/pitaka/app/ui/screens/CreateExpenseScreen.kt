@@ -21,6 +21,8 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     var selectedFunnel by remember{mutableStateOf<ExpenseFunnel?>(null)}
     var name by remember{mutableStateOf("")}; var amount by remember{mutableStateOf("")}; var category by remember{mutableStateOf("")}
     var date by remember{mutableStateOf<Long?>(System.currentTimeMillis())};var currency by remember{mutableStateOf("PHP")}
+    val expenseCategories by viewModel.expenseCategories.collectAsState(initial=emptyList())
+    var categoryFocused by remember { mutableStateOf(false) }
     LaunchedEffect(pitakas){if(selectedPitaka==null)selectedPitaka=pitakas.firstOrNull()}
     Scaffold(topBar={TopAppBar(title={Text("New Expense")},navigationIcon={TextButton(onClick=onDone){Text("Back")}})}){padding->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
@@ -28,7 +30,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             FunnelDropdown(funnels,selectedFunnel){selectedFunnel=it}
             OutlinedTextField(name,{name=it},label={Text("Expense name")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(amount,{amount=it},label={Text("Amount (PHP by default)")},modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(category,{category=it},label={Text("Category (optional)")},modifier=Modifier.fillMaxWidth())
+            CategoryInput(category, { category = it }, expenseCategories, categoryFocused, { categoryFocused = it })
             CurrencyDropdown(currency){currency=it}
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
@@ -50,5 +52,45 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     ExposedDropdownMenuBox(open,{open=!open}){
         OutlinedTextField(value=selected?.name?:"Select Pitaka",onValueChange={},readOnly=true,label={Text(label)},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
         ExposedDropdownMenu(open,{open=false}){pitakas.forEach{p->DropdownMenuItem(text={Text(p.name)},onClick={onSelected(p);open=false})}}
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    categories: List<String>,
+    focused: Boolean,
+    onFocusChanged: (Boolean) -> Unit
+) {
+    val suggestions = categories
+        .filter { value.trim().isBlank() || it.contains(value.trim(), ignoreCase = true) }
+        .take(8)
+    ExposedDropdownMenuBox(
+        expanded = focused && suggestions.isNotEmpty(),
+        onExpandedChange = { onFocusChanged(it) }
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text("Category (optional)") },
+            singleLine = true,
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+        ExposedDropdownMenu(
+            expanded = focused && suggestions.isNotEmpty(),
+            onDismissRequest = { onFocusChanged(false) }
+        ) {
+            suggestions.forEach { suggestion ->
+                DropdownMenuItem(
+                    text = { Text(suggestion) },
+                    onClick = {
+                        onValueChange(suggestion)
+                        onFocusChanged(false)
+                    }
+                )
+            }
+        }
     }
 }
