@@ -1,7 +1,6 @@
 package com.pitaka.app.data
 
 import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import android.content.Context
 import androidx.room.*
 import androidx.sqlite.db.SupportSQLiteDatabase
