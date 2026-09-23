@@ -20,7 +20,7 @@ fun CreateExpenseFunnelScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             OutlinedTextField(name,{name=it},label={Text("Funnel name")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(limit,{limit=it},label={Text("Limit (PHP by default)")},modifier=Modifier.fillMaxWidth())
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DatePickerButton("Start date",from){from=it};DatePickerButton("End date",until){until=it}}
-            CardStylePicker(style){style=it}
+            CardStylePicker(selected = style, solidColor = MaterialTheme.colorScheme.primary) { style = it }
             Spacer(Modifier.height(8.dp))
             Button(onClick={val l=limit.toDoubleOrNull();if(name.isNotBlank()&&l!=null&&l>0){viewModel.createExpenseFunnel(name.trim(),l,from,until,null,style);onDone()}},modifier=Modifier.fillMaxWidth()){Text("Create Funnel")}
         }
