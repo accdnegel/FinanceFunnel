@@ -19,6 +19,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
     val funnels by viewModel.expenseFunnels.collectAsState(initial=emptyList())
     val categories by viewModel.expenseCategories.collectAsState(initial=emptyList())
+    val rates by viewModel.exchangeRates.collectAsState(initial=emptyList())
     var selectedPitaka by remember{mutableStateOf<Pitaka?>(null)}
     var selectedFunnel by remember{mutableStateOf<ExpenseFunnel?>(null)}
     var name by remember{mutableStateOf("")}; var amount by remember{mutableStateOf("")}; var category by remember{mutableStateOf("")}
@@ -35,7 +36,16 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
             Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null){if(selectedFunnel!=null&&!currency.equals(selectedFunnel!!.currency,true)) mismatch=true else {viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,date?:System.currentTimeMillis());onDone()}}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
-            if(mismatch&&selectedFunnel!=null) AlertDialog(onDismissRequest={mismatch=false},title={Text("Currency mismatch")},text={Text("The expense is ${currency}, while this funnel uses ${selectedFunnel!!.currency}. Choose how to apply it.")},confirmButton={TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,a,currency,date?:System.currentTimeMillis());mismatch=false;onDone()}){Text("Separate currency")}},dismissButton={TextButton(onClick={mismatch=false}){Text("Cancel")}})
+            if(mismatch&&selectedFunnel!=null) AlertDialog(
+                onDismissRequest={mismatch=false},
+                title={Text("Currency mismatch")},
+                text={Text("The expense is ${currency}, while this funnel uses ${selectedFunnel!!.currency}. Choose how to apply it.")},
+                confirmButton={Row{
+                    TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;val converted=viewModel.convertCurrency(a,currency,selectedFunnel!!.currency,rates);viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,converted,selectedFunnel!!.currency,date?:System.currentTimeMillis());mismatch=false;onDone()}){Text("Convert")}
+                    TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,a,currency,date?:System.currentTimeMillis());mismatch=false;onDone()}){Text("Separate")}
+                }},
+                dismissButton={TextButton(onClick={mismatch=false}){Text("Cancel")}}
+            )
         }
     }
 }
