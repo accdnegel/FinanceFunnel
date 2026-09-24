@@ -27,6 +27,9 @@ interface GoalDao {
     @Delete
     suspend fun deleteGoal(goal: Goal)
 
+    @Query("SELECT COUNT(*) FROM ledger_entries WHERE goalId = :id AND type = 'GOAL_CONTRIBUTION'")
+    suspend fun countContributions(id: Long): Int
+
     @Query("SELECT * FROM goals WHERE id = :id")
     suspend fun getGoal(id: Long): Goal?
 
