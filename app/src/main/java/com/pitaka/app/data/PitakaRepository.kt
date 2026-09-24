@@ -278,10 +278,15 @@ class PitakaRepository(private val db: AppDatabase) {
         pitakaId: Long,
         dayOfMonth: Int
     ) {
+        require(type == LedgerType.INCOME || type == LedgerType.EXPENSE) { "Only income and expense can recur." }
+        require(name.trim().isNotBlank()) { "Recurring transaction name cannot be blank." }
+        require(amount > 0 && amount.isFinite()) { "Recurring amount must be a positive finite number." }
+        require(dayOfMonth in 1..31) { "Recurring day must be between 1 and 31." }
+        val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
         recurringDao.insert(
             RecurringRule(
-                type = type, name = name, amount = amount, currency = currencyForRecurring(pitakaId), category = category,
-                pitakaId = pitakaId, dayOfMonth = dayOfMonth.coerceIn(1, 31)
+                type = type, name = name.trim(), amount = amount, currency = pitaka.currency.uppercase(), category = category,
+                pitakaId = pitakaId, dayOfMonth = dayOfMonth
             )
         )
     }
