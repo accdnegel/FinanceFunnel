@@ -20,4 +20,15 @@ class CurrencyBalancesTest {
     @Test fun encodeIsStableAndSorted() {
         assertEquals("EUR=2.0|PHP=10.0|USD=5.0", CurrencyBalances.encode(mapOf("USD" to 5.0, "PHP" to 10.0, "EUR" to 2.0)))
     }
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsInvalidCurrencyCode() {
+        CurrencyBalances.add("", "US", 1.0)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsNonFiniteBalance() {
+        CurrencyBalances.add("", "PHP", Double.NaN)
+    }
 }
+
+
