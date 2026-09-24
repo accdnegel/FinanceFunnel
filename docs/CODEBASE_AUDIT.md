@@ -431,6 +431,7 @@ The branch has a good structural foundation, but it should not yet be considered
 - [x] Handle base currency as an implicit 1:1 conversion rate.
 - [x] Surface missing exchange-rate feedback in the UI.
 - [x] Harden UI-facing monthly conversion to base currency.
+- [x] Make Goal/Funnel creation and repository persistence currency-aware.
 - [ ] Make Goal/Funnel balances consistently multi-currency in all DAO/UI paths.
 - [ ] Persist explicit source/destination currencies for transfers.
 - [ ] Add transaction currency to recurring rules.
