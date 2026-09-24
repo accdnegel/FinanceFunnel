@@ -608,8 +608,12 @@ class PitakaRepository(private val db: AppDatabase) {
         require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) {
             "Insufficient " + txCurrency + " balance in " + source.name + "."
         }
+        val snapshot = historicalConversionSnapshot(txCurrency, amount)
         val entry = LedgerEntry(
-            type = LedgerType.EXPENSE, amount = amount, currency = txCurrency, name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = funnelAmount ?: amount, funnelCurrency = funnelCurrency ?: txCurrency, date = date, conversionRateToBaseAtTransaction = historicalConversionSnapshot(txCurrency, amount).first, amountInBaseAtTransaction = historicalConversionSnapshot(txCurrency, amount).second, baseCurrencyAtTransaction = historicalConversionSnapshot(txCurrency, amount).third
+            type = LedgerType.EXPENSE, amount = amount, currency = txCurrency, name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = funnelAmount ?: amount, funnelCurrency = funnelCurrency ?: txCurrency, date = date,
+            conversionRateToBaseAtTransaction = snapshot.first,
+            amountInBaseAtTransaction = snapshot.second,
+            baseCurrencyAtTransaction = snapshot.third
         )
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
@@ -684,6 +688,7 @@ class PitakaRepository(private val db: AppDatabase) {
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
             // Goals support multiple held currencies; preserve the contribution currency.
+            val snapshot = historicalConversionSnapshot(txCurrency, amount)
             val entry = LedgerEntry(
                 type = LedgerType.GOAL_CONTRIBUTION,
                 amount = amount,
@@ -694,9 +699,9 @@ class PitakaRepository(private val db: AppDatabase) {
                 goalAmount = amount,
                 goalCurrency = txCurrency,
                 date = date,
-                conversionRateToBaseAtTransaction = historicalConversionSnapshot(txCurrency, amount).first,
-                amountInBaseAtTransaction = historicalConversionSnapshot(txCurrency, amount).second,
-                baseCurrencyAtTransaction = historicalConversionSnapshot(txCurrency, amount).third
+                conversionRateToBaseAtTransaction = snapshot.first,
+                amountInBaseAtTransaction = snapshot.second,
+                baseCurrencyAtTransaction = snapshot.third
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
