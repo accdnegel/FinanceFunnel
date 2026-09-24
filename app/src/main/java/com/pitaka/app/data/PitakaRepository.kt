@@ -162,7 +162,10 @@ class PitakaRepository(private val db: AppDatabase) {
      * money genuinely left its source Pitaka and should stay reflected in that Pitaka's
      * history; only the goal-progress tracking for it goes away.
      */
-    suspend fun deleteGoal(goal: Goal) = goalDao.deleteGoal(goal)
+    suspend fun deleteGoal(goal: Goal) {
+        require(goalDao.countContributions(goal.id) == 0) { "This Goal has contribution history. Archive it instead of deleting it." }
+        goalDao.deleteGoal(goal)
+    }
 
     // ---- Expense funnels ----
     fun observeExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAll()
