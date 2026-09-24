@@ -486,9 +486,13 @@ class PitakaRepository(private val db: AppDatabase) {
                 require(secondaryAmount != null && secondaryAmount > 0 && secondaryAmount.isFinite()) {
                     "A positive destination amount is required for a cross-currency transfer."
                 }
+                val baseCurrency = currencyDao.getSettings()?.baseCurrency?.uppercase() ?: "PHP"
                 val rates = currencyDao.getRatesOnce()
-                require(rates.any { it.code.equals(sourceCurrency, true) } && rates.any { it.code.equals(destinationCurrency, true) }) {
-                    "Exchange rates for ${sourceCurrency} and ${destinationCurrency} are required for a cross-currency transfer."
+                fun hasUsableRate(code: String): Boolean =
+                    code.equals(baseCurrency, true) ||
+                        rates.any { it.code.equals(code, true) && it.rateToBase.isFinite() && it.rateToBase > 0.0 }
+                require(hasUsableRate(sourceCurrency) && hasUsableRate(destinationCurrency)) {
+                    "Usable exchange rates for ${sourceCurrency} and ${destinationCurrency} are required for a cross-currency transfer."
                 }
             }
             val entry = LedgerEntry(
