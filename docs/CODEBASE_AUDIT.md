@@ -338,3 +338,10 @@ The branch has a good structural foundation, but it should not yet be considered
 ## Transfer Validation
 - Transfer posting now rejects blank names at the repository boundary.
 - Source balance, source/destination identity, and cross-currency destination amount remain validated inside the same Room transaction.
+
+
+## Deletion and Adjustment Integrity
+- Ledger deletion reverses the full accounting effect before deleting the row, inside one Room transaction.
+- Pitakas with transaction history cannot be deleted, preserving ledger auditability.
+- Goals with contribution history cannot be deleted; the repository directs the user toward archival semantics.
+- Manual balance adjustments now reject NaN/infinite targets, malformed currencies, and missing Pitakas.
