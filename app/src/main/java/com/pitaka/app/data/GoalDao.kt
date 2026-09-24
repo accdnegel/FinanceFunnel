@@ -13,7 +13,8 @@ data class GoalWithProgress(
     val colorHex: String?,
     val cardStyle: String,
     val createdAt: Long,
-    val progress: Double
+    val progress: Double,
+    val currencyBalances: String
 )
 
 @Dao
@@ -34,7 +35,7 @@ interface GoalDao {
     suspend fun getGoal(id: Long): Goal?
 
     @Query("""
-        SELECT g.id, g.name, g.type, g.targetAmount, g.currency, g.targetDate, g.colorHex, g.cardStyle, g.createdAt,
+        SELECT g.id, g.name, g.type, g.targetAmount, g.currency, g.targetDate, g.currencyBalances, g.colorHex, g.cardStyle, g.createdAt,
                COALESCE((
                    SELECT SUM(COALESCE(l.goalAmount, l.amount))
                    FROM ledger_entries l
