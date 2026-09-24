@@ -254,8 +254,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency, goalAmount, goalCurrency) }
     }
 
-    fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid") {
-        viewModelScope.launch { repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle) }
+    fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP") {
+        viewModelScope.launch { repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle, currency) }
     }
 
     fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
