@@ -441,7 +441,8 @@ class PitakaRepository(private val db: AppDatabase) {
             val destination = pitakaDao.getPitaka(toPitakaId) ?: error("Destination Pitaka not found.")
             require(fromPitakaId != toPitakaId) { "Source and destination must be different." }
             val sourceCurrency = source.currency.uppercase()
-            require((CurrencyBalances.parse(source.currencyBalances)[sourceCurrency] ?: 0.0) >= amount) { "Insufficient ${sourceCurrency} balance in ${source.name}." }
+            require((CurrencyBalances.parse(source.currencyBalances)[sourceCurrency] ?: 0.0) >= amount) { "Insufficient " + sourceCurrency + " balance in " + source.name + "." }
+            require(name.trim().isNotBlank()) { "Transfer name cannot be blank." }
             val destinationCurrency = destination.currency.uppercase()
             if (sourceCurrency != destinationCurrency) {
                 require(secondaryAmount != null && secondaryAmount > 0 && secondaryAmount.isFinite()) {
