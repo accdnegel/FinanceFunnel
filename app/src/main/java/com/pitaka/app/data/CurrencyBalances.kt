@@ -1,3 +1,5 @@
+package com.pitaka.app.data
+
 /** Small dependency-free representation of balances held in multiple currencies. */
 object CurrencyBalances {
     private fun normalizedCode(currency: String): String {
