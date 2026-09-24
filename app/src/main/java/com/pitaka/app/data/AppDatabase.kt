@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Pitaka::class, Goal::class, LedgerEntry::class, MonthlyBudget::class, ExpenseFunnel::class, CurrencySettings::class, ExchangeRate::class, RecurringRule::class],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -89,9 +89,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryConversionRateToBaseAtTransaction REAL")
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryAmountInBaseAtTransaction REAL")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pitaka.db")
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build().also { INSTANCE = it }
         }
     }
