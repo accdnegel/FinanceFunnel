@@ -279,3 +279,25 @@ Remaining architectural work includes decimal-safe money storage, base-currency 
 
 ## Audit conclusion
 The branch has a good structural foundation, but it should not yet be considered accounting-safe. The priority is to make ledger effects authoritative and reversible across every linked object, then add regression tests before further feature expansion.
+
+
+## Continued Hardening — 2026-09-24
+
+### Money and serialization
+- Currency-balance parsing now rejects non-finite values and normalizes currency codes.
+- Balance writes reject non-finite amounts before persistence.
+- Repository-level validation rejects non-finite monetary transaction amounts.
+
+### Recurring transactions
+- Recurring rule creation validates type, name, amount, day-of-month, and target Pitaka.
+- Recurring currency is inherited from the target Pitaka and persisted explicitly.
+
+### Reporting
+- Monthly and category reporting uses base-currency conversion before aggregation, preventing mixed-currency raw sums.
+- Goal totals use persisted per-currency balances when calculating aggregate progress.
+
+### Still pending
+- Full integer/decimal-safe schema migration for every persisted monetary field.
+- Comprehensive Room integration tests for apply/reverse/edit/delete/transfer/contribution flows.
+- Multi-currency funnel progress UI and limit semantics.
+- Centralized user-visible error state in the ViewModel/UI.
