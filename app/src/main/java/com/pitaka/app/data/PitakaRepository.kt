@@ -164,16 +164,61 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun getGoal(id: Long): Goal? = goalDao.getGoal(id)
 
-    suspend fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid"): Long {
+    suspend fun createGoal(
+        name: String,
+        type: GoalType,
+        targetAmount: Double,
+        targetDate: Long,
+        colorHex: String?,
+        cardStyle: String = "solid",
+        currency: String = "PHP"
+    ): Long {
+        val code = currency.trim().uppercase().ifBlank { "PHP" }
+        require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
+        require(targetAmount > 0 && targetAmount.isFinite()) { "Goal target must be a positive finite number." }
         return goalDao.insertGoal(
-            Goal(name = name.trim().ifBlank { error("Goal name cannot be blank.") }, type = type, targetAmount = targetAmount.also { require(it > 0 && it.isFinite()) { "Goal target must be a positive finite number." } }, targetDate = targetDate, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0")
+            Goal(
+                name = name.trim().ifBlank { error("Goal name cannot be blank.") },
+                type = type,
+                targetAmount = targetAmount,
+                currency = code,
+                targetDate = targetDate,
+                colorHex = colorHex,
+                cardStyle = cardStyle,
+                currencyBalances = CurrencyBalances.encode(mapOf(code to 0.0))
+            )
         )
     }
 
-    suspend fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
+    suspend fun updateGoal(
+        goalId: Long,
+        name: String,
+        type: GoalType,
+        targetAmount: Double,
+        targetDate: Long,
+        colorHex: String?,
+        cardStyle: String = "solid",
+        currency: String? = null
+    ) {
         val existing = goalDao.getGoal(goalId) ?: return
+        val code = (currency?.trim()?.uppercase()?.ifBlank { null } ?: existing.currency.uppercase())
+        require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
+        require(targetAmount > 0 && targetAmount.isFinite()) { "Goal target must be a positive finite number." }
+        val balances = CurrencyBalances.parse(existing.currencyBalances)
+        require(code == existing.currency || (balances[code] ?: 0.0) == 0.0) {
+            "Cannot change the goal currency while that currency has a non-zero balance. Move or reconcile the balance first."
+        }
         goalDao.updateGoal(
-            existing.copy(name = name.trim().ifBlank { error("Goal name cannot be blank.") }, type = type, targetAmount = targetAmount.also { require(it > 0 && it.isFinite()) { "Goal target must be a positive finite number." } }, targetDate = targetDate, colorHex = colorHex, cardStyle = cardStyle)
+            existing.copy(
+                name = name.trim().ifBlank { error("Goal name cannot be blank.") },
+                type = type,
+                targetAmount = targetAmount,
+                currency = code,
+                targetDate = targetDate,
+                colorHex = colorHex,
+                cardStyle = cardStyle,
+                currencyBalances = if (balances.isEmpty()) CurrencyBalances.encode(mapOf(code to 0.0)) else existing.currencyBalances
+            )
         )
     }
 
@@ -193,6 +238,14 @@ class PitakaRepository(private val db: AppDatabase) {
         return funnelDao.getByName("Unclassified Expense") ?: funnelDao.insertAndReturn(ExpenseFunnel(name = "Unclassified Expense", limit = 0.0, currency = "PHP", currencyBalances = "PHP=0", isSystem = true)).let { funnelDao.get(it)!! }
     }
     fun observeFunnelSpent(funnelId: Long): Flow<Double> = funnelDao.observeSpent(funnelId)
+
+    fun observeGoalProgressByCurrency(goalId: Long): Flow<Map<String, Double>> =
+        ledgerDao.observeAll().map { entries ->
+            entries.asSequence()
+                .filter { it.type == LedgerType.GOAL_CONTRIBUTION && it.goalId == goalId }
+                .groupBy { (it.goalCurrency ?: it.currency).uppercase() }
+                .mapValues { (_, rows) -> rows.sumOf { it.goalAmount ?: it.amount } }
+        }
 
     fun observeFunnelSpentByCurrency(funnelId: Long): Flow<Map<String, Double>> =
         ledgerDao.observeAll().map { entries ->
