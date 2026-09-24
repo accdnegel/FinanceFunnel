@@ -99,8 +99,25 @@ class PitakaRepository(private val db: AppDatabase) {
 
     /** Metadata-only edit (name/currency/color) — never touches the balance. */
     suspend fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid") {
-        val existing = pitakaDao.getPitaka(pitakaId) ?: return
-        pitakaDao.updatePitaka(existing.copy(name = name, currency = currency.uppercase(), colorHex = colorHex, cardStyle = cardStyle, currencyBalances = if (existing.currencyBalances.isBlank()) CurrencyBalances.encode(mapOf(currency.uppercase() to existing.currentAmount)) else existing.currencyBalances))
+        db.withTransaction {
+            val existing = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            val code = currency.trim().uppercase()
+            require(name.trim().isNotBlank()) { "Pitaka name cannot be blank." }
+            require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
+            val balances = CurrencyBalances.parse(existing.currencyBalances)
+            require(code == existing.currency.uppercase() || (balances[code] ?: 0.0) == 0.0) {
+                "Cannot change the primary currency while that currency has a non-zero balance. Move or reconcile the balance first."
+            }
+            pitakaDao.updatePitaka(existing.copy(
+                name = name.trim(),
+                currency = code,
+                colorHex = colorHex,
+                cardStyle = cardStyle,
+                currencyBalances = if (balances.isEmpty() && existing.currentAmount != 0.0)
+                    CurrencyBalances.encode(mapOf(code to existing.currentAmount))
+                else existing.currencyBalances
+            ))
+        }
     }
 
     /** Deletes a Pitaka and every ledger row that touches it (income/expense/transfers/contributions). */
