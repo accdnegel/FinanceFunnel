@@ -78,24 +78,24 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     suspend fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
-        val p = pitakaDao.getPitaka(pitakaId) ?: return
-        require(parentPitakaId == null || parentPitakaId != pitakaId) { "A Pitaka cannot be its own parent." }
+        db.withTransaction {
+            val p = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            require(parentPitakaId == null || parentPitakaId != pitakaId) { "A Pitaka cannot be its own parent." }
 
-        if (parentPitakaId != null) {
-            require(pitakaDao.getPitaka(parentPitakaId) != null) { "Parent Pitaka not found." }
-            // Walk upward from the proposed parent; if we encounter the Pitaka being moved,
-            // the change would create a cycle.
-            var cursor: Long? = parentPitakaId
-            while (cursor != null) {
-                if (cursor == pitakaId) require(false) { "This parent selection would create a hierarchy cycle." }
-                cursor = pitakaDao.getPitaka(cursor)?.parentPitakaId
+            if (parentPitakaId != null) {
+                val parent = pitakaDao.getPitaka(parentPitakaId) ?: error("Parent Pitaka not found.")
+                // A parent is a logical container. Re-parenting is therefore allowed only
+                // when it does not turn a financially active Pitaka into a child of itself
+                // through an ancestor cycle.
+                var cursor: Long? = parent.id
+                while (cursor != null) {
+                    require(cursor != pitakaId) { "This parent selection would create a hierarchy cycle." }
+                    cursor = pitakaDao.getPitaka(cursor)?.parentPitakaId
+                }
             }
+            pitakaDao.updatePitaka(p.copy(parentPitakaId = parentPitakaId))
         }
-        pitakaDao.updatePitaka(p.copy(parentPitakaId = parentPitakaId))
     }
-
-    suspend fun addSubPitaka(parentId: Long, name: String, startingBalance: Double, currency: String, colorHex: String?, cardStyle: String = "solid"): Long =
-        createPitaka(name, startingBalance, currency, colorHex, parentId, cardStyle)
 
     /** Metadata-only edit (name/currency/color) — never touches the balance. */
     suspend fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid") {
