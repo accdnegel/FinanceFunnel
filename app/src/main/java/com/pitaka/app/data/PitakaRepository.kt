@@ -666,7 +666,9 @@ class PitakaRepository(private val db: AppDatabase) {
                 date = date,
                 conversionRateToBaseAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).first,
                 amountInBaseAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).second,
-                baseCurrencyAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).third
+                baseCurrencyAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).third,
+                secondaryConversionRateToBaseAtTransaction = historicalConversionSnapshot(destinationCurrency, destinationAmount).first,
+                secondaryAmountInBaseAtTransaction = historicalConversionSnapshot(destinationCurrency, destinationAmount).second
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
