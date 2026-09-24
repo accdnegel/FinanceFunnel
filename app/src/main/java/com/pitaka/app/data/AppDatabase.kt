@@ -23,7 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
 
-        private val MIGRATION_4_5 = object : Migration(4,5) {
+        internal val MIGRATION_4_5 = object : Migration(4,5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE pitakas ADD COLUMN parentPitakaId INTEGER")
                 db.execSQL("ALTER TABLE pitakas ADD COLUMN cardStyle TEXT NOT NULL DEFAULT 'solid'")
@@ -35,20 +35,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_6_7 = object : Migration(6,7) {
+        internal val MIGRATION_6_7 = object : Migration(6,7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryCurrency TEXT")
                 db.execSQL("UPDATE ledger_entries SET secondaryCurrency = currency WHERE type = 'TRANSFER' AND secondaryCurrency IS NULL AND secondaryAmount IS NULL")
             }
         }
 
-        private val MIGRATION_7_8 = object : Migration(7,8) {
+        internal val MIGRATION_7_8 = object : Migration(7,8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE recurring_rules ADD COLUMN currency TEXT NOT NULL DEFAULT 'PHP'")
             }
         }
 
-        private val MIGRATION_5_6 = object : Migration(5, 6) {
+        internal val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN funnelAmount REAL")
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN funnelCurrency TEXT")
