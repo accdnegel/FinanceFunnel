@@ -46,11 +46,12 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
     var error by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<LedgerEntry?>(null) }
+    var maskedBalance by remember { mutableStateOf(false) }
 
     LaunchedEffect(goalId) { goal = viewModel.getGoal(goalId) }
     LaunchedEffect(pitakas) { if (sourcePitaka == null && pitakas.isNotEmpty()) sourcePitaka = pitakas.first() }
 
-    val progress = entries.sumOf { it.amount }
+    val progress = entries.filter { goal != null && (it.goalCurrency ?: it.currency).equals(goal!!.currency, true) }.sumOf { it.goalAmount ?: it.amount }
     val isInvestment = goal?.type == GoalType.INVESTMENT
     val accentColor = parseHexColor(goal?.colorHex) ?: if (isInvestment) Color(0xFF056C3F) else Color(0xFF0278CF)
     val target = (goal?.targetAmount ?: 0.0).coerceAtLeast(0.01)
@@ -78,7 +79,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                         .padding(16.dp)
                 ) {
                     Text(
-                        CurrencyBalances.parse(g.currencyBalances).displayLines().ifBlank { "${g.currency} 0.00" },
+                        if (maskedBalance) "••••••" else CurrencyBalances.parse(g.currencyBalances).displayLines().ifBlank { "${g.currency} 0.00" },
                         style = MaterialTheme.typography.headlineSmall,
                         color = accentColor,
                         fontWeight = FontWeight.Bold
@@ -130,7 +131,10 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                                     sourcePitakaId = src.id,
                                     goalId = goalId,
                                     name = note.ifBlank { "Contribution" },
-                                    amount = amount
+                                    amount = amount,
+                                    currency = src.currency,
+                                    goalAmount = if (src.currency.equals(goal?.currency, true)) amount else null,
+                                    goalCurrency = goal?.currency
                                 )
                                 note = ""
                                 amountText = ""
