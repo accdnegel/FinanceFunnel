@@ -125,6 +125,15 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun monthKey(date: Long): String = java.time.Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().substring(0, 7)
 
+    val hasMissingConversionRates: Flow<Boolean> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        entries.any { entry ->
+            entry.type != LedgerType.TRANSFER &&
+                entry.currency.uppercase() != base.uppercase() &&
+                rates.none { it.code.equals(entry.currency, ignoreCase = true) }
+        }
+    }
+
     private fun convert(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double? {
         val source = from.trim().uppercase()
         val target = to.trim().uppercase()
