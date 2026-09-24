@@ -254,8 +254,32 @@ class PitakaRepository(private val db: AppDatabase) {
                 .groupBy { (it.funnelCurrency ?: it.currency).uppercase() }
                 .mapValues { (_, rows) -> rows.sumOf { it.funnelAmount ?: it.amount } }
         }
-    suspend fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid"): Long =
-        funnelDao.insert(ExpenseFunnel(name = name.trim().ifBlank { error("Funnel name cannot be blank.") }, limit = limit.also { require(it >= 0 && it.isFinite()) { "Funnel limit must be a non-negative finite number." } }, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0"))
+    suspend fun createExpenseFunnel(
+        name: String,
+        limit: Double,
+        validFrom: Long?,
+        validUntil: Long?,
+        colorHex: String?,
+        cardStyle: String = "solid",
+        currency: String = "PHP"
+    ): Long {
+        val code = currency.trim().uppercase().ifBlank { "PHP" }
+        require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
+        require(limit >= 0 && limit.isFinite()) { "Funnel limit must be a non-negative finite number." }
+        require(validFrom == null || validUntil == null || validFrom <= validUntil) { "Funnel start date must not be after its end date." }
+        return funnelDao.insert(
+            ExpenseFunnel(
+                name = name.trim().ifBlank { error("Funnel name cannot be blank.") },
+                limit = limit,
+                currency = code,
+                currencyBalances = CurrencyBalances.encode(mapOf(code to 0.0)),
+                validFrom = validFrom,
+                validUntil = validUntil,
+                colorHex = colorHex,
+                cardStyle = cardStyle
+            )
+        )
+    }
     suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
     suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
         require(!funnel.isSystem) { "System expense funnels cannot be deleted." }
