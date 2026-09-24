@@ -432,7 +432,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - [x] Surface missing exchange-rate feedback in the UI.
 - [x] Harden UI-facing monthly conversion to base currency.
 - [x] Make Goal/Funnel creation and repository persistence currency-aware.
-- [ ] Make Goal/Funnel balances consistently multi-currency in all DAO/UI paths.
+- [x] Make Goal/Funnel balances consistently multi-currency in all DAO/UI paths.
+  - [x] Funnel summaries use funnel allocation amounts in the funnel currency and surface other-currency allocations.
+  - [x] Goal summaries display the configured goal currency instead of a hard-coded currency symbol.
 - [ ] Persist explicit source/destination currencies for transfers.
 - [ ] Add transaction currency to recurring rules.
 - [ ] Audit recurring catch-up behavior and short-month handling with tests.
