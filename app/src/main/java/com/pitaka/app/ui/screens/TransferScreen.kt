@@ -91,10 +91,13 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
     }
 }
 
-private fun convertBetween(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double {
+private fun convertBetween(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double? {
     if (from == to) return amount
-    val fromRate = rates.find { it.code == from }?.rateToBase ?: 1.0
-    val toRate = rates.find { it.code == to }?.rateToBase ?: 1.0
+    val fromRate = rates.find { it.code == from }?.rateToBase
+    val toRate = rates.find { it.code == to }?.rateToBase
+    // The base currency has an implicit 1:1 rate. Never silently treat a
+    // missing non-base rate as 1.0; that would produce a false conversion.
+    if (fromRate == null || toRate == null) return null
     return amount * fromRate / toRate
 }
 
