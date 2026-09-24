@@ -410,3 +410,41 @@ The branch has a good structural foundation, but it should not yet be considered
 ## Automated Regression Coverage
 - Added unit coverage for CurrencyBalances normalization, stable encoding, malformed currency rejection, and non-finite amount rejection.
 - This utility is a critical persistence boundary for multi-currency Pitakas, Goals, and Funnels, so validation behavior is now protected by executable tests rather than documentation alone.
+
+
+## Development checklist — live status (2026-09-24)
+
+### P0 — Financial correctness
+- [x] Harden ledger effect application: fail loudly when required Pitaka/Goal/Funnel/transfer endpoints are missing.
+- [ ] Prove `applyEffect()` and `reverseEffect()` are exact inverses for every ledger type with automated tests.
+- [ ] Fix expense edit allocation so funnel amount/currency cannot remain stale.
+- [ ] Fix goal-contribution edit allocation so goal amount/currency cannot remain stale.
+- [ ] Complete transfer accounting audit, including cross-currency edit/delete reversal.
+- [ ] Complete manual-adjustment multi-currency audit.
+- [ ] Complete deletion/archive policy for ledger-linked Pitakas/Goals/Funnels.
+- [ ] Add transaction-time exchange-rate/base-amount snapshot fields for future historical reporting.
+
+### P1 — Multi-currency and recurring
+- [x] Validate exchange-rate codes and positive finite rates.
+- [x] Handle base currency as an implicit 1:1 conversion rate.
+- [x] Surface missing exchange-rate feedback in the UI.
+- [x] Harden UI-facing monthly conversion to base currency.
+- [ ] Make Goal/Funnel balances consistently multi-currency in all DAO/UI paths.
+- [ ] Persist explicit source/destination currencies for transfers.
+- [ ] Add transaction currency to recurring rules.
+- [ ] Audit recurring catch-up behavior and short-month handling with tests.
+
+### P1/P2 — Data integrity and lifecycle
+- [x] Reject malformed/non-finite currency-balance writes.
+- [ ] Add migration tests for every Room schema version.
+- [ ] Define archive/soft-delete behavior for financial entities.
+- [ ] Audit hierarchy re-parenting and first-child balance migration.
+- [ ] Replace monetary `Double` persistence with a decimal-safe/minor-unit representation (planned migration).
+
+### P2/P3 — Quality and UX
+- [x] Propagate major repository mutation errors to ViewModel/UI feedback.
+- [x] Add initial CurrencyBalances unit coverage.
+- [ ] Expand accounting regression/unit/integration tests.
+- [ ] Fix stale current-month state across month boundaries.
+- [ ] Verify all build/CI paths after accounting changes.
+- [ ] Complete comprehensive codebase/user documentation.
