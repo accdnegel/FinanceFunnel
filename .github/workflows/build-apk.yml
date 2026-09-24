@@ -3,7 +3,7 @@ name: Build Pitaka APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "feature/pitaka-home-hierarchy-spending-refactor", "feature/technical-debt-accounting-hardening" ]
+    branches: [ "main", "feature/pitaka-home-hierarchy-spending-refactor", "feature/technical-debt-accounting-hardening", "feature/pitaka-home-accounting-integrated" ]
 
 jobs:
   build:
@@ -46,7 +46,9 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot
           disable-animations: true
-          script: gradle connectedDebugAndroidTest --no-daemon\n\n      - name: Upload APK
+          script: gradle connectedDebugAndroidTest --no-daemon
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: pitaka-debug-apk
