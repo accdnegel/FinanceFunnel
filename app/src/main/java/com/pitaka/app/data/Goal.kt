@@ -19,5 +19,6 @@ data class Goal(
     val targetDate: Long,
     val colorHex: String? = null,
     val cardStyle: String = "solid",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val archivedAt: Long? = null
 )
