@@ -366,6 +366,12 @@ class PitakaRepository(private val db: AppDatabase) {
         val rules = recurringDao.getActiveRulesOnce()
         for (rule in rules) {
             if (rule.lastAppliedMonth == currentMonth) continue
+            require(rule.type == LedgerType.INCOME || rule.type == LedgerType.EXPENSE) {
+                "Recurring rules only support income and expense transactions."
+            }
+            require(rule.name.trim().isNotBlank()) { "Recurring rule name cannot be blank." }
+            require(rule.amount > 0 && rule.amount.isFinite()) { "Recurring rule amount must be a positive finite number." }
+            require(rule.dayOfMonth in 1..31) { "Recurring rule day must be between 1 and 31." }
             val effectiveDay = rule.dayOfMonth.coerceAtMost(today.lengthOfMonth())
             if (today.dayOfMonth < effectiveDay) continue
 
