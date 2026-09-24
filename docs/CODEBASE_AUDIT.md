@@ -442,7 +442,7 @@ The branch has a good structural foundation, but it should not yet be considered
 
 ### P1/P2 — Data integrity and lifecycle
 - [x] Reject malformed/non-finite currency-balance writes.
-- [ ] Add migration tests for every Room schema version.
+- [x] Add migration tests for every Room schema version.
 - [ ] Define archive/soft-delete behavior for financial entities.
 - [ ] Audit hierarchy re-parenting and first-child balance migration.
 - [ ] Replace monetary `Double` persistence with a decimal-safe/minor-unit representation (planned migration).
@@ -458,3 +458,9 @@ The branch has a good structural foundation, but it should not yet be considered
 
 ## Recurring Integration Coverage — 2026-09-24
 - Added Android Room tests for recurring income catch-up, short-month day-31 clamping, duplicate prevention within a month, due-date gating, multi-currency recurring expenses, and disabling recurring rules.
+
+
+## Room Migration Contract Coverage — 2026-09-24
+- Added Android instrumentation coverage for the 4→5→6→7→8 migration chain.
+- Verifies hierarchy/card-style/system-funnel columns, funnel/goal allocation columns, transfer secondary-currency introduction, recurring-rule currency introduction, and preservation of the seeded legacy rows.
+- Historical destination currency is not fabricated for legacy cross-currency transfers when the pre-migration schema did not persist that information.
