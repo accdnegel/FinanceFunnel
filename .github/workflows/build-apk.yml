@@ -27,7 +27,8 @@ jobs:
       - name: Install Android SDK 34
         run: |
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "system-images;android-34;google_apis;x86_64"
+          echo "no" | avdmanager create avd -n pitaka-api34 -k "system-images;android-34;google_apis;x86_64" --force
 
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
@@ -37,7 +38,7 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Run Android instrumentation tests\n        uses: reactivecircus/android-emulator-runner@v2\n        with:\n          api-level: 34\n          target: google_apis\n          arch: x86_64\n          profile: pixel_2\n          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot\n          disable-animations: true\n          script: gradle connectedDebugAndroidTest --no-daemon\n\n      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: pitaka-debug-apk
