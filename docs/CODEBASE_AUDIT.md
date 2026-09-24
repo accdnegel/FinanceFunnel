@@ -420,7 +420,8 @@ The branch has a good structural foundation, but it should not yet be considered
   - [x] Add pure CurrencyBalances add/reverse regression coverage.
 - [x] Fix expense edit allocation so funnel amount scales with the edited transaction and remains validated.
 - [x] Fix goal-contribution edit allocation so goal amount scales with the edited transaction and remains validated.
-- [ ] Complete transfer accounting audit, including cross-currency edit/delete reversal.
+- [x] Complete transfer accounting audit, including cross-currency edit/delete reversal.
+  - [x] Cross-currency transfer edits now scale the destination leg with the source amount.
 - [ ] Complete manual-adjustment multi-currency audit.
 - [ ] Complete deletion/archive policy for ledger-linked Pitakas/Goals/Funnels.
 - [ ] Add transaction-time exchange-rate/base-amount snapshot fields for future historical reporting.
