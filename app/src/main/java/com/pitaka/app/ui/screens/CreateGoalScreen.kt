@@ -11,6 +11,7 @@ import com.pitaka.app.ui.components.ColorSwatchPicker
 import com.pitaka.app.ui.components.CardStylePicker
 import com.pitaka.app.ui.components.DatePickerButton
 import com.pitaka.app.ui.components.CurrencyDropdown
+import com.pitaka.app.ui.theme.parseHexColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,7 +88,7 @@ fun CreateGoalScreen(viewModel: PitakaViewModel, goalId: Long? = null, onDone: (
 
             Text("Card Color")
             ColorSwatchPicker(selected = selectedColor, onSelected = { selectedColor = it })
-            CardStylePicker(selected = cardStyle, solidColor = com.pitaka.app.ui.components.parseHexColor(selectedColor) ?: MaterialTheme.colorScheme.primary) { cardStyle = it }
+            CardStylePicker(selected = cardStyle, solidColor = parseHexColor(selectedColor) ?: MaterialTheme.colorScheme.primary) { cardStyle = it }
 
             Spacer(modifier = Modifier.weight(1f))
 
