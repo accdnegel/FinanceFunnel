@@ -314,3 +314,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - Transaction edits now validate name, amount, target Pitaka, available currency balance, and Goal currency before committing the replacement.
 - The old ledger effect is reversed and the replacement applied inside one Room transaction, so validation failure rolls the reversal back atomically.
 - Pitaka creation now rejects malformed currency codes.
+
+
+## Hierarchy and Currency Metadata Hardening
+- Pitaka re-parenting is now atomic and cycle-safe inside a Room transaction.
+- Pitaka metadata updates validate names/currency codes.
+- A Pitaka primary currency cannot be switched to a currency that already has a non-zero secondary balance; this prevents silently reinterpreting existing money under a different primary currency.
