@@ -349,14 +349,14 @@ class PitakaRepository(private val db: AppDatabase) {
             }
 
             val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
-            val ratio = if (oldEntry.amount != 0.0) newAmount / oldEntry.amount else 1.0
+            val ratio = AccountingMath.editRatio(oldEntry.amount, newAmount)
 
             // Allocation amounts are part of the ledger event, not independent balances.
             // When the transaction amount changes, preserve an explicitly converted
             // funnel/goal allocation by scaling it with the same transaction ratio.
             val updatedFunnelAmount = oldEntry.funnelAmount?.let { oldAllocation ->
                 require(oldAllocation.isFinite()) { "Existing funnel allocation is invalid." }
-                oldAllocation * ratio
+                AccountingMath.scaleAllocation(oldAllocation, ratio)
             }
             val updatedGoalAmount = oldEntry.goalAmount?.let { oldAllocation ->
                 require(oldAllocation.isFinite()) { "Existing goal allocation is invalid." }
@@ -370,7 +370,7 @@ class PitakaRepository(private val db: AppDatabase) {
             val updatedSecondaryAmount = if (oldEntry.type == LedgerType.TRANSFER) {
                 oldEntry.secondaryAmount?.let { destinationAmount ->
                     require(destinationAmount.isFinite()) { "Existing transfer destination amount is invalid." }
-                    destinationAmount * ratio
+                    AccountingMath.scaleAllocation(destinationAmount, ratio)
                 }
             } else {
                 oldEntry.secondaryAmount
@@ -716,10 +716,10 @@ class PitakaRepository(private val db: AppDatabase) {
 
     private suspend fun reverseEffect(entry: LedgerEntry) {
         applyEffect(entry.copy(
-            amount = -entry.amount,
-            secondaryAmount = entry.secondaryAmount?.let { -it },
-            funnelAmount = entry.funnelAmount?.let { -it },
-            goalAmount = entry.goalAmount?.let { -it }
+            amount = AccountingMath.reverse(entry.amount),
+            secondaryAmount = entry.secondaryAmount?.let(AccountingMath::reverse),
+            funnelAmount = entry.funnelAmount?.let(AccountingMath::reverse),
+            goalAmount = entry.goalAmount?.let(AccountingMath::reverse)
         ))
     }
 
