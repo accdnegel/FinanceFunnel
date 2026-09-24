@@ -326,3 +326,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - Goal contributions no longer reject a valid source currency merely because it differs from the Goal's primary currency.
 - Contributions are stored using their actual transaction currency and added to the Goal's currencyBalances.
 - Edit validation now verifies Goal existence without imposing a single-currency restriction.
+
+
+## Ledger Invariant Review
+- Transfer validation checks source and destination identities and requires an explicit destination amount for cross-currency transfers.
+- Goal contributions preserve the transaction currency and update Goal currencyBalances accordingly.
+- Removed a stale edit-time validation that incorrectly required Goal primary currency to equal contribution currency.
+- Ledger reversal negates secondary, funnel, and goal amounts together with the primary amount.
