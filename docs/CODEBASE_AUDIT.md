@@ -438,7 +438,7 @@ The branch has a good structural foundation, but it should not yet be considered
   - [x] Goal summaries display the configured goal currency instead of a hard-coded currency symbol.
 - [ ] Persist explicit source/destination currencies for transfers.
 - [x] Add transaction currency to recurring rules.
-- [ ] Audit recurring catch-up behavior and short-month handling with tests.
+- [x] Audit recurring catch-up behavior and short-month handling with tests.
 
 ### P1/P2 — Data integrity and lifecycle
 - [x] Reject malformed/non-finite currency-balance writes.
@@ -454,3 +454,7 @@ The branch has a good structural foundation, but it should not yet be considered
 - [ ] Fix stale current-month state across month boundaries.
 - [ ] Verify all build/CI paths after accounting changes.\n  - [ ] Run the new Android instrumentation suite in GitHub Actions and inspect the result.
 - [ ] Complete comprehensive codebase/user documentation.
+
+
+## Recurring Integration Coverage — 2026-09-24
+- Added Android Room tests for recurring income catch-up, short-month day-31 clamping, duplicate prevention within a month, due-date gating, multi-currency recurring expenses, and disabling recurring rules.
