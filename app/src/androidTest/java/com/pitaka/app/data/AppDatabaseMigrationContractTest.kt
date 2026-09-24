@@ -80,6 +80,10 @@ class AppDatabaseMigrationContractTest {
         assertTrue(columnExists("ledger_entries", "conversionRateToBaseAtTransaction"))
         assertTrue(columnExists("ledger_entries", "amountInBaseAtTransaction"))
         assertTrue(columnExists("ledger_entries", "baseCurrencyAtTransaction"))
+
+        AppDatabase.MIGRATION_10_11.migrate(db)
+        assertTrue(columnExists("ledger_entries", "secondaryConversionRateToBaseAtTransaction"))
+        assertTrue(columnExists("ledger_entries", "secondaryAmountInBaseAtTransaction"))
     }
 
     private fun columnExists(table: String, column: String): Boolean {
