@@ -266,9 +266,6 @@ class PitakaRepository(private val db: AppDatabase) {
                 if (oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
                     val goal = oldEntry.goalId?.let { goalDao.getGoal(it) }
                     require(goal != null) { "Goal not found." }
-                    require(goal.currency.equals(oldEntry.currency, ignoreCase = true)) {
-                        "Contribution currency does not match the Goal currency."
-                    }
                 }
             }
 
