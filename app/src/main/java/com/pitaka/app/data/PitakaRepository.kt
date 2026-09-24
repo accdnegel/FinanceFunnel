@@ -166,8 +166,34 @@ class PitakaRepository(private val db: AppDatabase) {
         return funnelDao.getByName("Unclassified Expense") ?: funnelDao.insertAndReturn(ExpenseFunnel(name = "Unclassified Expense", limit = 0.0, currency = "PHP", currencyBalances = "PHP=0", isSystem = true)).let { funnelDao.get(it)!! }
     }
     fun observeFunnelSpent(funnelId: Long): Flow<Double> = funnelDao.observeSpent(funnelId)
-    suspend fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid"): Long =
-        funnelDao.insert(ExpenseFunnel(name = name, limit = limit, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0"))
+    suspend fun createExpenseFunnel(
+        name: String,
+        limit: Double,
+        validFrom: Long?,
+        validUntil: Long?,
+        colorHex: String?,
+        cardStyle: String = "solid",
+        currency: String = "PHP"
+    ): Long {
+        require(name.isNotBlank()) { "Funnel name cannot be blank." }
+        CurrencyRules.requirePositiveFinite(limit, "Funnel limit")
+        require(validFrom == null || validUntil == null || validUntil >= validFrom) {
+            "Funnel end date cannot be before its start date."
+        }
+        val code = CurrencyRules.requireCurrency(currency)
+        return funnelDao.insert(
+            ExpenseFunnel(
+                name = name.trim(),
+                limit = limit,
+                currency = code,
+                validFrom = validFrom,
+                validUntil = validUntil,
+                colorHex = colorHex,
+                cardStyle = cardStyle,
+                currencyBalances = "${code}=0"
+            )
+        )
+    }
     suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
     suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.delete(funnel)
 
