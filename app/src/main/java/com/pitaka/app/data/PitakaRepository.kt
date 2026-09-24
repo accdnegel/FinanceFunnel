@@ -347,6 +347,8 @@ class PitakaRepository(private val db: AppDatabase) {
 
     fun observeAllExpenses(): Flow<List<LedgerEntry>> = ledgerDao.observeAllExpenses()
 
+    fun observeFinancialEntries(): Flow<List<LedgerEntry>> = ledgerDao.observeAllEntries()
+
     fun observeMonthlyExpenses(): Flow<List<MonthlyAmount>> = ledgerDao.observeMonthlyExpenses()
 
     fun observeMonthlyIncome(): Flow<List<MonthlyAmount>> = ledgerDao.observeMonthlyIncome()
@@ -412,7 +414,7 @@ class PitakaRepository(private val db: AppDatabase) {
             }
             val updatedGoalAmount = oldEntry.goalAmount?.let { oldAllocation ->
                 require(oldAllocation.isFinite()) { "Existing goal allocation is invalid." }
-                oldAllocation * ratio
+                AccountingMath.scaleAllocation(oldAllocation, ratio)
             }
             // A transfer has two monetary legs. When the source amount is edited,
             // preserve the original exchange relationship by scaling the destination
