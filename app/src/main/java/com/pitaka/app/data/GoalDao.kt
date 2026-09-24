@@ -44,6 +44,7 @@ interface GoalDao {
                      AND COALESCE(l.goalCurrency, l.currency) = g.currency
                ), 0) AS progress
         FROM goals g
+        WHERE g.archivedAt IS NULL
         ORDER BY g.createdAt DESC
     """)
     fun observeGoalsWithProgress(): Flow<List<GoalWithProgress>>
