@@ -320,3 +320,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - Pitaka re-parenting is now atomic and cycle-safe inside a Room transaction.
 - Pitaka metadata updates validate names/currency codes.
 - A Pitaka primary currency cannot be switched to a currency that already has a non-zero secondary balance; this prevents silently reinterpreting existing money under a different primary currency.
+
+
+## Goal Multi-Currency Correction
+- Goal contributions no longer reject a valid source currency merely because it differs from the Goal's primary currency.
+- Contributions are stored using their actual transaction currency and added to the Goal's currencyBalances.
+- Edit validation now verifies Goal existence without imposing a single-currency restriction.
