@@ -1,6 +1,7 @@
 package com.pitaka.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class CurrencyBalancesTest {
