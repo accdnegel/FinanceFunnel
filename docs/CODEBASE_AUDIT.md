@@ -364,3 +364,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - PitakaNavGraph observes the ViewModel operationError StateFlow.
 - Repository failures are displayed through a Material SnackbarHost at the navigation root, so errors remain visible regardless of which child screen initiated the operation.
 - The error is cleared after presentation to prevent repeated display on recomposition.
+
+
+## Recurring Transaction Date Hardening
+- Catch-up transactions are now stamped with the effective scheduled day rather than app-open time.
+- Day 31 in a shorter month is clamped to that month's last day, matching the existing recurring-rule semantics.
+- Recurring currency codes are validated before posting.
+- A missing Pitaka or unsupported recurring type now fails the transaction instead of silently updating the rule.
