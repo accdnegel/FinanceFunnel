@@ -443,7 +443,7 @@ The branch has a good structural foundation, but it should not yet be considered
 ### P1/P2 — Data integrity and lifecycle
 - [x] Reject malformed/non-finite currency-balance writes.
 - [x] Add migration tests for every Room schema version.
-- [ ] Define archive/soft-delete behavior for financial entities.
+- [x] Define archive/soft-delete behavior for financial entities.
 - [x] Audit hierarchy re-parenting and first-child balance migration.
 - [ ] Replace monetary `Double` persistence with a decimal-safe/minor-unit representation (planned migration).
 
@@ -471,3 +471,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - Verified manual adjustments are currency-specific and recorded as ADJUSTMENT ledger entries.
 - Verified self/ancestor hierarchy cycles are rejected and financial Pitakas with transaction history cannot be deleted.
 - Remaining lifecycle work: define explicit archive/soft-delete semantics for financial entities.
+
+
+## Archive Lifecycle — 2026-09-24
+- Pitakas, Goals, and Expense Funnels now have `archivedAt` state persisted through Room migration 8→9.
+- Active DAO listings hide archived containers while ledger history remains intact.
+- Pitakas/Goals/Funnels with financial history are not permanently deletable; archive/restore is the lifecycle path.
+- System expense funnels remain protected from archive/delete operations.
