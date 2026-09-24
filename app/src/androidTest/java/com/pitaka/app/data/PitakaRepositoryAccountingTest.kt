@@ -224,5 +224,36 @@ class PitakaRepositoryAccountingTest {
         assertTrue(rejected)
     }
 
+    @Test
+    fun archivedPitakaRetainsHistoryAndCanBeRestored() = runBlocking {
+        val id = repository.createPitaka("Archive me", 1000.0, "PHP", null)
+        repository.recordIncome(id, "Salary", 500.0)
+        repository.archivePitaka(id)
+        val archived = db.pitakaDao().getPitaka(id)!!
+        assertTrue(archived.archivedAt != null)
+        assertEquals(1500.0, CurrencyBalances.parse(archived.currencyBalances)["PHP"] ?: 0.0, 0.0)
+        assertEquals(1, repository.getAllEntriesOnce().size)
+        repository.restorePitaka(id)
+        assertTrue(db.pitakaDao().getPitaka(id)!!.archivedAt == null)
+    }
+
+    @Test
+    fun archivedGoalAndFunnelCannotBePermanentlyDeletedWithHistory() = runBlocking {
+        val pitakaId = repository.createPitaka("Source", 5000.0, "PHP", null)
+        val goalId = repository.createGoal("Goal", GoalType.SAVINGS, 10000.0, 0L, null, currency = "PHP")
+        repository.recordGoalContribution(pitakaId, goalId, "Contribution", 500.0)
+        repository.archiveGoal(goalId)
+        var goalRejected = false
+        try { repository.deleteGoal(db.goalDao().getGoal(goalId)!!) } catch (_: IllegalArgumentException) { goalRejected = true }
+        assertTrue(goalRejected)
+
+        val funnelId = repository.createExpenseFunnel("Bills", 1000.0, null, null, null, currency = "PHP")
+        repository.recordExpense(pitakaId, "Bill", 100.0, "Bills", funnelId)
+        repository.archiveExpenseFunnel(funnelId)
+        var funnelRejected = false
+        try { repository.deleteExpenseFunnel(db.expenseFunnelDao().get(funnelId)!!) } catch (_: IllegalArgumentException) { funnelRejected = true }
+        assertTrue(funnelRejected)
+    }
+
 }
 
