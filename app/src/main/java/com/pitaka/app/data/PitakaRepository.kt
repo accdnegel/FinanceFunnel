@@ -120,7 +120,28 @@ class PitakaRepository(private val db: AppDatabase) {
         }
     }
 
-    /** Deletes a Pitaka and every ledger row that touches it (income/expense/transfers/contributions). */
+    /** Archives a Pitaka without deleting its ledger history or balances. */
+    suspend fun archivePitaka(pitakaId: Long) {
+        db.withTransaction {
+            val existing = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            require(existing.archivedAt == null) { "Pitaka is already archived." }
+            require(pitakaDao.countChildren(pitakaId) == 0) { "Reassign or archive child Pitakas before archiving this parent." }
+            pitakaDao.updatePitaka(existing.copy(archivedAt = System.currentTimeMillis()))
+        }
+    }
+
+    suspend fun restorePitaka(pitakaId: Long) {
+        db.withTransaction {
+            val existing = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            require(existing.archivedAt != null) { "Pitaka is not archived." }
+            existing.parentPitakaId?.let { parentId ->
+                val parent = pitakaDao.getPitaka(parentId)
+                require(parent == null || parent.archivedAt == null) { "Restore the parent Pitaka first." }
+            }
+            pitakaDao.updatePitaka(existing.copy(archivedAt = null))
+        }
+    }
+
     suspend fun deletePitakaCascade(pitaka: Pitaka) {
         db.withTransaction {
             require(ledgerDao.countEntriesForPitaka(pitaka.id) == 0) { "This Pitaka has transaction history. Archive it instead of deleting it." }
@@ -227,8 +248,21 @@ class PitakaRepository(private val db: AppDatabase) {
      * money genuinely left its source Pitaka and should stay reflected in that Pitaka's
      * history; only the goal-progress tracking for it goes away.
      */
+    suspend fun archiveGoal(goalId: Long) {
+        val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
+        require(goal.archivedAt == null) { "Goal is already archived." }
+        goalDao.updateGoal(goal.copy(archivedAt = System.currentTimeMillis()))
+    }
+
+    suspend fun restoreGoal(goalId: Long) {
+        val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
+        require(goal.archivedAt != null) { "Goal is not archived." }
+        goalDao.updateGoal(goal.copy(archivedAt = null))
+    }
+
     suspend fun deleteGoal(goal: Goal) {
-        require(goalDao.countContributions(goal.id) == 0) { "This Goal has contribution history. Archive it instead of deleting it." }
+        require(goal.archivedAt != null) { "Archive the Goal before permanent deletion." }
+        require(goalDao.countContributions(goal.id) == 0) { "This Goal has contribution history. It cannot be permanently deleted." }
         goalDao.deleteGoal(goal)
     }
 
@@ -281,9 +315,23 @@ class PitakaRepository(private val db: AppDatabase) {
         )
     }
     suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
+    suspend fun archiveExpenseFunnel(funnelId: Long) {
+        val funnel = funnelDao.get(funnelId) ?: error("Expense funnel not found.")
+        require(!funnel.isSystem) { "System expense funnels cannot be archived." }
+        require(funnel.archivedAt == null) { "Expense funnel is already archived." }
+        funnelDao.update(funnel.copy(archivedAt = System.currentTimeMillis()))
+    }
+
+    suspend fun restoreExpenseFunnel(funnelId: Long) {
+        val funnel = funnelDao.get(funnelId) ?: error("Expense funnel not found.")
+        require(funnel.archivedAt != null) { "Expense funnel is not archived." }
+        funnelDao.update(funnel.copy(archivedAt = null))
+    }
+
     suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
         require(!funnel.isSystem) { "System expense funnels cannot be deleted." }
-        require(funnelDao.countExpenses(funnel.id) == 0) { "This funnel has expense history. Archive it instead of deleting it." }
+        require(funnel.archivedAt != null) { "Archive the expense funnel before permanent deletion." }
+        require(funnelDao.countExpenses(funnel.id) == 0) { "This funnel has expense history. It cannot be permanently deleted." }
         funnelDao.delete(funnel)
     }
 
