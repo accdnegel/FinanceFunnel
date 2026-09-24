@@ -23,6 +23,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     var selectedFunnel by remember{mutableStateOf<ExpenseFunnel?>(null)}
     var name by remember{mutableStateOf("")}; var amount by remember{mutableStateOf("")}; var category by remember{mutableStateOf("")}
     var date by remember{mutableStateOf<Long?>(System.currentTimeMillis())};var currency by remember{mutableStateOf("PHP")}
+    LaunchedEffect(selectedPitaka?.id) { selectedPitaka?.let { currency = it.currency.uppercase() } }
     LaunchedEffect(pitakas){if(selectedPitaka==null)selectedPitaka=pitakas.firstOrNull()}
     Scaffold(topBar={TopAppBar(title={Text("New Expense")},navigationIcon={TextButton(onClick=onDone){Text("Back")}})}){padding->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
