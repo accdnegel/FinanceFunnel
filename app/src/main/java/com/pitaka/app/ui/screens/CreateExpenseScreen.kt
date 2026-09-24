@@ -42,7 +42,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
                 text={Text(mismatchError ?: "The expense is ${currency}, while this funnel uses ${selectedFunnel!!.currency}. Choose how to apply it.")},
                 confirmButton={Row{
                     TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;try { val converted=viewModel.convertCurrency(a,currency,selectedFunnel!!.currency,rates);viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,converted,selectedFunnel!!.currency,date?:System.currentTimeMillis());mismatch=false;onDone() } catch(e: IllegalArgumentException){ mismatchError=e.message ?: "Configure exchange rates first." }}){Text("Convert")}
-                    TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,a,currency,date?:System.currentTimeMillis());mismatch=false;onDone()}){Text("Separate")}
+                    TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;try { viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,a,currency,date?:System.currentTimeMillis());mismatch=false;onDone() } catch(e: IllegalArgumentException){ mismatchError=e.message ?: "The expense cannot be recorded." }}){Text("Separate")}
                 }},
                 dismissButton={TextButton(onClick={mismatch=false}){Text("Cancel")}}
             )
