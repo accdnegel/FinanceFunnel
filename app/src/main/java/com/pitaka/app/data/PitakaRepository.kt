@@ -370,14 +370,19 @@ class PitakaRepository(private val db: AppDatabase) {
             if (today.dayOfMonth < effectiveDay) continue
 
             db.withTransaction {
+                val scheduledDate = today.withDayOfMonth(effectiveDay)
+                    .atStartOfDay(java.time.ZoneId.systemDefault())
+                    .toInstant().toEpochMilli()
+                val currency = rule.currency.trim().uppercase()
+                require(currency.length == 3 && currency.all { it in 'A'..'Z' }) { "Recurring rule has an invalid currency." }
+                pitakaDao.getPitaka(rule.pitakaId) ?: error("Pitaka for recurring rule not found.")
                 when (rule.type) {
-                    LedgerType.INCOME -> recordIncomeInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount, currency = rule.currency.uppercase())
-                    LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount, rule.category, null, rule.currency)
-                    else -> {} // recurring rules only support INCOME/EXPENSE
+                    LedgerType.INCOME -> recordIncomeInternal(rule.pitakaId, rule.name + " (recurring)", rule.amount, date = scheduledDate, currency = currency)
+                    LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, rule.name + " (recurring)", rule.amount, rule.category, null, currency, date = scheduledDate)
+                    else -> error("Unsupported recurring transaction type.")
                 }
                 recurringDao.update(rule.copy(lastAppliedMonth = currentMonth))
-            }
-        }
+            }        }
     }
 
     // ---- Money-movement operations (all atomic) ----
