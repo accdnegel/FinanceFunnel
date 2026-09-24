@@ -136,17 +136,19 @@ class PitakaRepository(private val db: AppDatabase) {
      */
     suspend fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String, currency: String? = null) {
         db.withTransaction {
-            require(newBalance >= 0) { "Adjusted balance cannot be negative." }
-            val pitaka = pitakaDao.getPitaka(pitakaId) ?: return@withTransaction
+            require(newBalance.isFinite() && newBalance >= 0) { "Adjusted balance must be a non-negative finite number." }
+            val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
             val code = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
+            require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
             val current = CurrencyBalances.parse(pitaka.currencyBalances)[code] ?: 0.0
             val delta = newBalance - current
+            require(delta.isFinite()) { "Adjustment amount must be finite." }
             if (delta == 0.0) return@withTransaction
             val entry = LedgerEntry(
                 type = LedgerType.ADJUSTMENT,
                 amount = delta,
                 currency = code,
-                name = note.ifBlank { "Manual adjustment" },
+                name = note.trim().ifBlank { "Manual adjustment" },
                 pitakaId = pitakaId
             )
             ledgerDao.insertEntry(entry)
