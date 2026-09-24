@@ -26,6 +26,7 @@ import com.pitaka.app.data.displayLines
 import com.pitaka.app.data.LedgerEntry
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.ui.components.PitakaDropdown
 import com.pitaka.app.ui.components.ConfirmDeleteDialog
 import com.pitaka.app.ui.components.EditEntryDialog
 import com.pitaka.app.ui.components.HealthBar
