@@ -423,7 +423,7 @@ The branch has a good structural foundation, but it should not yet be considered
 - [x] Fix goal-contribution edit allocation so goal amount scales with the edited transaction and remains validated.
 - [x] Complete transfer accounting audit, including cross-currency edit/delete reversal.
   - [x] Cross-currency transfer edits now scale the destination leg with the source amount.
-- [ ] Complete manual-adjustment multi-currency audit.
+- [x] Complete manual-adjustment multi-currency audit.
 - [ ] Complete deletion/archive policy for ledger-linked Pitakas/Goals/Funnels.
 - [ ] Add transaction-time exchange-rate/base-amount snapshot fields for future historical reporting.
 
@@ -444,7 +444,7 @@ The branch has a good structural foundation, but it should not yet be considered
 - [x] Reject malformed/non-finite currency-balance writes.
 - [x] Add migration tests for every Room schema version.
 - [ ] Define archive/soft-delete behavior for financial entities.
-- [ ] Audit hierarchy re-parenting and first-child balance migration.
+- [x] Audit hierarchy re-parenting and first-child balance migration.
 - [ ] Replace monetary `Double` persistence with a decimal-safe/minor-unit representation (planned migration).
 
 ### P2/P3 — Quality and UX
@@ -464,3 +464,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - Added Android instrumentation coverage for the 4→5→6→7→8 migration chain.
 - Verifies hierarchy/card-style/system-funnel columns, funnel/goal allocation columns, transfer secondary-currency introduction, recurring-rule currency introduction, and preservation of the seeded legacy rows.
 - Historical destination currency is not fabricated for legacy cross-currency transfers when the pre-migration schema did not persist that information.
+
+
+## Pitaka Hierarchy / Adjustment Audit — 2026-09-24
+- Verified first-child conversion preserves all existing parent currency balances in the child and clears the parent container balance.
+- Verified manual adjustments are currency-specific and recorded as ADJUSTMENT ledger entries.
+- Verified self/ancestor hierarchy cycles are rejected and financial Pitakas with transaction history cannot be deleted.
+- Remaining lifecycle work: define explicit archive/soft-delete semantics for financial entities.
