@@ -173,6 +173,14 @@ class PitakaRepository(private val db: AppDatabase) {
         return funnelDao.getByName("Unclassified Expense") ?: funnelDao.insertAndReturn(ExpenseFunnel(name = "Unclassified Expense", limit = 0.0, currency = "PHP", currencyBalances = "PHP=0", isSystem = true)).let { funnelDao.get(it)!! }
     }
     fun observeFunnelSpent(funnelId: Long): Flow<Double> = funnelDao.observeSpent(funnelId)
+
+    fun observeFunnelSpentByCurrency(funnelId: Long): Flow<Map<String, Double>> =
+        ledgerDao.observeAll().map { entries ->
+            entries.asSequence()
+                .filter { it.type == LedgerType.EXPENSE && it.funnelId == funnelId }
+                .groupBy { (it.funnelCurrency ?: it.currency).uppercase() }
+                .mapValues { (_, rows) -> rows.sumOf { it.funnelAmount ?: it.amount } }
+        }
     suspend fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid"): Long =
         funnelDao.insert(ExpenseFunnel(name = name.trim().ifBlank { error("Funnel name cannot be blank.") }, limit = limit.also { require(it >= 0 && it.isFinite()) { "Funnel limit must be a non-negative finite number." } }, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0"))
     suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
