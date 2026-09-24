@@ -528,23 +528,58 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     private suspend fun applyEffect(entry: LedgerEntry) {
+        require(entry.amount.isFinite()) { "Ledger amount must be finite." }
+
         when (entry.type) {
-            LedgerType.INCOME -> entry.pitakaId?.let { adjustBalance(it, entry.amount, entry.currency) }
+            LedgerType.INCOME -> {
+                val pitakaId = requireNotNull(entry.pitakaId) { "Income ledger entry has no Pitaka." }
+                require(pitakaDao.getPitaka(pitakaId) != null) { "Pitaka for income ledger entry not found." }
+                adjustBalance(pitakaId, entry.amount, entry.currency)
+            }
             LedgerType.EXPENSE -> {
-                entry.pitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
-                entry.funnelId?.let { id -> funnelDao.get(id)?.let { funnelDao.update(it.copy(currencyBalances = CurrencyBalances.add(it.currencyBalances, entry.funnelCurrency ?: entry.currency, entry.funnelAmount ?: entry.amount))) } }
+                val pitakaId = requireNotNull(entry.pitakaId) { "Expense ledger entry has no Pitaka." }
+                require(pitakaDao.getPitaka(pitakaId) != null) { "Pitaka for expense ledger entry not found." }
+                adjustBalance(pitakaId, -entry.amount, entry.currency)
+
+                val funnelId = requireNotNull(entry.funnelId) { "Expense ledger entry has no funnel." }
+                val funnel = requireNotNull(funnelDao.get(funnelId)) { "Expense funnel for ledger entry not found." }
+                val funnelCurrency = entry.funnelCurrency ?: entry.currency
+                val funnelAmount = entry.funnelAmount ?: entry.amount
+                require(funnelAmount.isFinite()) { "Funnel allocation must be finite." }
+                funnelDao.update(funnel.copy(
+                    currencyBalances = CurrencyBalances.add(funnel.currencyBalances, funnelCurrency, funnelAmount)
+                ))
             }
             LedgerType.GOAL_CONTRIBUTION -> {
-                entry.pitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
-                entry.goalId?.let { id -> goalDao.getGoal(id)?.let { goalDao.updateGoal(it.copy(currencyBalances = CurrencyBalances.add(it.currencyBalances, entry.goalCurrency ?: entry.currency, entry.goalAmount ?: entry.amount))) } }
+                val pitakaId = requireNotNull(entry.pitakaId) { "Goal contribution has no source Pitaka." }
+                require(pitakaDao.getPitaka(pitakaId) != null) { "Pitaka for goal contribution not found." }
+                adjustBalance(pitakaId, -entry.amount, entry.currency)
+
+                val goalId = requireNotNull(entry.goalId) { "Goal contribution has no Goal." }
+                val goal = requireNotNull(goalDao.getGoal(goalId)) { "Goal for ledger contribution not found." }
+                val goalCurrency = entry.goalCurrency ?: entry.currency
+                val goalAmount = entry.goalAmount ?: entry.amount
+                require(goalAmount.isFinite()) { "Goal allocation must be finite." }
+                goalDao.updateGoal(goal.copy(
+                    currencyBalances = CurrencyBalances.add(goal.currencyBalances, goalCurrency, goalAmount)
+                ))
             }
-            LedgerType.ADJUSTMENT -> entry.pitakaId?.let { adjustBalance(it, entry.amount, entry.currency) }
+            LedgerType.ADJUSTMENT -> {
+                val pitakaId = requireNotNull(entry.pitakaId) { "Adjustment has no Pitaka." }
+                require(pitakaDao.getPitaka(pitakaId) != null) { "Pitaka for adjustment not found." }
+                adjustBalance(pitakaId, entry.amount, entry.currency)
+            }
             LedgerType.TRANSFER -> {
-                entry.fromPitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
-                entry.toPitakaId?.let { id ->
-                    val destinationCurrency = entry.secondaryCurrency ?: pitakaDao.getPitaka(id)?.currency ?: entry.currency
-                    adjustBalance(id, entry.secondaryAmount ?: entry.amount, destinationCurrency)
-                }
+                val fromId = requireNotNull(entry.fromPitakaId) { "Transfer has no source Pitaka." }
+                val toId = requireNotNull(entry.toPitakaId) { "Transfer has no destination Pitaka." }
+                require(fromId != toId) { "Transfer source and destination must differ." }
+                require(pitakaDao.getPitaka(fromId) != null) { "Source Pitaka for transfer not found." }
+                require(pitakaDao.getPitaka(toId) != null) { "Destination Pitaka for transfer not found." }
+                val destinationCurrency = entry.secondaryCurrency ?: pitakaDao.getPitaka(toId)!!.currency
+                val destinationAmount = entry.secondaryAmount ?: entry.amount
+                require(destinationAmount.isFinite()) { "Transfer destination amount must be finite." }
+                adjustBalance(fromId, -entry.amount, entry.currency)
+                adjustBalance(toId, destinationAmount, destinationCurrency)
             }
         }
     }
