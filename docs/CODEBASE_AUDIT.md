@@ -7,7 +7,7 @@
 ## Executive summary
 The branch has a coherent offline-first architecture and a ledger-centered accounting model, but several financial-integrity defects remain. The most serious defects involve deletion and editing of ledger-linked objects, because the application stores derived balances on Pitakas/Goals/Funnels while also allowing ledger rows to be deleted or changed without consistently reversing/recomputing every affected derived balance.
 
-No automated unit/instrumentation tests were found under `app/src/test` or `app/src/androidTest`. The accounting engine therefore has no repository-level regression suite protecting the highest-risk behavior.
+A unit-test foundation has now been added under `app/src/test`; comprehensive accounting integration coverage is still incomplete.
 
 ## Severity definitions
 - P0 — can corrupt financial state or produce materially incorrect balances/history.
@@ -271,6 +271,11 @@ Therefore pushes to the audited branch do not necessarily trigger the expected A
 - reopening app twice in same month
 - disabled rule
 - multi-currency recurring rule
+
+## Remediation status
+The first hardening pass has been applied: destructive Pitaka/Goal/Funnel deletion is blocked when financial history exists; transfer destination currency is persisted; recurring rules carry currency; expense, goal, and transfer operations validate source funds; manual adjustments are currency-aware; expense creation inherits the Pitaka currency; linked funnel/goal allocations are rescaled when an entry amount is edited; database migrations were advanced to version 8; the APK workflow now includes the accounting-hardening branch; and currency-balance unit tests were added.
+
+Remaining architectural work includes decimal-safe money storage, base-currency normalization of monthly/category statistics, complete multi-currency Goal/Funnel progress models, user-facing operation error state, and extraction of accounting logic from the repository.
 
 ## Audit conclusion
 The branch has a good structural foundation, but it should not yet be considered accounting-safe. The priority is to make ledger effects authoritative and reversible across every linked object, then add regression tests before further feature expansion.
