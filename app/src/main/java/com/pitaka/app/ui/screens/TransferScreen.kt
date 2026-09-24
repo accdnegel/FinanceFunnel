@@ -14,6 +14,8 @@ import com.pitaka.app.ui.PitakaViewModel
 fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
     val pitakas by viewModel.pitakas.collectAsState(initial = emptyList())
     val rates by viewModel.exchangeRates.collectAsState(initial = emptyList())
+    val currencySettings by viewModel.currencySettings.collectAsState(initial = null)
+    val baseCurrency = currencySettings?.baseCurrency ?: "PHP"
     var fromPitaka by remember { mutableStateOf<Pitaka?>(null) }
     var toPitaka by remember { mutableStateOf<Pitaka?>(null) }
     var name by remember { mutableStateOf("") }
@@ -28,7 +30,7 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
     val amount = amountText.toDoubleOrNull()
     val crossCurrency = fromPitaka != null && toPitaka != null && fromPitaka?.currency != toPitaka?.currency
     val convertedAmount = if (crossCurrency && amount != null) {
-        convertBetween(amount, fromPitaka!!.currency, toPitaka!!.currency, rates)
+        convertBetween(amount, fromPitaka!!.currency, toPitaka!!.currency, baseCurrency, rates)
     } else null
 
     Scaffold(topBar = { TopAppBar(title = { Text("Transfer Between Pitakas") }) }) { padding ->
@@ -91,10 +93,10 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
     }
 }
 
-private fun convertBetween(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double? {
+private fun convertBetween(amount: Double, from: String, to: String, baseCurrency: String, rates: List<ExchangeRate>): Double? {
     if (from == to) return amount
-    val fromRate = rates.find { it.code == from }?.rateToBase
-    val toRate = rates.find { it.code == to }?.rateToBase
+    val fromRate = if (from.equals(baseCurrency, true)) 1.0 else rates.find { it.code.equals(from, true) }?.rateToBase
+    val toRate = if (to.equals(baseCurrency, true)) 1.0 else rates.find { it.code.equals(to, true) }?.rateToBase
     // The base currency has an implicit 1:1 rate. Never silently treat a
     // missing non-base rate as 1.0; that would produce a false conversion.
     if (fromRate == null || toRate == null) return null
