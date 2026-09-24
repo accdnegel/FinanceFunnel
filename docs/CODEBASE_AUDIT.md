@@ -450,7 +450,7 @@ The branch has a good structural foundation, but it should not yet be considered
 ### P2/P3 — Quality and UX
 - [x] Propagate major repository mutation errors to ViewModel/UI feedback.
 - [x] Add initial CurrencyBalances unit coverage.
-- [ ] Expand accounting regression/unit/integration tests.\n  - [x] Add Android Room lifecycle coverage for income/expense edit-delete, goal contribution reversal, cross-currency transfer reversal, and manual multi-currency adjustment.
+- [x] Expand accounting regression/unit/integration tests.\n  - [x] Add Android Room lifecycle coverage for income/expense edit-delete, goal contribution reversal, cross-currency transfer reversal, and manual multi-currency adjustment.
 - [x] Fix stale current-month state across month boundaries.
 - [ ] Verify all build/CI paths after accounting changes.\n  - [ ] Run the new Android instrumentation suite in GitHub Actions and inspect the result.
 - [ ] Complete comprehensive codebase/user documentation.
@@ -501,3 +501,9 @@ The branch has a good structural foundation, but it should not yet be considered
 ## Month Boundary State — 2026-09-24
 - `currentMonthKey` is now a Flow refreshed periodically and switches automatically when `YearMonth.now()` changes.
 - Current-month budget observation follows the refreshed key with `flatMapLatest`, preventing a long-lived ViewModel from retaining the previous month's budget indefinitely.
+
+
+## Decimal-Safe Integration Pass — 2026-09-24
+- Currency conversion in the ViewModel now uses `MoneyMath` instead of raw multiplication.
+- Hierarchical currency-balance aggregation now uses `MoneyMath.add()`.
+- The existing accounting regression suite was expanded earlier with pure arithmetic and Room lifecycle coverage; final execution remains dependent on GitHub Actions/instrumented-test verification.
