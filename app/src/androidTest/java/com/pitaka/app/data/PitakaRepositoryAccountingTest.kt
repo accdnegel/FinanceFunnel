@@ -186,5 +186,19 @@ class PitakaRepositoryAccountingTest {
         repository.applyDueRecurringRules(java.time.LocalDate.of(2026, 9, 20))
         assertEquals(1, repository.getAllEntriesOnce().size)
     }
+    @Test
+    fun firstChildInheritsExistingParentBalancesAndParentBecomesContainer() = runBlocking {
+        val parentId = repository.createPitaka("Main Bank", 10000.0, "PHP", null)
+        repository.recordIncome(parentId, "USD deposit", 500.0)
+        val childId = repository.createPitaka("Checking", 2000.0, "PHP", null, parentPitakaId = parentId)
+        val parent = db.pitakaDao().getPitaka(parentId)!!
+        val child = db.pitakaDao().getPitaka(childId)!!
+        assertEquals(0.0, parent.currentAmount, 0.0)
+        assertTrue(CurrencyBalances.parse(parent.currencyBalances).isEmpty())
+        assertEquals(12000.0, CurrencyBalances.parse(child.currencyBalances)["PHP"] ?: 0.0, 0.0)
+        assertEquals(500.0, CurrencyBalances.parse(child.currencyBalances)["USD"] ?: 0.0, 0.0)
+        assertEquals(parentId, child.parentPitakaId)
+    }
+
 }
 
