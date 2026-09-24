@@ -272,7 +272,7 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     // ---- Expense funnels ----
-    fun observeExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAll()
+    fun observeExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAllEntries()
     suspend fun getSystemUnclassifiedFunnel(): ExpenseFunnel {
         return funnelDao.getByName("Unclassified Expense") ?: funnelDao.insertAndReturn(ExpenseFunnel(name = "Unclassified Expense", limit = 0.0, currency = "PHP", currencyBalances = "PHP=0", isSystem = true)).let { funnelDao.get(it)!! }
     }
@@ -720,7 +720,7 @@ class PitakaRepository(private val db: AppDatabase) {
 
     private suspend fun historicalConversionSnapshot(currency: String, amount: Double): Triple<Double, Double, String> {
         val code = currency.trim().uppercase()
-        val base = currencyDao.getSettings()?.baseCurrency?.trim()?.uppercase()?.ifBlank { "PHP" } ?: "PHP"
+        val base = currencyDao.observeSettings().first()?.baseCurrency?.trim()?.uppercase()?.ifBlank { "PHP" } ?: "PHP"
         val rate = if (code == base) 1.0 else currencyDao.getRatesOnce()
             .firstOrNull { it.code.equals(code, true) }?.rateToBase
         require(rate != null && rate.isFinite() && rate > 0.0) {
