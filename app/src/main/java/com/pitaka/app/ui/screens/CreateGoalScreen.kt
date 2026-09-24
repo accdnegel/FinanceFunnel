@@ -10,6 +10,7 @@ import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.ColorSwatchPicker
 import com.pitaka.app.ui.components.CardStylePicker
 import com.pitaka.app.ui.components.DatePickerButton
+import com.pitaka.app.ui.components.CurrencyDropdown
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,6 +21,7 @@ fun CreateGoalScreen(viewModel: PitakaViewModel, goalId: Long? = null, onDone: (
     var targetDate by remember { mutableStateOf<Long?>(null) }
     var selectedColor by remember { mutableStateOf<String?>(null) }
     var cardStyle by remember { mutableStateOf("solid") }
+    var currency by remember { mutableStateOf("PHP") }
     var loaded by remember { mutableStateOf(goalId == null) }
 
     LaunchedEffect(goalId) {
@@ -31,6 +33,7 @@ fun CreateGoalScreen(viewModel: PitakaViewModel, goalId: Long? = null, onDone: (
                 targetDate = g.targetDate
                 selectedColor = g.colorHex
                 cardStyle = g.cardStyle
+                currency = g.currency
             }
             loaded = true
         }
@@ -68,6 +71,7 @@ fun CreateGoalScreen(viewModel: PitakaViewModel, goalId: Long? = null, onDone: (
                 label = { Text("Target Amount") },
                 modifier = Modifier.fillMaxWidth()
             )
+            CurrencyDropdown(currency, { currency = it })
             DatePickerButton(
                 label = "Target Completion Date",
                 selectedDate = targetDate,
@@ -93,9 +97,9 @@ fun CreateGoalScreen(viewModel: PitakaViewModel, goalId: Long? = null, onDone: (
                     val date = targetDate ?: System.currentTimeMillis()
                     if (name.isNotBlank() && amount > 0) {
                         if (goalId == null) {
-                            viewModel.createGoal(name, type, amount, date, selectedColor, cardStyle)
+                            viewModel.createGoal(name, type, amount, date, selectedColor, cardStyle, currency)
                         } else {
-                            viewModel.updateGoal(goalId, name, type, amount, date, selectedColor, cardStyle)
+                            viewModel.updateGoal(goalId, name, type, amount, date, selectedColor, cardStyle, currency)
                         }
                         onDone()
                     }
