@@ -654,6 +654,7 @@ class PitakaRepository(private val db: AppDatabase) {
                     "Usable exchange rates for ${sourceCurrency} and ${destinationCurrency} are required for a cross-currency transfer."
                 }
             }
+            val destinationAmount = if (destinationCurrency == sourceCurrency) amount else (secondaryAmount ?: amount)
             val entry = LedgerEntry(
                 type = LedgerType.TRANSFER,
                 amount = amount,
