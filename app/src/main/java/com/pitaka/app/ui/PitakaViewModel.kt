@@ -40,7 +40,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         // Catch up on any recurring income/expenses due since the app was last opened.
-        viewModelScope.launch { repository.applyDueRecurringRules() }
+        launchOperation { repository.applyDueRecurringRules() }
     }
 
     // ---- Core data ----
