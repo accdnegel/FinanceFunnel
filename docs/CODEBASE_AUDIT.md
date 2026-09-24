@@ -333,3 +333,8 @@ The branch has a good structural foundation, but it should not yet be considered
 - Goal contributions preserve the transaction currency and update Goal currencyBalances accordingly.
 - Removed a stale edit-time validation that incorrectly required Goal primary currency to equal contribution currency.
 - Ledger reversal negates secondary, funnel, and goal amounts together with the primary amount.
+
+
+## Transfer Validation
+- Transfer posting now rejects blank names at the repository boundary.
+- Source balance, source/destination identity, and cross-currency destination amount remain validated inside the same Room transaction.
