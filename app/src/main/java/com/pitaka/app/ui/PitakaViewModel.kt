@@ -59,6 +59,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val currencySettings: Flow<CurrencySettings?> = repository.observeCurrencySettings()
     val exchangeRates: Flow<List<ExchangeRate>> = repository.observeExchangeRates()
 
+    val financialEntries: Flow<List<LedgerEntry>> = repository.observeFinancialEntries()
+
     fun setBaseCurrency(code: String) {
         viewModelScope.launch { repository.setBaseCurrency(code) }
     }
@@ -183,7 +185,6 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     fun entriesForGoal(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForGoal(id)
     val allExpenses: Flow<List<LedgerEntry>> = repository.observeAllExpenses()
     val allEntries: Flow<List<LedgerEntry>> = repository.observeAllEntries()
-    val financialEntries: Flow<List<LedgerEntry>> = repository.observeFinancialEntries()
 
     suspend fun getPitaka(id: Long): Pitaka? = repository.getPitaka(id)
     suspend fun getGoal(id: Long): Goal? = repository.getGoal(id)
