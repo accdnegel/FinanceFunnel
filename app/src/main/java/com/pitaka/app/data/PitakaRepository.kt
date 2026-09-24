@@ -722,7 +722,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(rate != null && rate.isFinite() && rate > 0.0) {
             "A usable exchange rate for $code is required to record a historical base-currency snapshot."
         }
-        val baseAmount = amount * rate
+        val baseAmount = MoneyMath.multiply(amount, rate)
         require(baseAmount.isFinite()) { "Historical base-currency amount must be finite." }
         return Triple(rate, baseAmount, base)
     }
@@ -808,7 +808,7 @@ class PitakaRepository(private val db: AppDatabase) {
         val primaryDelta = if (pitaka.currency.equals(currency, ignoreCase = true)) delta else 0.0
         pitakaDao.updatePitaka(
             pitaka.copy(
-                currentAmount = pitaka.currentAmount + primaryDelta,
+                currentAmount = MoneyMath.add(pitaka.currentAmount, primaryDelta),
                 currencyBalances = balances,
                 lastUpdated = System.currentTimeMillis()
             )
