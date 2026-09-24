@@ -36,7 +36,7 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
             if(funnels.isEmpty())Text("No funnels yet. Use the global + button to create one.",color=MaterialTheme.colorScheme.onSurfaceVariant)
             LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(10.dp),contentPadding=PaddingValues(vertical=10.dp)){
                 items(funnels,key={it.id}){f->
-                    val spent=expenses.filter{it.funnelId==f.id}.sumOf{it.amount};val remaining=f.limit-spent
+                    val spent=expenses.filter{it.funnelId==f.id && it.funnelCurrency.equals(f.currency,true)}.sumOf{it.funnelAmount ?: it.amount};val remaining=f.limit-spent
                     BatikCardSurface(f.cardStyle,com.pitaka.app.ui.theme.parseHexColor(f.colorHex) ?: MaterialTheme.colorScheme.primary,Modifier.fillMaxWidth().clickable{onOpenFunnel(f.id)}){
                         Column(Modifier.padding(14.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(f.name,style=MaterialTheme.typography.titleMedium);Text(if(f.isSystem) "System funnel" else f.currency+" "+"%,.2f".format(remaining)+" left")};Text(if(f.isSystem) "Spent "+f.currency+" "+"%,.2f".format(spent)+" (no limit)" else "Spent "+f.currency+" "+"%,.2f".format(spent)+" / "+"%,.2f".format(f.limit),style=MaterialTheme.typography.bodySmall);if(f.limit>0)HealthBar(((remaining/f.limit).toFloat()).coerceIn(0f,1f));Text("Tap for full history",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)}}
                 }
