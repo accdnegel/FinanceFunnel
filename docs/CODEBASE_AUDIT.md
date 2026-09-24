@@ -484,3 +484,8 @@ The branch has a good structural foundation, but it should not yet be considered
 - Ledger entries now persist the transaction-time rate-to-base, converted base amount, and base currency for newly recorded transactions.
 - Room migration 9→10 adds the nullable fields; existing rows remain null because historical rates must not be fabricated from today's rates.
 - New non-base transactions require a configured usable rate at posting time; base-currency transactions use an implicit 1.0 rate.
+
+
+## Cross-Currency Historical Snapshots — 2026-09-24
+- Cross-currency transfers now persist both source-side and destination-side transaction-time base conversion snapshots.
+- Migration 10→11 adds nullable destination snapshot fields; existing rows remain untouched.
