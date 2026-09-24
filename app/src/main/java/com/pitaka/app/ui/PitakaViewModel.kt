@@ -146,7 +146,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         // is the reference unit, so its rate is exactly 1 and does not need a stored row.
         val fromRate = rates.find { it.code.equals(source, ignoreCase = true) }?.rateToBase ?: return null
         if (!fromRate.isFinite() || fromRate <= 0.0) return null
-        return amount * fromRate
+        return MoneyMath.multiply(amount, fromRate)
     }
 
     // ---- Monthly expense budgets ----
