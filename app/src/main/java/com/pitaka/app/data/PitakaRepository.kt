@@ -279,7 +279,7 @@ class PitakaRepository(private val db: AppDatabase) {
     fun observeFunnelSpent(funnelId: Long): Flow<Double> = funnelDao.observeSpent(funnelId)
 
     fun observeGoalProgressByCurrency(goalId: Long): Flow<Map<String, Double>> =
-        ledgerDao.observeAll().map { entries ->
+        ledgerDao.observeAllEntries().map { entries ->
             entries.asSequence()
                 .filter { it.type == LedgerType.GOAL_CONTRIBUTION && it.goalId == goalId }
                 .groupBy { (it.goalCurrency ?: it.currency).uppercase() }
