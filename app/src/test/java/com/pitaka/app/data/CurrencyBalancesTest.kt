@@ -30,6 +30,28 @@ class CurrencyBalancesTest {
     fun rejectsNonFiniteBalance() {
         CurrencyBalances.add("", "PHP", Double.NaN)
     }
+
+    @Test
+    fun addAndReverseReturnToOriginalBalance() {
+        val original = CurrencyBalances.encode(mapOf("PHP" to 1000.0, "USD" to 50.0))
+        val afterAdd = CurrencyBalances.add(original, "PHP", 125.75)
+        val restored = CurrencyBalances.add(afterAdd, "PHP", -125.75)
+        assertEquals(original, restored)
+    }
+
+    @Test
+    fun currenciesRemainIndependent() {
+        val balances = CurrencyBalances.add("PHP=100", "USD", 25.0)
+        val updated = CurrencyBalances.add(balances, "PHP", -40.0)
+        val parsed = CurrencyBalances.parse(updated)
+        assertEquals(60.0, parsed["PHP"] ?: 0.0, 0.000001)
+        assertEquals(25.0, parsed["USD"] ?: 0.0, 0.000001)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsNonFiniteDelta() {
+        CurrencyBalances.add("PHP=100", "PHP", Double.POSITIVE_INFINITY)
+    }
 }
 
 
