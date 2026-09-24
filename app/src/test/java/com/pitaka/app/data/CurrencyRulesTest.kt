@@ -52,4 +52,32 @@ class CurrencyRulesTest {
             CurrencyRules.requirePositiveFinite(0.0, "Amount")
         }
     }
+    @Test
+    fun conversionRejectsOverflow() {
+        assertThrows(IllegalArgumentException::class.java) {
+            CurrencyRules.convert(Double.MAX_VALUE, "USD", "PHP", listOf(
+                ExchangeRate("USD", Double.MAX_VALUE),
+                ExchangeRate("PHP", 1.0)
+            ))
+        }
+    }
+
+    @Test
+    fun currencyCodesAreNormalizedAndValidated() {
+        assertEquals("USD", CurrencyRules.requireCurrency(" usd "))
+        assertThrows(IllegalArgumentException::class.java) {
+            CurrencyRules.requireCurrency("US")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CurrencyRules.requireCurrency("US$")
+        }
+    }
+
+    @Test
+    fun negativeFiniteAmountsAreRejectedWhenPositiveRequired() {
+        assertThrows(IllegalArgumentException::class.java) {
+            CurrencyRules.requirePositiveFinite(-1.0, "Amount")
+        }
+    }
+
 }
