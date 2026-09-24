@@ -3,7 +3,7 @@ name: Build Pitaka APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "feature/pitaka-home-hierarchy-spending-refactor" ]
+    branches: [ "main", "feature/pitaka-home-hierarchy-spending-refactor", "feature/technical-debt-accounting-hardening" ]
 
 jobs:
   build:
