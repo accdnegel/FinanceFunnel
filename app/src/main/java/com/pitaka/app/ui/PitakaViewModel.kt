@@ -212,7 +212,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun deleteRecurringRule(rule: RecurringRule) {
-        viewModelScope.launch { repository.deleteRecurringRule(rule) }
+        launchOperation { repository.deleteRecurringRule(rule) }
     }
 
     // ---- Actions ----
