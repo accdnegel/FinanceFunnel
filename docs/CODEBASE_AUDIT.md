@@ -378,3 +378,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - Catch-up validates rule type, name, amount, day-of-month, currency, and referenced Pitaka before posting.
 - Day 29/30/31 rules are clamped to the final calendar day of shorter months, preserving the documented monthly behavior.
 - The recurring posting and lastAppliedMonth update remain atomic, preventing a rule from being marked applied when posting fails.
+
+
+## Multi-Currency Reporting and Rate Validation
+- Monthly expense/income reporting is calculated in the configured base currency from the complete ledger, avoiding raw aggregation of different currencies.
+- Current-month expense totals use the same conversion path as monthly statistics.
+- Exchange rates now require a three-letter currency code and a positive finite rate, preventing malformed or non-numeric conversion factors.
