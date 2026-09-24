@@ -317,7 +317,7 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun setExchangeRate(code: String, rateToBase: Double) {
         val normalized = code.trim().uppercase()
-        require(normalized.isNotBlank()) { "Currency code cannot be blank." }
+        require(normalized.length == 3 && normalized.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
         require(rateToBase > 0 && rateToBase.isFinite()) { "Exchange rate must be a positive finite number." }
         currencyDao.upsertRate(ExchangeRate(code = normalized, rateToBase = rateToBase))
     }
