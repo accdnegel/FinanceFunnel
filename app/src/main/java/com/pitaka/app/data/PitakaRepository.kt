@@ -105,8 +105,8 @@ class PitakaRepository(private val db: AppDatabase) {
     /** Deletes a Pitaka and every ledger row that touches it (income/expense/transfers/contributions). */
     suspend fun deletePitakaCascade(pitaka: Pitaka) {
         db.withTransaction {
-            pitakaDao.detachChildren(pitaka.id)
-            ledgerDao.deleteEntriesForPitaka(pitaka.id)
+            require(ledgerDao.countEntriesForPitaka(pitaka.id) == 0) { "This Pitaka has transaction history. Archive it instead of deleting it." }
+            require(pitakaDao.countChildren(pitaka.id) == 0) { "Remove or reassign child Pitakas before deleting this parent." }
             pitakaDao.deletePitaka(pitaka)
         }
     }
@@ -119,11 +119,14 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String) {
         db.withTransaction {
             val pitaka = pitakaDao.getPitaka(pitakaId) ?: return@withTransaction
-            val delta = newBalance - pitaka.currentAmount
+            val code = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
+            val current = CurrencyBalances.parse(pitaka.currencyBalances)[code] ?: 0.0
+            val delta = newBalance - current
             if (delta == 0.0) return@withTransaction
             val entry = LedgerEntry(
                 type = LedgerType.ADJUSTMENT,
                 amount = delta,
+                currency = code,
                 name = note.ifBlank { "Manual adjustment" },
                 pitakaId = pitakaId
             )
@@ -263,7 +266,7 @@ class PitakaRepository(private val db: AppDatabase) {
     ) {
         recurringDao.insert(
             RecurringRule(
-                type = type, name = name, amount = amount, category = category,
+                type = type, name = name, amount = amount, currency = currencyForRecurring(pitakaId), category = category,
                 pitakaId = pitakaId, dayOfMonth = dayOfMonth.coerceIn(1, 31)
             )
         )
@@ -292,7 +295,7 @@ class PitakaRepository(private val db: AppDatabase) {
             db.withTransaction {
                 when (rule.type) {
                     LedgerType.INCOME -> recordIncomeInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount)
-                    LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount, rule.category, null, null)
+                    LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount, rule.category, null, rule.currency)
                     else -> {} // recurring rules only support INCOME/EXPENSE
                 }
                 recurringDao.update(rule.copy(lastAppliedMonth = currentMonth))
@@ -317,8 +320,11 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
         require(amount > 0) { "Expense amount must be positive" }
         db.withTransaction {
+            val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
+            require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
-            recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, currency ?: "PHP", funnelAmount, funnelCurrency, date)
+            recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, txCurrency, funnelAmount, funnelCurrency, date)
         }
     }
 
@@ -346,7 +352,12 @@ class PitakaRepository(private val db: AppDatabase) {
         date: Long = System.currentTimeMillis()
     ) {
         db.withTransaction {
-            val sourceCurrency = pitakaDao.getPitaka(fromPitakaId)?.currency ?: "PHP"
+            val source = pitakaDao.getPitaka(fromPitakaId) ?: error("Source Pitaka not found.")
+            val destination = pitakaDao.getPitaka(toPitakaId) ?: error("Destination Pitaka not found.")
+            require(fromPitakaId != toPitakaId) { "Source and destination must be different." }
+            val sourceCurrency = source.currency.uppercase()
+            require((CurrencyBalances.parse(source.currencyBalances)[sourceCurrency] ?: 0.0) >= amount) { "Insufficient ${sourceCurrency} balance in ${source.name}." }
+            val destinationCurrency = destination.currency.uppercase()
             val entry = LedgerEntry(
                 type = LedgerType.TRANSFER,
                 amount = amount,
@@ -354,7 +365,8 @@ class PitakaRepository(private val db: AppDatabase) {
                 name = name,
                 fromPitakaId = fromPitakaId,
                 toPitakaId = toPitakaId,
-                secondaryAmount = secondaryAmount,
+                secondaryAmount = if (destinationCurrency == sourceCurrency) null else (secondaryAmount ?: amount),
+                secondaryCurrency = destinationCurrency,
                 date = date
             )
             ledgerDao.insertEntry(entry)
@@ -384,6 +396,8 @@ class PitakaRepository(private val db: AppDatabase) {
     // applyEffect() is linear in `amount`, so reverseEffect() can just negate amount(s) and
     // re-apply the same formula — this correctly undoes any entry type, including edits.
 
+    private suspend fun currencyForRecurring(pitakaId: Long): String = pitakaDao.getPitaka(pitakaId)?.currency?.uppercase() ?: "PHP"
+
     private suspend fun canonicalExpenseCategory(category: String?): String {
         val cleaned = category?.trim().orEmpty()
         if (cleaned.isEmpty()) return "Uncategorized Expense"
@@ -405,7 +419,7 @@ class PitakaRepository(private val db: AppDatabase) {
             LedgerType.TRANSFER -> {
                 entry.fromPitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
                 entry.toPitakaId?.let { id ->
-                    val destinationCurrency = pitakaDao.getPitaka(id)?.currency ?: entry.currency
+                    val destinationCurrency = entry.secondaryCurrency ?: pitakaDao.getPitaka(id)?.currency ?: entry.currency
                     adjustBalance(id, entry.secondaryAmount ?: entry.amount, destinationCurrency)
                 }
             }
