@@ -197,8 +197,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.deletePitakaCascade(pitaka) }
     }
 
-    fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String) {
-        viewModelScope.launch { repository.adjustPitakaBalanceManually(pitakaId, newBalance, note) }
+    fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String, currency: String? = null) {
+        viewModelScope.launch { repository.adjustPitakaBalanceManually(pitakaId, newBalance, note, currency) }
     }
 
     fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
