@@ -40,5 +40,11 @@ data class LedgerEntry(
     val funnelCurrency: String? = null,
     val goalAmount: Double? = null,
     val goalCurrency: String? = null,
-    val date: Long = System.currentTimeMillis()
+    val date: Long = System.currentTimeMillis(),
+    /** Exchange-rate snapshot used when this transaction was created; null for legacy rows. */
+    val conversionRateToBaseAtTransaction: Double? = null,
+    /** Transaction amount converted using the stored historical rate. */
+    val amountInBaseAtTransaction: Double? = null,
+    /** Base currency used for the historical conversion snapshot. */
+    val baseCurrencyAtTransaction: String? = null
 )
