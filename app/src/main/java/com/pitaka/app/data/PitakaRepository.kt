@@ -321,6 +321,18 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
         CurrencyRules.requirePositiveFinite(amount, "Expense amount")
         funnelAmount?.let { CurrencyRules.requirePositiveFinite(it, "Funnel amount") }
+        require(funnelAmount == null || funnelId != null) { "A Funnel amount requires a Funnel." }
+        if (funnelId != null) {
+            val funnel = funnelDao.get(funnelId) ?: throw IllegalArgumentException("Expense Funnel not found.")
+            val txCurrency = CurrencyRules.requireCurrency(currency ?: pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP")
+            val appliedCurrency = CurrencyRules.requireCurrency(funnelCurrency ?: txCurrency)
+            require(funnel.validFrom == null || date >= funnel.validFrom) { "This Expense Funnel is not active yet." }
+            require(funnel.validUntil == null || date <= funnel.validUntil) { "This Expense Funnel has expired." }
+            val applied = funnelAmount ?: if (appliedCurrency.equals(txCurrency, true)) amount else
+                throw IllegalArgumentException("A converted Funnel amount is required.")
+            val current = CurrencyBalances.parse(funnel.currencyBalances)[appliedCurrency] ?: 0.0
+            require(current + applied <= funnel.limit + 0.0000001) { "Expense exceeds the Funnel limit." }
+        }
         db.withTransaction {
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
             recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, currency ?: "PHP", funnelAmount, funnelCurrency, date)
