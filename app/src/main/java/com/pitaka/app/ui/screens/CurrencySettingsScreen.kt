@@ -24,6 +24,7 @@ fun CurrencySettingsScreen(viewModel: PitakaViewModel, onBack: () -> Unit) {
 
     var newRateCode by remember { mutableStateOf("PHP") }
     var newRateValue by remember { mutableStateOf("") }
+    var rateError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -68,8 +69,13 @@ fun CurrencySettingsScreen(viewModel: PitakaViewModel, onBack: () -> Unit) {
             Button(
                 onClick = {
                     val rate = newRateValue.toDoubleOrNull()
-                    if (rate != null && newRateCode.isNotBlank()) {
-                        viewModel.setExchangeRate(newRateCode, rate)
+                    rateError = when {
+                        newRateCode.isBlank() -> "Select a currency."
+                        rate == null || !rate.isFinite() || rate <= 0.0 -> "Enter a rate greater than zero."
+                        else -> null
+                    }
+                    if (rateError == null) {
+                        viewModel.setExchangeRate(newRateCode, rate!!)
                         newRateValue = ""
                     }
                 },
@@ -77,6 +83,7 @@ fun CurrencySettingsScreen(viewModel: PitakaViewModel, onBack: () -> Unit) {
             ) {
                 Text("Save Rate")
             }
+            rateError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
             Spacer(modifier = Modifier.height(16.dp))
             if (rates.isEmpty()) {
