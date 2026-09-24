@@ -321,7 +321,11 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun recordIncome(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis()) {
         require(amount > 0 && amount.isFinite()) { "Income amount must be a positive finite number" }
-        db.withTransaction { recordIncomeInternal(pitakaId, name, amount, date) }
+        db.withTransaction {
+            val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            val currency = pitaka.currency.uppercase()
+            recordIncomeInternal(pitakaId, name, amount, date, currency)
+        }
     }
 
     private suspend fun recordIncomeInternal(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis(), currency: String? = null) {
