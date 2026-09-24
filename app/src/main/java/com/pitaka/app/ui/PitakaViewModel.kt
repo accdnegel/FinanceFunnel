@@ -139,10 +139,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         val target = to.trim().uppercase()
         if (!amount.isFinite()) return null
         if (source == target) return amount
+        // All current callers convert into the configured base currency. The base currency
+        // is the reference unit, so its rate is exactly 1 and does not need a stored row.
         val fromRate = rates.find { it.code.equals(source, ignoreCase = true) }?.rateToBase ?: return null
-        val toRate = rates.find { it.code.equals(target, ignoreCase = true) }?.rateToBase ?: return null
-        if (!fromRate.isFinite() || fromRate <= 0.0 || !toRate.isFinite() || toRate <= 0.0) return null
-        return amount * fromRate / toRate
+        if (!fromRate.isFinite() || fromRate <= 0.0) return null
+        return amount * fromRate
     }
 
     // ---- Monthly expense budgets ----
