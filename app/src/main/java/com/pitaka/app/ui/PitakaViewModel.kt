@@ -22,6 +22,20 @@ data class MonthlyNetChange(
 
 class PitakaViewModel(application: Application) : AndroidViewModel(application) {
 
+    /** Last user-facing repository operation error. Cleared after a successful operation. */
+    private val _operationError = MutableStateFlow<String?>(null)
+    val operationError: StateFlow<String?> = _operationError.asStateFlow()
+
+    fun clearOperationError() { _operationError.value = null }
+
+    private fun launchOperation(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            runCatching { block() }
+                .onSuccess { _operationError.value = null }
+                .onFailure { _operationError.value = it.message ?: "Unable to complete the operation." }
+        }
+    }
+
     private val repository = PitakaRepository(AppDatabase.getInstance(application))
 
     init {
@@ -223,51 +237,51 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
-        viewModelScope.launch { repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle) }
+        launchOperation { repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle) }
     }
 
     fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
-        viewModelScope.launch { repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle) }
+        launchOperation { repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle) }
     }
 
     fun deleteGoal(goal: Goal) {
-        viewModelScope.launch { repository.deleteGoal(goal) }
+        launchOperation { repository.deleteGoal(goal) }
     }
 
     fun recordIncome(pitakaId: Long, name: String, amount: Double) {
-        viewModelScope.launch { repository.recordIncome(pitakaId, name, amount) }
+        launchOperation { repository.recordIncome(pitakaId, name, amount) }
     }
 
     fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
-        viewModelScope.launch { repository.recordExpense(pitakaId, name, amount, category, funnelId, currency, funnelAmount, funnelCurrency, date) }
+        launchOperation { repository.recordExpense(pitakaId, name, amount, category, funnelId, currency, funnelAmount, funnelCurrency, date) }
     }
 
     fun recordTransfer(fromPitakaId: Long, toPitakaId: Long, name: String, amount: Double, secondaryAmount: Double? = null) {
-        viewModelScope.launch { repository.recordTransfer(fromPitakaId, toPitakaId, name, amount, secondaryAmount) }
+        launchOperation { repository.recordTransfer(fromPitakaId, toPitakaId, name, amount, secondaryAmount) }
     }
 
     fun recordGoalContribution(sourcePitakaId: Long, goalId: Long, name: String, amount: Double, currency: String? = null) {
-        viewModelScope.launch { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency) }
+        launchOperation { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency) }
     }
 
     fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid") {
-        viewModelScope.launch { repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle) }
+        launchOperation { repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle) }
     }
 
     fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
-        viewModelScope.launch { repository.deleteExpenseFunnel(funnel) }
+        launchOperation { repository.deleteExpenseFunnel(funnel) }
     }
 
     fun updateExpenseFunnel(funnel: ExpenseFunnel) {
-        viewModelScope.launch { repository.updateExpenseFunnel(funnel) }
+        launchOperation { repository.updateExpenseFunnel(funnel) }
     }
 
     fun deleteEntry(entry: LedgerEntry) {
-        viewModelScope.launch { repository.deleteEntry(entry) }
+        launchOperation { repository.deleteEntry(entry) }
     }
 
     fun updateEntry(entry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = entry.pitakaId) {
-        viewModelScope.launch { repository.updateEntry(entry, newName, newAmount, newCategory, newPitakaId) }
+        launchOperation { repository.updateEntry(entry, newName, newAmount, newCategory, newPitakaId) }
     }
     fun observeExpensesForCategory(category: String): Flow<List<LedgerEntry>> = repository.observeExpensesForCategory(category)
     fun observeExpensesForFunnel(funnelId: Long): Flow<List<LedgerEntry>> = repository.observeExpensesForFunnel(funnelId)
