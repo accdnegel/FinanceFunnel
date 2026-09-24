@@ -384,3 +384,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - Monthly expense/income reporting is calculated in the configured base currency from the complete ledger, avoiding raw aggregation of different currencies.
 - Current-month expense totals use the same conversion path as monthly statistics.
 - Exchange rates now require a three-letter currency code and a positive finite rate, preventing malformed or non-numeric conversion factors.
+
+
+## Exchange-Rate Safety
+- Missing exchange rates are no longer treated as an implicit 1:1 conversion.
+- Conversion returns no value when either currency's rate is unavailable or invalid; aggregate reports exclude unconvertible entries rather than assigning a fabricated rate.
+- Equal-currency conversion remains exact and does not require a stored exchange rate.
+- This prevents a missing USD/PHP rate from silently turning $1,000 into ₱1,000.
