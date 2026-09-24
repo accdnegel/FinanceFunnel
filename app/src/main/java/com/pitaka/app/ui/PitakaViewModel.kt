@@ -168,7 +168,15 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val availableMonths: Flow<List<String>> = repository.observeAvailableMonths()
 
     fun expenseBreakdownForMonth(month: String): Flow<List<CategorySpend>> =
-        repository.observeExpenseBreakdownForMonth(month)
+        combine(financialEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+            val base = settings?.baseCurrency ?: "PHP"
+            entries.filter { it.type == LedgerType.EXPENSE &&
+                YearMonth.from(java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()).toString() == month
+            }.groupBy { it.category?.trim().takeUnless { c -> c.isNullOrBlank() } ?: "Uncategorized Expense" }
+                .map { (category, rows) ->
+                    CategorySpend(category, rows.sumOf { convert(kotlin.math.abs(it.amount), it.currency, base, rates) })
+                }.sortedByDescending { it.total }
+        }
 
     fun entriesForPitaka(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForPitaka(id)
     fun entriesForGoal(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForGoal(id)
