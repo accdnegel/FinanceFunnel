@@ -117,6 +117,7 @@ class PitakaRepository(private val db: AppDatabase) {
      * warning the user before calling this.
      */
     suspend fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String) {
+        CurrencyRules.requireNonNegativeFinite(newBalance, "New balance")
         db.withTransaction {
             val pitaka = pitakaDao.getPitaka(pitakaId) ?: return@withTransaction
             val delta = newBalance - pitaka.currentAmount
@@ -235,6 +236,8 @@ class PitakaRepository(private val db: AppDatabase) {
 
     /** Edits name/amount/category in place, reversing the old balance effect and applying the new one. */
     suspend fun updateEntry(oldEntry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = oldEntry.pitakaId) {
+        require(newAmount.isFinite()) { "Amount must be finite." }
+        if (oldEntry.type != LedgerType.ADJUSTMENT) require(newAmount > 0.0) { "Amount must be greater than zero." }
         db.withTransaction {
             reverseEffect(oldEntry)
             val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
