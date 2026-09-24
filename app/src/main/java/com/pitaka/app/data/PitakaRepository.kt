@@ -382,7 +382,8 @@ class PitakaRepository(private val db: AppDatabase) {
                     else -> error("Unsupported recurring transaction type.")
                 }
                 recurringDao.update(rule.copy(lastAppliedMonth = currentMonth))
-            }        }
+            }
+        }
     }
 
     // ---- Money-movement operations (all atomic) ----
