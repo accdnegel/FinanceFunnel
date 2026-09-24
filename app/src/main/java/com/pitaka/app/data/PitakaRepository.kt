@@ -287,7 +287,7 @@ class PitakaRepository(private val db: AppDatabase) {
         }
 
     fun observeFunnelSpentByCurrency(funnelId: Long): Flow<Map<String, Double>> =
-        ledgerDao.observeAll().map { entries ->
+        ledgerDao.observeAllEntries().map { entries ->
             entries.asSequence()
                 .filter { it.type == LedgerType.EXPENSE && it.funnelId == funnelId }
                 .groupBy { (it.funnelCurrency ?: it.currency).uppercase() }
