@@ -252,7 +252,10 @@ class PitakaRepository(private val db: AppDatabase) {
     fun observeCurrencySettings(): Flow<CurrencySettings?> = currencyDao.observeSettings()
 
     suspend fun setBaseCurrency(code: String) {
-        currencyDao.upsertSettings(CurrencySettings(baseCurrency = code))
+        val normalized = code.trim().uppercase()
+        require(normalized.isNotBlank()) { "Base currency cannot be blank." }
+        require(normalized.length == 3) { "Currency code must be 3 letters." }
+        currencyDao.upsertSettings(CurrencySettings(baseCurrency = normalized))
     }
 
     fun observeExchangeRates(): Flow<List<ExchangeRate>> = currencyDao.observeRates()
