@@ -478,3 +478,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - Active DAO listings hide archived containers while ledger history remains intact.
 - Pitakas/Goals/Funnels with financial history are not permanently deletable; archive/restore is the lifecycle path.
 - System expense funnels remain protected from archive/delete operations.
+
+
+## Historical Conversion Snapshots — 2026-09-24
+- Ledger entries now persist the transaction-time rate-to-base, converted base amount, and base currency for newly recorded transactions.
+- Room migration 9→10 adds the nullable fields; existing rows remain null because historical rates must not be fabricated from today's rates.
+- New non-base transactions require a configured usable rate at posting time; base-currency transactions use an implicit 1.0 rate.
