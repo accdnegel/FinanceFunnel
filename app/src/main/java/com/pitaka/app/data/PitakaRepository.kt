@@ -285,6 +285,30 @@ class PitakaRepository(private val db: AppDatabase) {
                 require(oldAllocation.isFinite()) { "Existing goal allocation is invalid." }
                 oldAllocation * ratio
             }
+            // A transfer has two monetary legs. When the source amount is edited,
+            // preserve the original exchange relationship by scaling the destination
+            // amount by the same ratio. This is essential for cross-currency edits;
+            // otherwise reversal removes the old destination amount but re-application
+            // silently restores the stale amount.
+            val updatedSecondaryAmount = if (oldEntry.type == LedgerType.TRANSFER) {
+                oldEntry.secondaryAmount?.let { destinationAmount ->
+                    require(destinationAmount.isFinite()) { "Existing transfer destination amount is invalid." }
+                    destinationAmount * ratio
+                }
+            } else {
+                oldEntry.secondaryAmount
+            }
+
+            if (oldEntry.type == LedgerType.TRANSFER) {
+                val fromId = requireNotNull(oldEntry.fromPitakaId) { "Transfer has no source Pitaka." }
+                val toId = requireNotNull(oldEntry.toPitakaId) { "Transfer has no destination Pitaka." }
+                require(fromId != toId) { "Transfer source and destination must differ." }
+                require(pitakaDao.getPitaka(fromId) != null) { "Transfer source Pitaka not found." }
+                require(pitakaDao.getPitaka(toId) != null) { "Transfer destination Pitaka not found." }
+                if (oldEntry.secondaryCurrency != null && !oldEntry.secondaryCurrency.equals(oldEntry.currency, true)) {
+                    requireNotNull(updatedSecondaryAmount) { "Cross-currency transfer has no destination amount." }
+                }
+            }
 
             if (oldEntry.type == LedgerType.EXPENSE) {
                 val funnelId = requireNotNull(oldEntry.funnelId) { "Expense has no funnel." }
@@ -303,7 +327,8 @@ class PitakaRepository(private val db: AppDatabase) {
                 category = normalizedCategory,
                 pitakaId = newPitakaId,
                 funnelAmount = updatedFunnelAmount,
-                goalAmount = updatedGoalAmount
+                goalAmount = updatedGoalAmount,
+                secondaryAmount = updatedSecondaryAmount
             )
             ledgerDao.updateEntry(updated)
             applyEffect(updated)
