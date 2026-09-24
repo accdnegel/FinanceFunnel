@@ -397,3 +397,11 @@ The branch has a good structural foundation, but it should not yet be considered
 - Consolidated reporting no longer fabricates 1:1 rates for unknown currencies.
 - The ViewModel exposes whether ledger entries require an unavailable conversion rate.
 - The navigation-level Snackbar warns the user that some consolidated totals are incomplete until the relevant exchange rate is configured.
+
+
+## Conversion Semantics and Historical Rates
+- Conversion into the configured base currency treats the base currency as a unit rate of 1; a stored rate row for the base currency is not required.
+- Non-base currencies still require a positive configured rate to participate in consolidated totals.
+- Base-currency validation now requires three ASCII letters, matching the repository's other currency-code validation.
+- Historical ledger rows currently do not store a transaction-time exchange-rate snapshot. Existing historical reports therefore depend on the currently configured rates for legacy/non-snapshotted foreign-currency rows. This is a documented accounting limitation, not silently presented as historical-rate accuracy.
+- A future schema migration should add nullable transaction-time conversion metadata and populate it for new transactions; existing rows must not be backfilled with today's rates because that would fabricate historical data.
