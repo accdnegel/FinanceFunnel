@@ -249,12 +249,12 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation { repository.adjustPitakaBalanceManually(pitakaId, newBalance, note, currency) }
     }
 
-    fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
-        launchOperation { repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle) }
+    fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP") {
+        launchOperation { repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }
     }
 
-    fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
-        launchOperation { repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle) }
+    fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String? = null) {
+        launchOperation { repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }
     }
 
     fun deleteGoal(goal: Goal) {
@@ -277,8 +277,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency) }
     }
 
-    fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid") {
-        launchOperation { repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle) }
+    fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP") {
+        launchOperation { repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle, currency) }
     }
 
     fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
