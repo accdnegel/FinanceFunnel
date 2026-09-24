@@ -15,6 +15,7 @@ data class RecurringRule(
     val type: LedgerType, // INCOME or EXPENSE only
     val name: String,
     val amount: Double,
+    val currency: String = "PHP",
     val category: String? = null, // EXPENSE only
     val pitakaId: Long,
     val dayOfMonth: Int, // 1-31; clamped to the last day of shorter months
