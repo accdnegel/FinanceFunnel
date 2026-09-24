@@ -486,8 +486,12 @@ class PitakaRepository(private val db: AppDatabase) {
             LedgerType.TRANSFER -> {
                 entry.fromPitakaId?.let { adjustBalance(it, -entry.amount, entry.currency) }
                 entry.toPitakaId?.let { id ->
-                    val destinationCurrency = pitakaDao.getPitaka(id)?.currency ?: entry.currency
-                    adjustBalance(id, entry.secondaryAmount ?: entry.amount, destinationCurrency)
+                    val destination = pitakaDao.getPitaka(id)
+                    if (destination != null) {
+                        val destinationCurrency = CurrencyRules.requireCurrency(destination.currency)
+                        val appliedAmount = entry.secondaryAmount ?: entry.amount
+                        adjustBalance(id, appliedAmount, destinationCurrency)
+                    }
                 }
             }
         }
