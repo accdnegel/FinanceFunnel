@@ -301,3 +301,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - Comprehensive Room integration tests for apply/reverse/edit/delete/transfer/contribution flows.
 - Multi-currency funnel progress UI and limit semantics.
 - Centralized user-visible error state in the ViewModel/UI.
+
+
+## Multi-Currency Funnel/Goal Hardening
+- Funnel spending can now be retrieved as a currency-keyed map from ledger history.
+- Goal progress can now be retrieved as a currency-keyed aggregate for each GoalType.
+- Funnel presentation models expose per-currency spending alongside legacy primary-currency totals.
+- This avoids treating USD/PHP/etc. as interchangeable numeric units.
