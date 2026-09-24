@@ -7,6 +7,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pitaka.app.data.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -89,6 +92,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /** Liquid total (all Pitakas), converted to the base/display currency. */
+    val allEntries: Flow<List<LedgerEntry>> = repository.observeAllEntries()
+
     val totalLiquid: Flow<Double> = combine(pitakas, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         list.filter { it.parentPitakaId == null }.sumOf { root ->
@@ -202,14 +207,13 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         val base = settings?.baseCurrency ?: "PHP"
         entries.asSequence().filter { it.type == LedgerType.EXPENSE && (month == null || monthKey(it.date) == month) }
             .groupBy { it.category?.trim().takeUnless { x -> x.isNullOrEmpty() } ?: "Uncategorized Expense" }
-            .map { (category, rows) -> CategorySpend(category, rows.sumOf { convert(it.amount, it.currency, base, rates) }) }
+            .map { (category, rows) -> CategorySpend(category, rows.mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()) }
             .sortedByDescending { it.total }
     }
 
     fun entriesForPitaka(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForPitaka(id)
     fun entriesForGoal(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForGoal(id)
     val allExpenses: Flow<List<LedgerEntry>> = repository.observeAllExpenses()
-    val allEntries: Flow<List<LedgerEntry>> = repository.observeAllEntries()
 
     suspend fun getPitaka(id: Long): Pitaka? = repository.getPitaka(id)
     suspend fun getGoal(id: Long): Goal? = repository.getGoal(id)
