@@ -35,7 +35,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             CurrencyDropdown(currency, onSelected={currency=it})
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
-            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null){if(selectedFunnel!=null&&!currency.equals(selectedFunnel!!.currency,true)) mismatch=true else {viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,date?:System.currentTimeMillis());onDone()}}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
+            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null){if(selectedFunnel!=null&&!currency.equals(selectedFunnel!!.currency,true)) mismatch=true else {viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,null,null,date?:System.currentTimeMillis());onDone()}}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
             if(mismatch&&selectedFunnel!=null) AlertDialog(
                 onDismissRequest={mismatch=false},
                 title={Text("Currency mismatch")},
