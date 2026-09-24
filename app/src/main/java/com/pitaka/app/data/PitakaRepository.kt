@@ -272,7 +272,7 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     // ---- Expense funnels ----
-    fun observeExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAllEntries()
+    fun observeExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAll()
     suspend fun getSystemUnclassifiedFunnel(): ExpenseFunnel {
         return funnelDao.getByName("Unclassified Expense") ?: funnelDao.insertAndReturn(ExpenseFunnel(name = "Unclassified Expense", limit = 0.0, currency = "PHP", currencyBalances = "PHP=0", isSystem = true)).let { funnelDao.get(it)!! }
     }
