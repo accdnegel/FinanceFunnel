@@ -1,7 +1,11 @@
 /** Small dependency-free representation of balances held in multiple currencies. */
 object CurrencyBalances {
-    private fun normalizedCode(currency: String): String =
-        currency.trim().uppercase().ifBlank { "PHP" }
+    private fun normalizedCode(currency: String): String {
+        val code = currency.trim().uppercase()
+        require(code.isNotBlank()) { "Currency code cannot be blank." }
+        require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
+        return code
+    }
 
     private fun checkedAmount(amount: Double): Double {
         require(amount.isFinite()) { "Money amount must be finite." }
