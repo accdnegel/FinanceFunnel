@@ -308,3 +308,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - Goal progress can now be retrieved as a currency-keyed aggregate for each GoalType.
 - Funnel presentation models expose per-currency spending alongside legacy primary-currency totals.
 - This avoids treating USD/PHP/etc. as interchangeable numeric units.
+
+
+## Ledger Edit Hardening
+- Transaction edits now validate name, amount, target Pitaka, available currency balance, and Goal currency before committing the replacement.
+- The old ledger effect is reversed and the replacement applied inside one Room transaction, so validation failure rolls the reversal back atomically.
+- Pitaka creation now rejects malformed currency codes.
