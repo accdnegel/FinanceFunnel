@@ -70,6 +70,16 @@ class AppDatabaseMigrationContractTest {
         AppDatabase.MIGRATION_7_8.migrate(db)
         assertTrue(columnExists("recurring_rules", "currency"))
         assertEquals("PHP", scalarString("SELECT currency FROM recurring_rules WHERE name='Salary'"))
+
+        AppDatabase.MIGRATION_8_9.migrate(db)
+        assertTrue(columnExists("pitakas", "archivedAt"))
+        assertTrue(columnExists("goals", "archivedAt"))
+        assertTrue(columnExists("expense_funnels", "archivedAt"))
+
+        AppDatabase.MIGRATION_9_10.migrate(db)
+        assertTrue(columnExists("ledger_entries", "conversionRateToBaseAtTransaction"))
+        assertTrue(columnExists("ledger_entries", "amountInBaseAtTransaction"))
+        assertTrue(columnExists("ledger_entries", "baseCurrencyAtTransaction"))
     }
 
     private fun columnExists(table: String, column: String): Boolean {
