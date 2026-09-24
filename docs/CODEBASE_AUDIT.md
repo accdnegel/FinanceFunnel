@@ -437,7 +437,7 @@ The branch has a good structural foundation, but it should not yet be considered
   - [x] Funnel summaries use funnel allocation amounts in the funnel currency and surface other-currency allocations.
   - [x] Goal summaries display the configured goal currency instead of a hard-coded currency symbol.
 - [ ] Persist explicit source/destination currencies for transfers.
-- [ ] Add transaction currency to recurring rules.
+- [x] Add transaction currency to recurring rules.
 - [ ] Audit recurring catch-up behavior and short-month handling with tests.
 
 ### P1/P2 — Data integrity and lifecycle
@@ -450,7 +450,7 @@ The branch has a good structural foundation, but it should not yet be considered
 ### P2/P3 — Quality and UX
 - [x] Propagate major repository mutation errors to ViewModel/UI feedback.
 - [x] Add initial CurrencyBalances unit coverage.
-- [ ] Expand accounting regression/unit/integration tests.
+- [ ] Expand accounting regression/unit/integration tests.\n  - [x] Add Android Room lifecycle coverage for income/expense edit-delete, goal contribution reversal, cross-currency transfer reversal, and manual multi-currency adjustment.
 - [ ] Fix stale current-month state across month boundaries.
-- [ ] Verify all build/CI paths after accounting changes.
+- [ ] Verify all build/CI paths after accounting changes.\n  - [ ] Run the new Android instrumentation suite in GitHub Actions and inspect the result.
 - [ ] Complete comprehensive codebase/user documentation.
