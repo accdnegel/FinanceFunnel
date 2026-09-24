@@ -309,7 +309,7 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun setBaseCurrency(code: String) {
         val normalized = code.trim().uppercase()
         require(normalized.isNotBlank()) { "Base currency cannot be blank." }
-        require(normalized.length == 3) { "Currency code must be 3 letters." }
+        require(normalized.length == 3 && normalized.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
         currencyDao.upsertSettings(CurrencySettings(baseCurrency = normalized))
     }
 
