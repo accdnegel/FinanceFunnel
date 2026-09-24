@@ -200,5 +200,29 @@ class PitakaRepositoryAccountingTest {
         assertEquals(parentId, child.parentPitakaId)
     }
 
+    @Test
+    fun hierarchyRejectsSelfAndAncestorCycles() = runBlocking {
+        val rootId = repository.createPitaka("Root", 0.0, "PHP", null)
+        val childId = repository.createPitaka("Child", 0.0, "PHP", null, parentPitakaId = rootId)
+        val grandchildId = repository.createPitaka("Grandchild", 0.0, "PHP", null, parentPitakaId = childId)
+        var rejected = false
+        try { repository.setPitakaParent(rootId, grandchildId) } catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+    }
+
+    @Test
+    fun deletingPitakaWithChildrenOrHistoryIsRejected() = runBlocking {
+        val parentId = repository.createPitaka("Parent", 0.0, "PHP", null)
+        val childId = repository.createPitaka("Child", 0.0, "PHP", null, parentPitakaId = parentId)
+        var rejected = false
+        try { repository.deletePitakaCascade(parentId) } catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+        repository.recordIncome(childId, "Salary", 1000.0)
+        val child = db.pitakaDao().getPitaka(childId)!!
+        rejected = false
+        try { repository.deletePitakaCascade(child) } catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+    }
+
 }
 
