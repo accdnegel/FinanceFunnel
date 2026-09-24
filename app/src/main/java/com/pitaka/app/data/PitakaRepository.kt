@@ -26,6 +26,7 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid"): Long {
         require(startingBalance >= 0) { "Starting balance cannot be negative." }
         val code = currency.trim().uppercase().ifBlank { "PHP" }
+        require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
 
         return db.withTransaction {
             val parent = parentPitakaId?.let { pitakaDao.getPitaka(it) }
