@@ -28,8 +28,16 @@ private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PI
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PitakaNavGraph(viewModel:PitakaViewModel){
- val nav=rememberNavController();val back by nav.currentBackStackEntryAsState();val route=back?.destination?.route;var showAdd by remember{mutableStateOf(false)}
- Scaffold(bottomBar={if(tabs.any{it.route==route})NavigationBar{tabs.forEach{t->NavigationBarItem(selected=route==t.route,onClick={nav.navigate(t.route){popUpTo(Routes.HOME){saveState=true};launchSingleTop=true;restoreState=true}},icon={Icon(t.icon,t.label)},label={Text(t.label)})}}},
+ val nav=rememberNavController();
+ val snackbarHostState = remember { SnackbarHostState() }
+ val operationError by viewModel.operationError.collectAsState()
+ LaunchedEffect(operationError) {
+  operationError?.let { message ->
+   snackbarHostState.showSnackbar(message)
+   viewModel.clearOperationError()
+  }
+ }val back by nav.currentBackStackEntryAsState();val route=back?.destination?.route;var showAdd by remember{mutableStateOf(false)}
+ Scaffold(snackbarHost={SnackbarHost(snackbarHostState)},bottomBar={if(tabs.any{it.route==route})NavigationBar{tabs.forEach{t->NavigationBarItem(selected=route==t.route,onClick={nav.navigate(t.route){popUpTo(Routes.HOME){saveState=true};launchSingleTop=true;restoreState=true}},icon={Icon(t.icon,t.label)},label={Text(t.label)})}}},
  floatingActionButton={if(tabs.any{it.route==route})FloatingActionButton(onClick={showAdd=true}){Icon(Icons.Default.Add,"Add")}}){padding->
   NavHost(nav,Routes.HOME,Modifier.padding(padding)){
    composable(Routes.HOME){HomeScreen(viewModel,{nav.navigate(Routes.CURRENCY_SETTINGS)},{c->nav.navigate(Routes.categoryDetail(c))},{id->nav.navigate(Routes.pitakaDetail(id))})}
