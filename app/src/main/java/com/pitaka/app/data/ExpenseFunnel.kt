@@ -32,4 +32,5 @@ data class ExpenseFunnelWithSpend(
     val spent: Double
 ) {
     val remaining: Double get() = limit - spent
+    val progress: Double get() = if (limit > 0.0) (spent / limit).coerceIn(0.0, 1.0) else 0.0
 }
