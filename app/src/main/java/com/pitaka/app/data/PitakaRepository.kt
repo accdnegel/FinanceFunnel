@@ -239,13 +239,16 @@ class PitakaRepository(private val db: AppDatabase) {
     fun observeCurrencySettings(): Flow<CurrencySettings?> = currencyDao.observeSettings()
 
     suspend fun setBaseCurrency(code: String) {
-        currencyDao.upsertSettings(CurrencySettings(baseCurrency = code))
+        val normalized = CurrencyRules.requireCurrency(code)
+        currencyDao.upsertSettings(CurrencySettings(baseCurrency = normalized))
     }
 
     fun observeExchangeRates(): Flow<List<ExchangeRate>> = currencyDao.observeRates()
 
     suspend fun setExchangeRate(code: String, rateToBase: Double) {
-        currencyDao.upsertRate(ExchangeRate(code = code, rateToBase = rateToBase))
+        val normalized = CurrencyRules.requireCurrency(code)
+        CurrencyRules.requireRate(rateToBase)
+        currencyDao.upsertRate(ExchangeRate(code = normalized, rateToBase = rateToBase))
     }
 
     suspend fun deleteExchangeRate(code: String) = currencyDao.deleteRate(code)
@@ -304,7 +307,7 @@ class PitakaRepository(private val db: AppDatabase) {
     // ---- Money-movement operations (all atomic) ----
 
     suspend fun recordIncome(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis()) {
-        require(amount > 0) { "Income amount must be positive" }
+        CurrencyRules.requirePositiveFinite(amount, "Income amount")
         db.withTransaction { recordIncomeInternal(pitakaId, name, amount, date) }
     }
 
@@ -316,7 +319,8 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
-        require(amount > 0) { "Expense amount must be positive" }
+        CurrencyRules.requirePositiveFinite(amount, "Expense amount")
+        funnelAmount?.let { CurrencyRules.requirePositiveFinite(it, "Funnel amount") }
         db.withTransaction {
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
             recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, currency ?: "PHP", funnelAmount, funnelCurrency, date)
@@ -373,14 +377,15 @@ class PitakaRepository(private val db: AppDatabase) {
         goalCurrency: String? = null,
         date: Long = System.currentTimeMillis()
     ) {
-        require(amount > 0) { "Contribution amount must be positive" }
+        CurrencyRules.requirePositiveFinite(amount, "Contribution amount")
         db.withTransaction {
             val txCurrency = currency ?: (pitakaDao.getPitaka(sourcePitakaId)?.currency ?: "PHP")
             val goal = goalDao.getGoal(goalId) ?: throw IllegalArgumentException("Goal not found.")
-            val targetCurrency = goalCurrency ?: goal.currency
+            val targetCurrency = CurrencyRules.requireCurrency(goalCurrency ?: goal.currency)
+            CurrencyRules.requireCurrency(txCurrency)
             val applied = goalAmount ?: if (targetCurrency.equals(txCurrency, true)) amount
                 else throw IllegalArgumentException("Currency conversion is required.")
-            require(applied > 0) { "Goal amount must be positive" }
+            CurrencyRules.requirePositiveFinite(applied, "Goal amount")
             val entry = LedgerEntry(
                 type = LedgerType.GOAL_CONTRIBUTION, amount = amount, currency = txCurrency, name = name,
                 pitakaId = sourcePitakaId, goalId = goalId, goalAmount = applied,
