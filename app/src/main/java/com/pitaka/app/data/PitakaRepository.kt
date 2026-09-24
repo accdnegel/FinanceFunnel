@@ -385,6 +385,9 @@ class PitakaRepository(private val db: AppDatabase) {
             CurrencyRules.requireCurrency(txCurrency)
             val applied = goalAmount ?: if (targetCurrency.equals(txCurrency, true)) amount
                 else throw IllegalArgumentException("Currency conversion is required.")
+            if (!targetCurrency.equals(txCurrency, true)) {
+                require(goalAmount != null) { "A converted Goal amount is required for a cross-currency contribution." }
+            }
             CurrencyRules.requirePositiveFinite(applied, "Goal amount")
             val entry = LedgerEntry(
                 type = LedgerType.GOAL_CONTRIBUTION, amount = amount, currency = txCurrency, name = name,
