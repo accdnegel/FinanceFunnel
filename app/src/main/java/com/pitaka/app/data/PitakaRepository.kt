@@ -2,6 +2,7 @@ package com.pitaka.app.data
 
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -647,7 +648,7 @@ class PitakaRepository(private val db: AppDatabase) {
                 require(secondaryAmount != null && secondaryAmount > 0 && secondaryAmount.isFinite()) {
                     "A positive destination amount is required for a cross-currency transfer."
                 }
-                val baseCurrency = currencyDao.getSettings()?.baseCurrency?.uppercase() ?: "PHP"
+                val baseCurrency = currencyDao.observeSettings().first()?.baseCurrency?.uppercase() ?: "PHP"
                 val rates = currencyDao.getRatesOnce()
                 fun hasUsableRate(code: String): Boolean =
                     code.equals(baseCurrency, true) ||
