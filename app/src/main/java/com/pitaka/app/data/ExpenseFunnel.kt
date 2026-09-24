@@ -15,7 +15,8 @@ data class ExpenseFunnel(
     val colorHex: String? = null,
     val cardStyle: String = "solid",
     /** System funnels are created by the app and are not user-created categories. */
-    val isSystem: Boolean = false
+    val isSystem: Boolean = false,
+    val archivedAt: Long? = null
 )
 
 data class ExpenseFunnelWithSpend(
