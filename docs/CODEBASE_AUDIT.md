@@ -391,3 +391,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - Conversion returns no value when either currency's rate is unavailable or invalid; aggregate reports exclude unconvertible entries rather than assigning a fabricated rate.
 - Equal-currency conversion remains exact and does not require a stored exchange rate.
 - This prevents a missing USD/PHP rate from silently turning $1,000 into ₱1,000.
+
+
+## Missing-Rate User Feedback
+- Consolidated reporting no longer fabricates 1:1 rates for unknown currencies.
+- The ViewModel exposes whether ledger entries require an unavailable conversion rate.
+- The navigation-level Snackbar warns the user that some consolidated totals are incomplete until the relevant exchange rate is configured.
