@@ -388,16 +388,37 @@ class PitakaRepository(private val db: AppDatabase) {
         secondaryAmount: Double? = null,
         date: Long = System.currentTimeMillis()
     ) {
+        CurrencyRules.requirePositiveFinite(amount, "Transfer amount")
+        require(fromPitakaId != toPitakaId) { "A Pitaka cannot transfer to itself." }
         db.withTransaction {
-            val sourceCurrency = pitakaDao.getPitaka(fromPitakaId)?.currency ?: "PHP"
+            val source = pitakaDao.getPitaka(fromPitakaId) ?: throw IllegalArgumentException("Source Pitaka not found.")
+            val destination = pitakaDao.getPitaka(toPitakaId) ?: throw IllegalArgumentException("Destination Pitaka not found.")
+            val sourceCurrency = CurrencyRules.requireCurrency(source.currency)
+            val destinationCurrency = CurrencyRules.requireCurrency(destination.currency)
+            val destinationAmount = if (sourceCurrency.equals(destinationCurrency, true)) {
+                require(secondaryAmount == null || kotlin.math.abs(secondaryAmount - amount) < 0.0000001) {
+                    "Same-currency transfers must use the same amount."
+                }
+                amount
+            } else {
+                CurrencyRules.requirePositiveFinite(
+                    secondaryAmount ?: throw IllegalArgumentException(
+                        "A destination amount is required for a cross-currency transfer."
+                    ),
+                    "Destination transfer amount"
+                )
+            }
+            val sourceBalance = CurrencyBalances.parse(source.currencyBalances)[sourceCurrency] ?: source.currentAmount
+            require(sourceBalance + 0.0000001 >= amount) { "Insufficient funds in source Pitaka." }
+
             val entry = LedgerEntry(
                 type = LedgerType.TRANSFER,
                 amount = amount,
                 currency = sourceCurrency,
-                name = name,
+                name = name.ifBlank { "Transfer" },
                 fromPitakaId = fromPitakaId,
                 toPitakaId = toPitakaId,
-                secondaryAmount = secondaryAmount,
+                secondaryAmount = destinationAmount,
                 date = date
             )
             ledgerDao.insertEntry(entry)
