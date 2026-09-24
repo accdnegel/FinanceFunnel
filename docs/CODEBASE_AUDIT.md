@@ -489,3 +489,10 @@ The branch has a good structural foundation, but it should not yet be considered
 ## Cross-Currency Historical Snapshots — 2026-09-24
 - Cross-currency transfers now persist both source-side and destination-side transaction-time base conversion snapshots.
 - Migration 10→11 adds nullable destination snapshot fields; existing rows remain untouched.
+
+
+## Monetary Precision Audit — 2026-09-24
+- Audited persisted monetary fields and confirmed `Double` remains pervasive for backward compatibility.
+- Added `MoneyMath` using `BigDecimal` for addition, subtraction, multiplication, division, and rounding.
+- New unit coverage protects against common binary floating-point drift and non-finite values.
+- Full schema migration to minor units remains intentionally deferred until a dedicated data-migration plan is available; existing monetary values must not be blindly scaled or rounded.
