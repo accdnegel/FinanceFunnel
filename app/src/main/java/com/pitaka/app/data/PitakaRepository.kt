@@ -222,7 +222,10 @@ class PitakaRepository(private val db: AppDatabase) {
         db.withTransaction {
             reverseEffect(oldEntry)
             val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
-            val updated = oldEntry.copy(name = newName, amount = newAmount, category = normalizedCategory, pitakaId = newPitakaId)
+            require(newAmount > 0 || oldEntry.type == LedgerType.ADJUSTMENT) { "Transaction amount must be positive." }
+            val ratio = if (oldEntry.amount != 0.0) newAmount / oldEntry.amount else 1.0
+            val updated = oldEntry.copy(name = newName, amount = newAmount, category = normalizedCategory, pitakaId = newPitakaId,
+                funnelAmount = oldEntry.funnelAmount?.times(ratio), goalAmount = oldEntry.goalAmount?.times(ratio))
             ledgerDao.updateEntry(updated)
             applyEffect(updated)
         }
