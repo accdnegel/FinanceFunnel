@@ -345,3 +345,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - Pitakas with transaction history cannot be deleted, preserving ledger auditability.
 - Goals with contribution history cannot be deleted; the repository directs the user toward archival semantics.
 - Manual balance adjustments now reject NaN/infinite targets, malformed currencies, and missing Pitakas.
+
+
+## ViewModel Error Propagation
+- Repository operation failures are now captured by a shared ViewModel operation-error StateFlow.
+- Successful operations clear the previous error.
+- The UI can observe this state and render actionable Snackbars/dialogs instead of silently losing coroutine exceptions.
+- This centralizes user-facing failure propagation while keeping accounting validation in the repository.
