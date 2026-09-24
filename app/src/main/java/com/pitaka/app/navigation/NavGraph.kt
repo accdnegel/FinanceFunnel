@@ -37,6 +37,11 @@ private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PI
    snackbarHostState.showSnackbar(message)
    viewModel.clearOperationError()
   }
+ }
+ LaunchedEffect(hasMissingConversionRates) {
+  if (hasMissingConversionRates) {
+   snackbarHostState.showSnackbar("Some totals cannot be converted because an exchange rate is missing.")
+  }
  }val back by nav.currentBackStackEntryAsState();val route=back?.destination?.route;var showAdd by remember{mutableStateOf(false)}
  Scaffold(
   snackbarHost={SnackbarHost(snackbarHostState)},
