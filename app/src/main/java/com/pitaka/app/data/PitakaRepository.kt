@@ -320,7 +320,7 @@ class PitakaRepository(private val db: AppDatabase) {
     // ---- Money-movement operations (all atomic) ----
 
     suspend fun recordIncome(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis()) {
-        require(amount > 0) { "Income amount must be positive" }
+        require(amount > 0 && amount.isFinite()) { "Income amount must be a positive finite number" }
         db.withTransaction { recordIncomeInternal(pitakaId, name, amount, date) }
     }
 
@@ -332,7 +332,7 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
-        require(amount > 0) { "Expense amount must be positive" }
+        require(amount > 0 && amount.isFinite()) { "Expense amount must be a positive finite number" }
         db.withTransaction {
             val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
@@ -370,6 +370,7 @@ class PitakaRepository(private val db: AppDatabase) {
         secondaryAmount: Double? = null,
         date: Long = System.currentTimeMillis()
     ) {
+        require(amount > 0 && amount.isFinite()) { "Transfer amount must be a positive finite number" }
         db.withTransaction {
             val source = pitakaDao.getPitaka(fromPitakaId) ?: error("Source Pitaka not found.")
             val destination = pitakaDao.getPitaka(toPitakaId) ?: error("Destination Pitaka not found.")
@@ -378,6 +379,9 @@ class PitakaRepository(private val db: AppDatabase) {
             require((CurrencyBalances.parse(source.currencyBalances)[sourceCurrency] ?: 0.0) >= amount) { "Insufficient ${sourceCurrency} balance in ${source.name}." }
             val destinationCurrency = destination.currency.uppercase()
             if (sourceCurrency != destinationCurrency) {
+                require(secondaryAmount != null && secondaryAmount > 0 && secondaryAmount.isFinite()) {
+                    "A positive destination amount is required for a cross-currency transfer."
+                }
                 val rates = currencyDao.getRatesOnce()
                 require(rates.any { it.code.equals(sourceCurrency, true) } && rates.any { it.code.equals(destinationCurrency, true) }) {
                     "Exchange rates for ${sourceCurrency} and ${destinationCurrency} are required for a cross-currency transfer."
@@ -407,7 +411,7 @@ class PitakaRepository(private val db: AppDatabase) {
         currency: String? = null,
         date: Long = System.currentTimeMillis()
     ) {
-        require(amount > 0) { "Contribution amount must be positive" }
+        require(amount > 0 && amount.isFinite()) { "Contribution amount must be a positive finite number" }
         db.withTransaction {
             val source = pitakaDao.getPitaka(sourcePitakaId) ?: error("Source Pitaka not found.")
             val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
