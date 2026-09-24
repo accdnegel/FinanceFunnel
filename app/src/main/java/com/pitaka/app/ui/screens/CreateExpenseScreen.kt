@@ -35,7 +35,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             CurrencyDropdown(currency, onSelected={currency=it})
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
-            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null){viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,date?:System.currentTimeMillis());onDone()}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
+            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null){viewModel.recordExpense(selectedPitaka!!.id, name, a, category, selectedFunnel?.id, currency = currency, date = date ?: System.currentTimeMillis());onDone()}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
         }
     }
 }
