@@ -451,7 +451,7 @@ The branch has a good structural foundation, but it should not yet be considered
 - [x] Propagate major repository mutation errors to ViewModel/UI feedback.
 - [x] Add initial CurrencyBalances unit coverage.
 - [ ] Expand accounting regression/unit/integration tests.\n  - [x] Add Android Room lifecycle coverage for income/expense edit-delete, goal contribution reversal, cross-currency transfer reversal, and manual multi-currency adjustment.
-- [ ] Fix stale current-month state across month boundaries.
+- [x] Fix stale current-month state across month boundaries.
 - [ ] Verify all build/CI paths after accounting changes.\n  - [ ] Run the new Android instrumentation suite in GitHub Actions and inspect the result.
 - [ ] Complete comprehensive codebase/user documentation.
 
@@ -496,3 +496,8 @@ The branch has a good structural foundation, but it should not yet be considered
 - Added `MoneyMath` using `BigDecimal` for addition, subtraction, multiplication, division, and rounding.
 - New unit coverage protects against common binary floating-point drift and non-finite values.
 - Full schema migration to minor units remains intentionally deferred until a dedicated data-migration plan is available; existing monetary values must not be blindly scaled or rounded.
+
+
+## Month Boundary State — 2026-09-24
+- `currentMonthKey` is now a Flow refreshed periodically and switches automatically when `YearMonth.now()` changes.
+- Current-month budget observation follows the refreshed key with `flatMapLatest`, preventing a long-lived ViewModel from retaining the previous month's budget indefinitely.
