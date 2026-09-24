@@ -125,7 +125,7 @@ private fun GoalListCard(goal: GoalWithProgress, onClick: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "$${"%,.2f".format(goal.progress)} / $${"%,.2f".format(goal.targetAmount)}",
+                    "${goal.currency} ${"%,.2f".format(goal.progress)} / ${goal.currency} ${"%,.2f".format(goal.targetAmount)}",
                     fontWeight = FontWeight.SemiBold
                 )
                 Text("Target: ${dateFormat.format(Date(goal.targetDate))}", color = Color.Gray, fontSize = 12.sp)
@@ -209,7 +209,7 @@ private fun PiggyBankCard(goal: GoalWithProgress, modifier: Modifier = Modifier)
             Text(goal.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 3)
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                "$${"%,.0f".format(goal.progress)} / $${"%,.0f".format(goal.targetAmount)}",
+                "${goal.currency} ${"%,.0f".format(goal.progress)} / ${goal.currency} ${"%,.0f".format(goal.targetAmount)}",
                 color = Color.White,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
