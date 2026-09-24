@@ -342,8 +342,13 @@ class PitakaRepository(private val db: AppDatabase) {
     private suspend fun recordExpenseInternal(
         pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()
     ) {
+        val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+        val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
+        require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) {
+            "Insufficient " + txCurrency + " balance in " + source.name + "."
+        }
         val entry = LedgerEntry(
-            type = LedgerType.EXPENSE, amount = amount, currency = currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = funnelAmount ?: amount, funnelCurrency = funnelCurrency ?: currency ?: (pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"), date = date
+            type = LedgerType.EXPENSE, amount = amount, currency = txCurrency, name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = funnelAmount ?: amount, funnelCurrency = funnelCurrency ?: txCurrency, date = date
         )
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
