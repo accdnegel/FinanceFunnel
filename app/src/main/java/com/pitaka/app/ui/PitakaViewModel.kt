@@ -136,8 +136,21 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     // ---- Statistics ----
 
-    val monthlyExpenses: Flow<List<MonthlyAmount>> = repository.observeMonthlyExpenses()
-    val monthlyIncome: Flow<List<MonthlyAmount>> = repository.observeMonthlyIncome()
+    private fun currencyConvertedMonthly(entries: List<LedgerEntry>, rates: List<ExchangeRate>, settings: CurrencySettings?, type: LedgerType): List<MonthlyAmount> {
+        val base = settings?.baseCurrency ?: "PHP"
+        return entries.filter { it.type == type }
+            .groupBy { YearMonth.from(java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()) }
+            .map { (month, rows) ->
+                MonthlyAmount(month.toString(), rows.sumOf { convert(kotlin.math.abs(it.amount), it.currency, base, rates) })
+            }.sortedBy { it.month }
+    }
+
+    val monthlyExpenses: Flow<List<MonthlyAmount>> = combine(financialEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+        currencyConvertedMonthly(entries, rates, settings, LedgerType.EXPENSE)
+    }
+    val monthlyIncome: Flow<List<MonthlyAmount>> = combine(financialEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+        currencyConvertedMonthly(entries, rates, settings, LedgerType.INCOME)
+    }
 
     val monthlyNetChange: Flow<List<MonthlyNetChange>> = combine(
         monthlyIncome, monthlyExpenses
