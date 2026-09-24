@@ -515,3 +515,8 @@ The branch has a good structural foundation, but it should not yet be considered
 - Days 29–31 are clamped to the final calendar day in shorter months.
 - Currency is validated before posting and the transaction is executed inside a Room transaction with the rule's `lastAppliedMonth` update.
 - Unit coverage added for short-month clamping and before/on-schedule behavior.
+
+
+## CI Verification — 2026-09-24
+- Added the technical-debt branch to the APK workflow push trigger.
+- A workflow lookup for the resulting commit currently returns no workflow runs, so CI is not yet marked passed.
