@@ -507,3 +507,11 @@ The branch has a good structural foundation, but it should not yet be considered
 - Currency conversion in the ViewModel now uses `MoneyMath` instead of raw multiplication.
 - Hierarchical currency-balance aggregation now uses `MoneyMath.add()`.
 - The existing accounting regression suite was expanded earlier with pure arithmetic and Room lifecycle coverage; final execution remains dependent on GitHub Actions/instrumented-test verification.
+
+
+## Recurring Schedule Audit — 2026-09-24
+- Rules are applied once per `yyyy-MM` using `lastAppliedMonth`.
+- Rules only post once today has reached the effective scheduled day.
+- Days 29–31 are clamped to the final calendar day in shorter months.
+- Currency is validated before posting and the transaction is executed inside a Room transaction with the rule's `lastAppliedMonth` update.
+- Unit coverage added for short-month clamping and before/on-schedule behavior.
