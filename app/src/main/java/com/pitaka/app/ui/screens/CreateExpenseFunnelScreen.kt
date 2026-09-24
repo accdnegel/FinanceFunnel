@@ -20,7 +20,7 @@ fun CreateExpenseFunnelScreen(viewModel: PitakaViewModel,onDone:()->Unit){
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
             OutlinedTextField(name,{name=it},label={Text("Funnel name")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(limit,{limit=it},label={Text("Limit")},modifier=Modifier.fillMaxWidth())
-            CurrencyDropdown(currency){currency=it}
+            CurrencyDropdown(selected = currency, onSelected = { currency = it })
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DatePickerButton("Start date",from){from=it};DatePickerButton("End date",until){until=it}}
             CardStylePicker(selected = style, solidColor = MaterialTheme.colorScheme.primary) { style = it }
             Spacer(Modifier.height(8.dp))
