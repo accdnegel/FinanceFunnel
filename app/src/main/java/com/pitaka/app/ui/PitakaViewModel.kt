@@ -97,7 +97,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     val totalSavingsProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        list.filter { it.type == GoalType.SAVINGS }.sumOf { CurrencyBalances.parse(it.currencyBalances).entries.sumOf { (code, amount) -> convert(amount, code, base, rates) } }
+        list.filter { it.type == GoalType.SAVINGS }.sumOf { CurrencyBalances.parse(it.currencyBalances).entries.mapNotNull { (code, amount) -> convert(amount, code, base, rates) }.sum() }
     }
     val totalInvestmentProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
@@ -112,7 +112,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
             YearMonth.parse(month).plusMonths(1).atDay(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
         } catch (_: Exception) { Long.MAX_VALUE }
         val deltaAfter = entries.filter { it.date >= cutoff }.sumOf { entry ->
-            val converted = convert(kotlin.math.abs(entry.amount), entry.currency, base, rates)
+            val converted = convert(kotlin.math.abs(entry.amount), entry.currency, base, rates) ?: 0.0
             when (entry.type) {
                 LedgerType.INCOME -> converted
                 LedgerType.EXPENSE -> -converted
@@ -160,12 +160,12 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val monthlyExpenses: Flow<List<MonthlyAmount>> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         entries.filter { it.type == LedgerType.EXPENSE }.groupBy { monthKey(it.date) }.toSortedMap()
-            .map { (month, rows) -> MonthlyAmount(month, rows.sumOf { convert(it.amount, it.currency, base, rates) }) }
+            .map { (month, rows) -> MonthlyAmount(month, rows.mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()) }
     }
     val monthlyIncome: Flow<List<MonthlyAmount>> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         entries.filter { it.type == LedgerType.INCOME }.groupBy { monthKey(it.date) }.toSortedMap()
-            .map { (month, rows) -> MonthlyAmount(month, rows.sumOf { convert(it.amount, it.currency, base, rates) }) }
+            .map { (month, rows) -> MonthlyAmount(month, rows.mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()) }
     }
 
     val monthlyNetChange: Flow<List<MonthlyNetChange>> = combine(
