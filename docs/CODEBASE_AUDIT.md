@@ -405,3 +405,8 @@ The branch has a good structural foundation, but it should not yet be considered
 - Base-currency validation now requires three ASCII letters, matching the repository's other currency-code validation.
 - Historical ledger rows currently do not store a transaction-time exchange-rate snapshot. Existing historical reports therefore depend on the currently configured rates for legacy/non-snapshotted foreign-currency rows. This is a documented accounting limitation, not silently presented as historical-rate accuracy.
 - A future schema migration should add nullable transaction-time conversion metadata and populate it for new transactions; existing rows must not be backfilled with today's rates because that would fabricate historical data.
+
+
+## Automated Regression Coverage
+- Added unit coverage for CurrencyBalances normalization, stable encoding, malformed currency rejection, and non-finite amount rejection.
+- This utility is a critical persistence boundary for multi-currency Pitakas, Goals, and Funnels, so validation behavior is now protected by executable tests rather than documentation alone.
