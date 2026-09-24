@@ -417,6 +417,7 @@ The branch has a good structural foundation, but it should not yet be considered
 ### P0 — Financial correctness
 - [x] Harden ledger effect application: fail loudly when required Pitaka/Goal/Funnel/transfer endpoints are missing.
 - [ ] Prove `applyEffect()` and `reverseEffect()` are exact inverses for every ledger type with automated tests.
+  - [x] Add pure CurrencyBalances add/reverse regression coverage.
 - [x] Fix expense edit allocation so funnel amount scales with the edited transaction and remains validated.
 - [x] Fix goal-contribution edit allocation so goal amount scales with the edited transaction and remains validated.
 - [ ] Complete transfer accounting audit, including cross-currency edit/delete reversal.
