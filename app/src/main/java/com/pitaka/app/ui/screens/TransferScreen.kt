@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.ExchangeRate
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.ui.components.PitakaDropdown
 import com.pitaka.app.data.CurrencyRules
 
 @OptIn(ExperimentalMaterial3Api::class)
