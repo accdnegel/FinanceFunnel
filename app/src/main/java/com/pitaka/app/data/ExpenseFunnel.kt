@@ -29,7 +29,8 @@ data class ExpenseFunnelWithSpend(
     val colorHex: String?,
     val cardStyle: String = "solid",
     val isSystem: Boolean = false,
-    val spent: Double
+    val spent: Double,
+    val spentByCurrency: Map<String, Double> = emptyMap()
 ) {
     val remaining: Double get() = limit - spent
 }
