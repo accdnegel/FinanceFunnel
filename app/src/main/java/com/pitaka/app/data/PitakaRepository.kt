@@ -3,6 +3,7 @@ package com.pitaka.app.data
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.YearMonth
 
