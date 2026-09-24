@@ -125,11 +125,14 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun monthKey(date: Long): String = java.time.Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().substring(0, 7)
 
-    private fun convert(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double {
-        if (from == to) return amount
-        val fromRate = rates.find { it.code == from }?.rateToBase ?: 1.0
-        val toRate = rates.find { it.code == to }?.rateToBase ?: 1.0
-        // Both rates are "1 unit of code = rateToBase units of base currency".
+    private fun convert(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double? {
+        val source = from.trim().uppercase()
+        val target = to.trim().uppercase()
+        if (!amount.isFinite()) return null
+        if (source == target) return amount
+        val fromRate = rates.find { it.code.equals(source, ignoreCase = true) }?.rateToBase ?: return null
+        val toRate = rates.find { it.code.equals(target, ignoreCase = true) }?.rateToBase ?: return null
+        if (!fromRate.isFinite() || fromRate <= 0.0 || !toRate.isFinite() || toRate <= 0.0) return null
         return amount * fromRate / toRate
     }
 
@@ -143,7 +146,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val currentMonthExpenseTotal: Flow<Double> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         entries.asSequence().filter { it.type == LedgerType.EXPENSE && monthKey(it.date) == currentMonthKey }
-            .sumOf { convert(it.amount, it.currency, base, rates) }
+            .mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()
     }
 
     suspend fun getExactBudgetForMonth(month: String): MonthlyBudget? = repository.getExactBudgetForMonth(month)
