@@ -352,3 +352,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - Successful operations clear the previous error.
 - The UI can observe this state and render actionable Snackbars/dialogs instead of silently losing coroutine exceptions.
 - This centralizes user-facing failure propagation while keeping accounting validation in the repository.
+
+
+## Complete ViewModel Mutation Error Routing
+- All repository mutation calls in PitakaViewModel now route through launchOperation, including recurring rules, currency settings, monthly budgets, Pitakas, and manual adjustments.
+- Recurring catch-up failures are also surfaced instead of becoming silent startup coroutine failures.
+- UI can therefore provide one consistent error surface for repository validation failures.
