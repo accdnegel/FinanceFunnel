@@ -46,5 +46,8 @@ data class LedgerEntry(
     /** Transaction amount converted using the stored historical rate. */
     val amountInBaseAtTransaction: Double? = null,
     /** Base currency used for the historical conversion snapshot. */
-    val baseCurrencyAtTransaction: String? = null
+    val baseCurrencyAtTransaction: String? = null,
+    /** Destination-side conversion snapshot for cross-currency transfers. */
+    val secondaryConversionRateToBaseAtTransaction: Double? = null,
+    val secondaryAmountInBaseAtTransaction: Double? = null
 )
