@@ -32,6 +32,8 @@ data class LedgerEntry(
     val fromPitakaId: Long? = null,
     val toPitakaId: Long? = null,
     val secondaryAmount: Double? = null,
+    /** Explicit destination-side currency for cross-currency transfers. */
+    val secondaryCurrency: String? = null,
     val goalId: Long? = null,
     val funnelId: Long? = null,
     val funnelAmount: Double? = null,
