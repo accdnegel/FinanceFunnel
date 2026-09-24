@@ -126,7 +126,12 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val currentMonthBudget: Flow<MonthlyBudget?> = repository.observeEffectiveBudget(currentMonthKey)
     val allBudgets: Flow<List<MonthlyBudget>> = repository.observeAllBudgets()
 
-    val currentMonthExpenseTotal: Flow<Double> = repository.observeExpenseTotalForMonth(currentMonthKey)
+    val currentMonthExpenseTotal: Flow<Double> = combine(financialEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        entries.filter { it.type == LedgerType.EXPENSE &&
+            YearMonth.from(java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()).toString() == currentMonthKey
+        }.sumOf { convert(kotlin.math.abs(it.amount), it.currency, base, rates) }
+    }
 
     suspend fun getExactBudgetForMonth(month: String): MonthlyBudget? = repository.getExactBudgetForMonth(month)
 
