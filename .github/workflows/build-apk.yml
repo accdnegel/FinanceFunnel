@@ -37,7 +37,16 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Run Android instrumentation tests\n        uses: reactivecircus/android-emulator-runner@v2\n        with:\n          api-level: 34\n          target: google_apis\n          arch: x86_64\n          profile: pixel_2\n          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot\n          disable-animations: true\n          script: gradle connectedDebugAndroidTest --no-daemon\n\n      - name: Upload APK
+      - name: Run Android instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot
+          disable-animations: true
+          script: gradle connectedDebugAndroidTest --no-daemon\n\n      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: pitaka-debug-apk
