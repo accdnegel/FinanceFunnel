@@ -165,12 +165,16 @@ class PitakaRepository(private val db: AppDatabase) {
             val delta = newBalance - current
             require(delta.isFinite()) { "Adjustment amount must be finite." }
             if (delta == 0.0) return@withTransaction
+            val snapshot = historicalConversionSnapshot(code, delta)
             val entry = LedgerEntry(
                 type = LedgerType.ADJUSTMENT,
                 amount = delta,
                 currency = code,
                 name = note.trim().ifBlank { "Manual adjustment" },
-                pitakaId = pitakaId
+                pitakaId = pitakaId,
+                conversionRateToBaseAtTransaction = snapshot.first,
+                amountInBaseAtTransaction = snapshot.second,
+                baseCurrencyAtTransaction = snapshot.third
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
@@ -655,7 +659,10 @@ class PitakaRepository(private val db: AppDatabase) {
                 toPitakaId = toPitakaId,
                 secondaryAmount = if (destinationCurrency == sourceCurrency) null else (secondaryAmount ?: amount),
                 secondaryCurrency = destinationCurrency,
-                date = date
+                date = date,
+                conversionRateToBaseAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).first,
+                amountInBaseAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).second,
+                baseCurrencyAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).third
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
@@ -686,7 +693,10 @@ class PitakaRepository(private val db: AppDatabase) {
                 goalId = goalId,
                 goalAmount = amount,
                 goalCurrency = txCurrency,
-                date = date
+                date = date,
+                conversionRateToBaseAtTransaction = historicalConversionSnapshot(txCurrency, amount).first,
+                amountInBaseAtTransaction = historicalConversionSnapshot(txCurrency, amount).second,
+                baseCurrencyAtTransaction = historicalConversionSnapshot(txCurrency, amount).third
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
