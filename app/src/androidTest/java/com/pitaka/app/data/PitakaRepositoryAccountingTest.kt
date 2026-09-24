@@ -118,4 +118,73 @@ class PitakaRepositoryAccountingTest {
         assertEquals(1_000.0, balances["PHP"] ?: 0.0, 0.0)
         assertEquals(50.0, balances["USD"] ?: 0.0, 0.0)
     }
+
+    @Test
+    fun recurringRuleCatchUpPostsOnceAndClampsShortMonths() = runBlocking {
+        val pitakaId = repository.createPitaka("Salary", 0.0, "PHP", null)
+        repository.createRecurringRule(
+            type = LedgerType.INCOME,
+            name = "Monthly salary",
+            amount = 50_000.0,
+            category = null,
+            pitakaId = pitakaId,
+            dayOfMonth = 31
+        )
+
+        repository.applyDueRecurringRules(java.time.LocalDate.of(2026, 2, 28))
+
+        val entries = repository.getAllEntriesOnce()
+        assertEquals(1, entries.size)
+        assertEquals(LedgerType.INCOME, entries.single().type)
+        assertEquals(java.time.LocalDate.of(2026, 2, 28).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(), entries.single().date)
+        assertEquals(50_000.0, CurrencyBalances.parse(db.pitakaDao().getPitaka(pitakaId)!!.currencyBalances)["PHP"] ?: 0.0, 0.0)
+
+        // Reopening the app in the same month must not post the rule again.
+        repository.applyDueRecurringRules(java.time.LocalDate.of(2026, 2, 28))
+        assertEquals(1, repository.getAllEntriesOnce().size)
+    }
+
+    @Test
+    fun recurringExpenseUsesPitakaCurrencyAndCanBeDisabled() = runBlocking {
+        val pitakaId = repository.createPitaka("USD Wallet", 100.0, "USD", null)
+        repository.createRecurringRule(
+            type = LedgerType.EXPENSE,
+            name = "Cloud storage",
+            amount = 10.0,
+            category = "Bills",
+            pitakaId = pitakaId,
+            dayOfMonth = 15
+        )
+
+        repository.applyDueRecurringRules(java.time.LocalDate.of(2026, 9, 15))
+        val expense = repository.getAllEntriesOnce().single()
+        assertEquals(LedgerType.EXPENSE, expense.type)
+        assertEquals("USD", expense.currency)
+        assertEquals(90.0, CurrencyBalances.parse(db.pitakaDao().getPitaka(pitakaId)!!.currencyBalances)["USD"] ?: 0.0, 0.0)
+
+        val rule = db.recurringRuleDao().getActiveRulesOnce().single()
+        repository.setRecurringRuleActive(rule, false)
+        repository.applyDueRecurringRules(java.time.LocalDate.of(2026, 10, 15))
+        assertEquals(1, repository.getAllEntriesOnce().size)
+    }
+
+    @Test
+    fun recurringRuleBeforeDueDateDoesNotPost() = runBlocking {
+        val pitakaId = repository.createPitaka("Wallet", 0.0, "PHP", null)
+        repository.createRecurringRule(
+            type = LedgerType.INCOME,
+            name = "Allowance",
+            amount = 1_000.0,
+            category = null,
+            pitakaId = pitakaId,
+            dayOfMonth = 20
+        )
+
+        repository.applyDueRecurringRules(java.time.LocalDate.of(2026, 9, 19))
+        assertTrue(repository.getAllEntriesOnce().isEmpty())
+
+        repository.applyDueRecurringRules(java.time.LocalDate.of(2026, 9, 20))
+        assertEquals(1, repository.getAllEntriesOnce().size)
+    }
 }
+
