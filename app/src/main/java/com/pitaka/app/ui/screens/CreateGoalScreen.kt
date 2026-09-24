@@ -7,9 +7,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.GoalType
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.ui.components.PitakaDropdown
 import com.pitaka.app.ui.components.ColorSwatchPicker
 import com.pitaka.app.ui.components.CardStylePicker
 import com.pitaka.app.ui.components.DatePickerButton
+import com.pitaka.app.ui.theme.parseHexColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
