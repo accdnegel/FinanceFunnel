@@ -579,7 +579,8 @@ class PitakaRepository(private val db: AppDatabase) {
 
     private suspend fun recordIncomeInternal(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis(), currency: String? = null) {
         val pitakaCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"
-        val entry = LedgerEntry(type = LedgerType.INCOME, amount = amount, currency = pitakaCurrency, name = name, pitakaId = pitakaId, date = date)
+        val snapshot = historicalConversionSnapshot(pitakaCurrency, amount)
+        val entry = LedgerEntry(type = LedgerType.INCOME, amount = amount, currency = pitakaCurrency, name = name, pitakaId = pitakaId, date = date, conversionRateToBaseAtTransaction = snapshot.first, amountInBaseAtTransaction = snapshot.second, baseCurrencyAtTransaction = snapshot.third)
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
     }
@@ -604,7 +605,7 @@ class PitakaRepository(private val db: AppDatabase) {
             "Insufficient " + txCurrency + " balance in " + source.name + "."
         }
         val entry = LedgerEntry(
-            type = LedgerType.EXPENSE, amount = amount, currency = txCurrency, name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = funnelAmount ?: amount, funnelCurrency = funnelCurrency ?: txCurrency, date = date
+            type = LedgerType.EXPENSE, amount = amount, currency = txCurrency, name = name, category = category, pitakaId = pitakaId, funnelId = funnelId, funnelAmount = funnelAmount ?: amount, funnelCurrency = funnelCurrency ?: txCurrency, date = date, conversionRateToBaseAtTransaction = historicalConversionSnapshot(txCurrency, amount).first, amountInBaseAtTransaction = historicalConversionSnapshot(txCurrency, amount).second, baseCurrencyAtTransaction = historicalConversionSnapshot(txCurrency, amount).third
         )
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
@@ -695,6 +696,19 @@ class PitakaRepository(private val db: AppDatabase) {
     // ---- Balance effect helpers ----
     // applyEffect() is linear in `amount`, so reverseEffect() can just negate amount(s) and
     // re-apply the same formula — this correctly undoes any entry type, including edits.
+
+    private suspend fun historicalConversionSnapshot(currency: String, amount: Double): Triple<Double, Double, String> {
+        val code = currency.trim().uppercase()
+        val base = currencyDao.getSettings()?.baseCurrency?.trim()?.uppercase()?.ifBlank { "PHP" } ?: "PHP"
+        val rate = if (code == base) 1.0 else currencyDao.getRatesOnce()
+            .firstOrNull { it.code.equals(code, true) }?.rateToBase
+        require(rate != null && rate.isFinite() && rate > 0.0) {
+            "A usable exchange rate for $code is required to record a historical base-currency snapshot."
+        }
+        val baseAmount = amount * rate
+        require(baseAmount.isFinite()) { "Historical base-currency amount must be finite." }
+        return Triple(rate, baseAmount, base)
+    }
 
     private suspend fun currencyForRecurring(pitakaId: Long): String =
         pitakaDao.getPitaka(pitakaId)?.currency?.uppercase() ?: "PHP"
