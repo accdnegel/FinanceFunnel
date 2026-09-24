@@ -174,7 +174,7 @@ class PitakaRepository(private val db: AppDatabase) {
     }
     fun observeFunnelSpent(funnelId: Long): Flow<Double> = funnelDao.observeSpent(funnelId)
     suspend fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid"): Long =
-        funnelDao.insert(ExpenseFunnel(name = name, limit = limit, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0"))
+        funnelDao.insert(ExpenseFunnel(name = name.trim().ifBlank { error("Funnel name cannot be blank.") }, limit = limit.also { require(it >= 0 && it.isFinite()) { "Funnel limit must be a non-negative finite number." } }, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0"))
     suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
     suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
         require(!funnel.isSystem) { "System expense funnels cannot be deleted." }
