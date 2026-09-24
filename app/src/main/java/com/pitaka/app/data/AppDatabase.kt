@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Pitaka::class, Goal::class, LedgerEntry::class, MonthlyBudget::class, ExpenseFunnel::class, CurrencySettings::class, ExchangeRate::class, RecurringRule::class],
-    version = 6,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -32,6 +32,19 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE expense_funnels ADD COLUMN isSystem INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_pitakas_parentPitakaId ON pitakas(parentPitakaId)")
                 db.execSQL("INSERT INTO expense_funnels(name,limit,currency,currencyBalances,validFrom,validUntil,colorHex,cardStyle,isSystem) SELECT 'Unclassified Expense', 0, 'PHP', 'PHP=0', NULL, NULL, NULL, 'solid', 1 WHERE NOT EXISTS (SELECT 1 FROM expense_funnels WHERE name='Unclassified Expense')")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6,7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryCurrency TEXT")
+                db.execSQL("UPDATE ledger_entries SET secondaryCurrency = currency WHERE type = 'TRANSFER' AND secondaryCurrency IS NULL AND secondaryAmount IS NULL")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7,8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recurring_rules ADD COLUMN currency TEXT NOT NULL DEFAULT 'PHP'")
             }
         }
 
@@ -62,7 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pitaka.db")
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build().also { INSTANCE = it }
         }
     }
