@@ -431,7 +431,8 @@ class PitakaRepository(private val db: AppDatabase) {
     // applyEffect() is linear in `amount`, so reverseEffect() can just negate amount(s) and
     // re-apply the same formula — this correctly undoes any entry type, including edits.
 
-    private suspend fun currencyForRecurring(pitakaId: Long): String = pitakaDao.getPitaka(pitakaId)?.currency?.uppercase() ?: "PHP"
+    private suspend fun currencyForRecurring(pitakaId: Long): String =
+        pitakaDao.getPitaka(pitakaId)?.currency?.uppercase() ?: "PHP"
 
     private suspend fun canonicalExpenseCategory(category: String?): String {
         val cleaned = category?.trim().orEmpty()
@@ -462,12 +463,12 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     private suspend fun reverseEffect(entry: LedgerEntry) {
-        applyEffect(
-            entry.copy(
-                amount = -entry.amount,
-                secondaryAmount = entry.secondaryAmount?.let { -it }
-            )
-        )
+        applyEffect(entry.copy(
+            amount = -entry.amount,
+            secondaryAmount = entry.secondaryAmount?.let { -it },
+            funnelAmount = entry.funnelAmount?.let { -it },
+            goalAmount = entry.goalAmount?.let { -it }
+        ))
     }
 
     private suspend fun adjustBalance(pitakaId: Long, delta: Double, currency: String = "PHP") {
