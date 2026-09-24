@@ -50,7 +50,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
     LaunchedEffect(goalId) { goal = viewModel.getGoal(goalId) }
     LaunchedEffect(pitakas) { if (sourcePitaka == null && pitakas.isNotEmpty()) sourcePitaka = pitakas.first() }
 
-    val progress = entries.sumOf { it.amount }
+    val progress = entries.filter { it.goalCurrency?.equals(goal?.currency, ignoreCase = true) ?: it.currency.equals(goal?.currency, ignoreCase = true) }.sumOf { it.goalAmount ?: it.amount }
     val isInvestment = goal?.type == GoalType.INVESTMENT
     val accentColor = parseHexColor(goal?.colorHex) ?: if (isInvestment) Color(0xFF056C3F) else Color(0xFF0278CF)
     val target = (goal?.targetAmount ?: 0.0).coerceAtLeast(0.01)
@@ -123,7 +123,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                         when {
                             src == null -> error = "Pick a Pitaka."
                             amount == null || amount <= 0 -> error = "Enter a valid amount."
-                            amount > src.currentAmount -> error = "${src.name} only has $${"%,.2f".format(src.currentAmount)}."
+                            amount > (CurrencyBalances.parse(src.currencyBalances)[src.currency.uppercase()] ?: 0.0) -> error = "${src.name} only has ${src.currency} ${"%,.2f".format(CurrencyBalances.parse(src.currencyBalances)[src.currency.uppercase()] ?: 0.0)}."
                             else -> {
                                 error = null
                                 viewModel.recordGoalContribution(
