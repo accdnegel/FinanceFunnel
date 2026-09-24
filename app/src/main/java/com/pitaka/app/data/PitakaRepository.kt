@@ -179,7 +179,8 @@ class PitakaRepository(private val db: AppDatabase) {
 
     fun observeAllExpenses(): Flow<List<LedgerEntry>> = ledgerDao.observeAllExpenses()
 
-    fun observeMonthlyExpenses(): Flow<List<MonthlyAmount>> = ledgerDao.observeMonthlyExpenses()
+    fun observeFinancialEntries(): Flow<List<LedgerEntry>> = ledgerDao.observeFinancialEntries()
+
 
     fun observeMonthlyIncome(): Flow<List<MonthlyAmount>> = ledgerDao.observeMonthlyIncome()
 
