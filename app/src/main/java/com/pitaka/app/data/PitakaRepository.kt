@@ -116,8 +116,9 @@ class PitakaRepository(private val db: AppDatabase) {
      * ledger entry for the delta so there's still an audit trail. The UI is responsible for
      * warning the user before calling this.
      */
-    suspend fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String) {
+    suspend fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String, currency: String? = null) {
         db.withTransaction {
+            require(newBalance >= 0) { "Adjusted balance cannot be negative." }
             val pitaka = pitakaDao.getPitaka(pitakaId) ?: return@withTransaction
             val code = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
             val current = CurrencyBalances.parse(pitaka.currencyBalances)[code] ?: 0.0
@@ -294,7 +295,7 @@ class PitakaRepository(private val db: AppDatabase) {
 
             db.withTransaction {
                 when (rule.type) {
-                    LedgerType.INCOME -> recordIncomeInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount)
+                    LedgerType.INCOME -> recordIncomeInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount, currency = rule.currency.uppercase())
                     LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, "${rule.name} (recurring)", rule.amount, rule.category, null, rule.currency)
                     else -> {} // recurring rules only support INCOME/EXPENSE
                 }
