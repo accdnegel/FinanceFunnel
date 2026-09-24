@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.ExchangeRate
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.data.CurrencyRules
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,9 +28,13 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
 
     val amount = amountText.toDoubleOrNull()
     val crossCurrency = fromPitaka != null && toPitaka != null && fromPitaka?.currency != toPitaka?.currency
-    val convertedAmount = if (crossCurrency && amount != null) {
-        convertBetween(amount, fromPitaka!!.currency, toPitaka!!.currency, rates)
+    val conversionError = if (crossCurrency && amount != null) {
+        try { CurrencyRules.convert(amount, fromPitaka!!.currency, toPitaka!!.currency, rates); null }
+        catch (e: IllegalArgumentException) { e.message ?: "Configure exchange rates first." }
     } else null
+    val convertedAmount = if (crossCurrency && amount != null && conversionError == null) {
+        CurrencyRules.convert(amount, fromPitaka!!.currency, toPitaka!!.currency, rates)
+    } else if (!crossCurrency) amount else null
 
     Scaffold(topBar = { TopAppBar(title = { Text("Transfer Between Pitakas") }) }) { padding ->
         Column(
@@ -53,6 +58,9 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
                     label = { Text("Amount (${fromPitaka?.currency ?: ""})") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (crossCurrency && conversionError != null) {
+                    Text(conversionError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
                 if (crossCurrency && convertedAmount != null) {
                     Text(
                         "≈ ${toPitaka?.currency} ${"%,.2f".format(convertedAmount)} will be added to ${toPitaka?.name}, " +
@@ -69,7 +77,8 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
                         when {
                             fromPitaka == null || toPitaka == null -> error = "Pick both Pitakas."
                             fromPitaka?.id == toPitaka?.id -> error = "Pick two different Pitakas."
-                            amount == null || amount <= 0 -> error = "Enter a valid amount."
+                            amount == null || amount <= 0 || !amount.isFinite() -> error = "Enter a valid amount."
+                            crossCurrency && convertedAmount == null -> error = conversionError ?: "Configure exchange rates first."
                             else -> {
                                 viewModel.recordTransfer(
                                     fromPitakaId = fromPitaka!!.id,
@@ -86,40 +95,6 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
                 ) {
                     Text("Transfer")
                 }
-            }
-        }
-    }
-}
-
-private fun convertBetween(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double {
-    if (from == to) return amount
-    val fromRate = rates.find { it.code == from }?.rateToBase ?: 1.0
-    val toRate = rates.find { it.code == to }?.rateToBase ?: 1.0
-    return amount * fromRate / toRate
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PitakaDropdown(label: String, pitakas: List<Pitaka>, selected: Pitaka?, onSelected: (Pitaka) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = selected?.let { "${it.name} (${it.currency})" } ?: "",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor()
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            pitakas.forEach { pitaka ->
-                DropdownMenuItem(
-                    text = { Text("${pitaka.name} (${pitaka.currency} ${"%,.2f".format(pitaka.currentAmount)})") },
-                    onClick = {
-                        onSelected(pitaka)
-                        expanded = false
-                    }
-                )
             }
         }
     }
