@@ -228,12 +228,42 @@ class PitakaRepository(private val db: AppDatabase) {
     /** Edits name/amount/category in place, reversing the old balance effect and applying the new one. */
     suspend fun updateEntry(oldEntry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = oldEntry.pitakaId) {
         db.withTransaction {
-            reverseEffect(oldEntry)
-            val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
+            require(newName.trim().isNotBlank()) { "Transaction name cannot be blank." }
+            require(newAmount.isFinite()) { "Transaction amount must be finite." }
             require(newAmount > 0 || oldEntry.type == LedgerType.ADJUSTMENT) { "Transaction amount must be positive." }
+
+            // Reverse first, then validate against the resulting account state. Room rolls
+            // the entire transaction back if any validation fails.
+            reverseEffect(oldEntry)
+
+            if (oldEntry.type == LedgerType.INCOME || oldEntry.type == LedgerType.EXPENSE || oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
+                val target = newPitakaId?.let { pitakaDao.getPitaka(it) }
+                require(target != null) { "Target Pitaka not found." }
+                val available = CurrencyBalances.parse(target.currencyBalances)[oldEntry.currency.uppercase()] ?: 0.0
+                if (oldEntry.type != LedgerType.INCOME) {
+                    require(available >= newAmount) {
+                        "Insufficient " + oldEntry.currency.uppercase() + " balance in " + target.name + "."
+                    }
+                }
+                if (oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
+                    val goal = oldEntry.goalId?.let { goalDao.getGoal(it) }
+                    require(goal != null) { "Goal not found." }
+                    require(goal.currency.equals(oldEntry.currency, ignoreCase = true)) {
+                        "Contribution currency does not match the Goal currency."
+                    }
+                }
+            }
+
+            val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
             val ratio = if (oldEntry.amount != 0.0) newAmount / oldEntry.amount else 1.0
-            val updated = oldEntry.copy(name = newName, amount = newAmount, category = normalizedCategory, pitakaId = newPitakaId,
-                funnelAmount = oldEntry.funnelAmount?.times(ratio), goalAmount = oldEntry.goalAmount?.times(ratio))
+            val updated = oldEntry.copy(
+                name = newName.trim(),
+                amount = newAmount,
+                category = normalizedCategory,
+                pitakaId = newPitakaId,
+                funnelAmount = oldEntry.funnelAmount?.times(ratio),
+                goalAmount = oldEntry.goalAmount?.times(ratio)
+            )
             ledgerDao.updateEntry(updated)
             applyEffect(updated)
         }
