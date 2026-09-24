@@ -371,3 +371,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - Day 31 in a shorter month is clamped to that month's last day, matching the existing recurring-rule semantics.
 - Recurring currency codes are validated before posting.
 - A missing Pitaka or unsupported recurring type now fails the transaction instead of silently updating the rule.
+
+
+## Recurring Transaction Hardening
+- Recurring entries are dated to their effective scheduled day rather than the app-open timestamp.
+- Catch-up validates rule type, name, amount, day-of-month, currency, and referenced Pitaka before posting.
+- Day 29/30/31 rules are clamped to the final calendar day of shorter months, preserving the documented monthly behavior.
+- The recurring posting and lastAppliedMonth update remain atomic, preventing a rule from being marked applied when posting fails.
