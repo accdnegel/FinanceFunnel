@@ -146,14 +146,14 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid"): Long {
         return goalDao.insertGoal(
-            Goal(name = name, type = type, targetAmount = targetAmount, targetDate = targetDate, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0")
+            Goal(name = name.trim().ifBlank { error("Goal name cannot be blank.") }, type = type, targetAmount = targetAmount.also { require(it > 0 && it.isFinite()) { "Goal target must be a positive finite number." } }, targetDate = targetDate, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0")
         )
     }
 
     suspend fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid") {
         val existing = goalDao.getGoal(goalId) ?: return
         goalDao.updateGoal(
-            existing.copy(name = name, type = type, targetAmount = targetAmount, targetDate = targetDate, colorHex = colorHex, cardStyle = cardStyle)
+            existing.copy(name = name.trim().ifBlank { error("Goal name cannot be blank.") }, type = type, targetAmount = targetAmount.also { require(it > 0 && it.isFinite()) { "Goal target must be a positive finite number." } }, targetDate = targetDate, colorHex = colorHex, cardStyle = cardStyle)
         )
     }
 
