@@ -109,15 +109,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         current - deltaAfter
     }
 
-    private fun convert(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double {
-        if (from == to) return amount
-        val fromRate = rates.find { it.code == from }?.rateToBase ?: 1.0
-        val toRate = rates.find { it.code == to }?.rateToBase ?: 1.0
-        // Both rates are "1 unit of code = rateToBase units of base currency".
-        return amount * fromRate / toRate
-    }
+    private fun convert(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double =
+        CurrencyRules.convert(amount, from, to, rates)
 
-    fun convertCurrency(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double = convert(amount, from, to, rates)
+    fun convertCurrency(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double =
+        CurrencyRules.convert(amount, from, to, rates)
 
     // ---- Monthly expense budgets ----
 
