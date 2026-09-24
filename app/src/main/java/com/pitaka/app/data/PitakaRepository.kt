@@ -321,8 +321,8 @@ class PitakaRepository(private val db: AppDatabase) {
         db.withTransaction { recordIncomeInternal(pitakaId, name, amount, date) }
     }
 
-    private suspend fun recordIncomeInternal(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis()) {
-        val pitakaCurrency = pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"
+    private suspend fun recordIncomeInternal(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis(), currency: String? = null) {
+        val pitakaCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"
         val entry = LedgerEntry(type = LedgerType.INCOME, amount = amount, currency = pitakaCurrency, name = name, pitakaId = pitakaId, date = date)
         ledgerDao.insertEntry(entry)
         applyEffect(entry)
