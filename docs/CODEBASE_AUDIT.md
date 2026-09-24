@@ -358,3 +358,9 @@ The branch has a good structural foundation, but it should not yet be considered
 - All repository mutation calls in PitakaViewModel now route through launchOperation, including recurring rules, currency settings, monthly budgets, Pitakas, and manual adjustments.
 - Recurring catch-up failures are also surfaced instead of becoming silent startup coroutine failures.
 - UI can therefore provide one consistent error surface for repository validation failures.
+
+
+## Global Compose Error Surface
+- PitakaNavGraph observes the ViewModel operationError StateFlow.
+- Repository failures are displayed through a Material SnackbarHost at the navigation root, so errors remain visible regardless of which child screen initiated the operation.
+- The error is cleared after presentation to prevent repeated display on recomposition.
