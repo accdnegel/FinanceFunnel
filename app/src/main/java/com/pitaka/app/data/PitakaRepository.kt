@@ -273,13 +273,37 @@ class PitakaRepository(private val db: AppDatabase) {
 
             val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
             val ratio = if (oldEntry.amount != 0.0) newAmount / oldEntry.amount else 1.0
+
+            // Allocation amounts are part of the ledger event, not independent balances.
+            // When the transaction amount changes, preserve an explicitly converted
+            // funnel/goal allocation by scaling it with the same transaction ratio.
+            val updatedFunnelAmount = oldEntry.funnelAmount?.let { oldAllocation ->
+                require(oldAllocation.isFinite()) { "Existing funnel allocation is invalid." }
+                oldAllocation * ratio
+            }
+            val updatedGoalAmount = oldEntry.goalAmount?.let { oldAllocation ->
+                require(oldAllocation.isFinite()) { "Existing goal allocation is invalid." }
+                oldAllocation * ratio
+            }
+
+            if (oldEntry.type == LedgerType.EXPENSE) {
+                val funnelId = requireNotNull(oldEntry.funnelId) { "Expense has no funnel." }
+                require(funnelDao.get(funnelId) != null) { "Expense funnel not found." }
+                requireNotNull(updatedFunnelAmount) { "Expense has no funnel allocation." }
+            }
+            if (oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
+                val goalId = requireNotNull(oldEntry.goalId) { "Goal contribution has no Goal." }
+                require(goalDao.getGoal(goalId) != null) { "Goal for contribution not found." }
+                requireNotNull(updatedGoalAmount) { "Goal contribution has no goal allocation." }
+            }
+
             val updated = oldEntry.copy(
                 name = newName.trim(),
                 amount = newAmount,
                 category = normalizedCategory,
                 pitakaId = newPitakaId,
-                funnelAmount = oldEntry.funnelAmount?.times(ratio),
-                goalAmount = oldEntry.goalAmount?.times(ratio)
+                funnelAmount = updatedFunnelAmount,
+                goalAmount = updatedGoalAmount
             )
             ledgerDao.updateEntry(updated)
             applyEffect(updated)
