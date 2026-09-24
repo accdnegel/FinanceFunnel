@@ -38,6 +38,41 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.pitaka.app.R
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PitakaDropdown(
+    label: String,
+    pitakas: List<com.pitaka.app.data.Pitaka>,
+    selected: com.pitaka.app.data.Pitaka?,
+    onSelected: (com.pitaka.app.data.Pitaka) -> Unit
+) {
+    var open by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = open,
+        onExpandedChange = { open = !open }
+    ) {
+        OutlinedTextField(
+            value = selected?.name ?: "Select Pitaka",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            pitakas.forEach { pitaka ->
+                DropdownMenuItem(
+                    text = { Text(pitaka.name) },
+                    onClick = {
+                        onSelected(pitaka)
+                        open = false
+                    }
+                )
+            }
+        }
+    }
+}
+
 val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
 @Composable
