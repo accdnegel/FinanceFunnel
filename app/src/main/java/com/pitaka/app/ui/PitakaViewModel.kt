@@ -83,11 +83,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     val totalSavingsProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        list.filter { it.type == GoalType.SAVINGS }.sumOf { convert(it.progress, it.currency, base, rates) }
+        list.filter { it.type == GoalType.SAVINGS }.sumOf { CurrencyBalances.parse(it.currencyBalances).entries.sumOf { (code, amount) -> convert(amount, code, base, rates) } }
     }
     val totalInvestmentProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        list.filter { it.type == GoalType.INVESTMENT }.sumOf { convert(it.progress, it.currency, base, rates) }
+        list.filter { it.type == GoalType.INVESTMENT }.sumOf { CurrencyBalances.parse(it.currencyBalances).entries.sumOf { (code, amount) -> convert(amount, code, base, rates) } }
     }
     val totalNetWorth: Flow<Double> = combine(
         totalLiquid, totalSavingsProgress, totalInvestmentProgress
@@ -109,6 +109,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         current - deltaAfter
     }
 
+    private fun monthKey(date: Long): String = java.time.Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().substring(0, 7)
+
     private fun convert(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double {
         if (from == to) return amount
         val fromRate = rates.find { it.code == from }?.rateToBase ?: 1.0
@@ -124,7 +126,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val currentMonthBudget: Flow<MonthlyBudget?> = repository.observeEffectiveBudget(currentMonthKey)
     val allBudgets: Flow<List<MonthlyBudget>> = repository.observeAllBudgets()
 
-    val currentMonthExpenseTotal: Flow<Double> = repository.observeExpenseTotalForMonth(currentMonthKey)
+    val currentMonthExpenseTotal: Flow<Double> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        entries.asSequence().filter { it.type == LedgerType.EXPENSE && monthKey(it.date) == currentMonthKey }
+            .sumOf { convert(it.amount, it.currency, base, rates) }
+    }
 
     suspend fun getExactBudgetForMonth(month: String): MonthlyBudget? = repository.getExactBudgetForMonth(month)
 
@@ -134,8 +140,16 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     // ---- Statistics ----
 
-    val monthlyExpenses: Flow<List<MonthlyAmount>> = repository.observeMonthlyExpenses()
-    val monthlyIncome: Flow<List<MonthlyAmount>> = repository.observeMonthlyIncome()
+    val monthlyExpenses: Flow<List<MonthlyAmount>> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        entries.filter { it.type == LedgerType.EXPENSE }.groupBy { monthKey(it.date) }.toSortedMap()
+            .map { (month, rows) -> MonthlyAmount(month, rows.sumOf { convert(it.amount, it.currency, base, rates) }) }
+    }
+    val monthlyIncome: Flow<List<MonthlyAmount>> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        entries.filter { it.type == LedgerType.INCOME }.groupBy { monthKey(it.date) }.toSortedMap()
+            .map { (month, rows) -> MonthlyAmount(month, rows.sumOf { convert(it.amount, it.currency, base, rates) }) }
+    }
 
     val monthlyNetChange: Flow<List<MonthlyNetChange>> = combine(
         monthlyIncome, monthlyExpenses
@@ -148,12 +162,19 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    val expenseBreakdown: Flow<List<CategorySpend>> = repository.observeExpenseBreakdown()
+    val expenseBreakdown: Flow<List<CategorySpend>> = expenseBreakdownConverted(null)
     val expenseCategories: Flow<List<String>> = repository.observeExpenseCategories()
     val availableMonths: Flow<List<String>> = repository.observeAvailableMonths()
 
-    fun expenseBreakdownForMonth(month: String): Flow<List<CategorySpend>> =
-        repository.observeExpenseBreakdownForMonth(month)
+    fun expenseBreakdownForMonth(month: String): Flow<List<CategorySpend>> = expenseBreakdownConverted(month)
+
+    private fun expenseBreakdownConverted(month: String?): Flow<List<CategorySpend>> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        entries.asSequence().filter { it.type == LedgerType.EXPENSE && (month == null || monthKey(it.date) == month) }
+            .groupBy { it.category?.trim().takeUnless { x -> x.isNullOrEmpty() } ?: "Uncategorized Expense" }
+            .map { (category, rows) -> CategorySpend(category, rows.sumOf { convert(it.amount, it.currency, base, rates) }) }
+            .sortedByDescending { it.total }
+    }
 
     fun entriesForPitaka(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForPitaka(id)
     fun entriesForGoal(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForGoal(id)
