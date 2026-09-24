@@ -97,9 +97,9 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val totalLiquid: Flow<Double> = combine(pitakas, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         list.filter { it.parentPitakaId == null }.sumOf { root ->
-            effectivePitakaBalances(root.id, list).entries.sumOf { (code, amount) ->
+            effectivePitakaBalances(root.id, list).entries.mapNotNull { (code, amount) ->
                 convert(amount, code, base, rates)
-            }
+            }.sum()
         }
     }
 
@@ -109,7 +109,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
     val totalInvestmentProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        list.filter { it.type == GoalType.INVESTMENT }.sumOf { CurrencyBalances.parse(it.currencyBalances).entries.sumOf { (code, amount) -> convert(amount, code, base, rates) } }
+        list.filter { it.type == GoalType.INVESTMENT }.sumOf { CurrencyBalances.parse(it.currencyBalances).entries.mapNotNull { (code, amount) -> convert(amount, code, base, rates) }.sum() }
     }
     val totalNetWorth: Flow<Double> = combine(
         totalLiquid, totalSavingsProgress, totalInvestmentProgress
