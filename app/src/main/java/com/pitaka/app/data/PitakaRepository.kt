@@ -258,7 +258,10 @@ class PitakaRepository(private val db: AppDatabase) {
     fun observeExchangeRates(): Flow<List<ExchangeRate>> = currencyDao.observeRates()
 
     suspend fun setExchangeRate(code: String, rateToBase: Double) {
-        currencyDao.upsertRate(ExchangeRate(code = code, rateToBase = rateToBase))
+        val normalized = code.trim().uppercase()
+        require(normalized.isNotBlank()) { "Currency code cannot be blank." }
+        require(rateToBase > 0 && rateToBase.isFinite()) { "Exchange rate must be a positive finite number." }
+        currencyDao.upsertRate(ExchangeRate(code = normalized, rateToBase = rateToBase))
     }
 
     suspend fun deleteExchangeRate(code: String) = currencyDao.deleteRate(code)
@@ -374,6 +377,12 @@ class PitakaRepository(private val db: AppDatabase) {
             val sourceCurrency = source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[sourceCurrency] ?: 0.0) >= amount) { "Insufficient ${sourceCurrency} balance in ${source.name}." }
             val destinationCurrency = destination.currency.uppercase()
+            if (sourceCurrency != destinationCurrency) {
+                val rates = currencyDao.getRatesOnce()
+                require(rates.any { it.code.equals(sourceCurrency, true) } && rates.any { it.code.equals(destinationCurrency, true) }) {
+                    "Exchange rates for ${sourceCurrency} and ${destinationCurrency} are required for a cross-currency transfer."
+                }
+            }
             val entry = LedgerEntry(
                 type = LedgerType.TRANSFER,
                 amount = amount,
