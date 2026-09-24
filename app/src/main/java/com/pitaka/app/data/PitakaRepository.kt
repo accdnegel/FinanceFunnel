@@ -176,7 +176,11 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid"): Long =
         funnelDao.insert(ExpenseFunnel(name = name, limit = limit, validFrom = validFrom, validUntil = validUntil, colorHex = colorHex, cardStyle = cardStyle, currencyBalances = "PHP=0"))
     suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
-    suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.delete(funnel)
+    suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
+        require(!funnel.isSystem) { "System expense funnels cannot be deleted." }
+        require(funnelDao.countExpenses(funnel.id) == 0) { "This funnel has expense history. Archive it instead of deleting it." }
+        funnelDao.delete(funnel)
+    }
 
     // ---- Ledger reads ----
 
