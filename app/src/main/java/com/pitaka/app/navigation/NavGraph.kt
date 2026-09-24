@@ -88,11 +88,11 @@ fun PitakaNavGraph(viewModel: PitakaViewModel) {
     val nav = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     val operationError by viewModel.operationError.collectAsState()
-    val hasMissingConversionRates by viewModel.hasMissingConversionRates.collectAsState()
+    val hasMissingConversionRates by viewModel.hasMissingConversionRates.collectAsState(initial = false)
 
     LaunchedEffect(operationError) {
         operationError?.let { message ->
-            snackbarHostState.showSnackbar(message)
+            snackbarHostState.showSnackbar(message = message)
             viewModel.clearOperationError()
         }
     }
