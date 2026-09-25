@@ -39,6 +39,8 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
     var goal by remember { mutableStateOf<Goal?>(null) }
     val entries by viewModel.entriesForGoal(goalId).collectAsState(initial = emptyList())
     val pitakas by viewModel.pitakas.collectAsState(initial = emptyList())
+    val rates by viewModel.exchangeRates.collectAsState(initial = emptyList())
+    val currencySettings by viewModel.currencySettings.collectAsState(initial = null)
 
     var sourcePitaka by remember { mutableStateOf<Pitaka?>(null) }
     var note by remember { mutableStateOf("") }
@@ -46,6 +48,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
     var error by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<LedgerEntry?>(null) }
+    var pendingContribution by remember { mutableStateOf<Double?>(null) }
 
     LaunchedEffect(goalId) { goal = viewModel.getGoal(goalId) }
     LaunchedEffect(pitakas) { if (sourcePitaka == null && pitakas.isNotEmpty()) sourcePitaka = pitakas.first() }
@@ -126,14 +129,19 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                             amount > (CurrencyBalances.parse(src.currencyBalances)[src.currency.uppercase()] ?: 0.0) -> error = "${src.name} only has ${src.currency} ${"%,.2f".format(CurrencyBalances.parse(src.currencyBalances)[src.currency.uppercase()] ?: 0.0)}."
                             else -> {
                                 error = null
-                                viewModel.recordGoalContribution(
-                                    sourcePitakaId = src.id,
-                                    goalId = goalId,
-                                    name = note.ifBlank { "Contribution" },
-                                    amount = amount
-                                )
-                                note = ""
-                                amountText = ""
+                                if (goal != null && !src.currency.equals(goal!!.currency, ignoreCase = true)) {
+                                    pendingContribution = amount
+                                } else {
+                                    viewModel.recordGoalContribution(
+                                        sourcePitakaId = src.id,
+                                        goalId = goalId,
+                                        name = note.ifBlank { "Contribution" },
+                                        amount = amount,
+                                        currency = src.currency
+                                    )
+                                    note = ""
+                                    amountText = ""
+                                }
                             }
                         }
                     },
@@ -170,6 +178,41 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                     HorizontalDivider()
                 }
             }
+        }
+    }
+
+    pendingContribution?.let { sourceAmount ->
+        val src = sourcePitaka
+        val g = goal
+        if (src != null && g != null) {
+            val base = currencySettings?.baseCurrency ?: "PHP"
+            val fromRate = if (src.currency.equals(base, true)) 1.0 else rates.find { it.code.equals(src.currency, true) }?.rateToBase
+            val toRate = if (g.currency.equals(base, true)) 1.0 else rates.find { it.code.equals(g.currency, true) }?.rateToBase
+            val converted = if (fromRate != null && toRate != null && fromRate > 0 && toRate > 0) sourceAmount * fromRate / toRate else null
+            AlertDialog(
+                onDismissRequest = { pendingContribution = null },
+                title = { Text("Different currencies") },
+                text = { Text("This Pitaka uses ${src.currency}, while this Goal uses ${g.currency}. Choose how to record the contribution.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (converted == null) {
+                            error = "A usable exchange rate is required to convert ${src.currency} to ${g.currency}."
+                        } else {
+                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, converted, g.currency)
+                            note = ""; amountText = ""; pendingContribution = null
+                        }
+                    }) { Text("Convert to ${g.currency}") }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = {
+                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, sourceAmount, src.currency)
+                            note = ""; amountText = ""; pendingContribution = null
+                        }) { Text("Keep ${src.currency}") }
+                        TextButton(onClick = { pendingContribution = null }) { Text("Cancel") }
+                    }
+                }
+            )
         }
     }
 
