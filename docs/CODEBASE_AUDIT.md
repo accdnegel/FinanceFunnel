@@ -1,7 +1,7 @@
 # Pitaka / FinanceFunnel — Codebase Audit
 ## Branch audited
 - Branch: `feature/technical-debt-accounting-hardening`
-- Audit date: 2026-09-24
+- Audit date: 2026-09-25
 - Scope: application architecture, persistence, accounting logic, multi-currency handling, hierarchy, goals, expense funnels, recurring rules, budgets, UI validation, migrations, and build configuration.
 
 ## Executive summary
@@ -419,13 +419,15 @@ The branch has a good structural foundation, but it should not yet be considered
 - [ ] Prove `applyEffect()` and `reverseEffect()` are exact inverses for every ledger type with automated tests.
   - [x] Extract pure edit/reversal arithmetic and add regression coverage for scaled transfer/allocation legs.
   - [x] Add pure CurrencyBalances add/reverse regression coverage.
+  - [x] Add Room-backed lifecycle coverage for income, expense/funnel, goal contribution, same/cross-currency transfer, and manual adjustment reversal.
+  - [ ] Execute the instrumentation suite in CI and inspect failures.
 - [x] Fix expense edit allocation so funnel amount scales with the edited transaction and remains validated.
 - [x] Fix goal-contribution edit allocation so goal amount scales with the edited transaction and remains validated.
 - [x] Complete transfer accounting audit, including cross-currency edit/delete reversal.
   - [x] Cross-currency transfer edits now scale the destination leg with the source amount.
 - [x] Complete manual-adjustment multi-currency audit.
-- [ ] Complete deletion/archive policy for ledger-linked Pitakas/Goals/Funnels.
-- [ ] Add transaction-time exchange-rate/base-amount snapshot fields for future historical reporting.
+- [x] Complete deletion/archive policy for ledger-linked Pitakas/Goals/Funnels.
+- [x] Add transaction-time exchange-rate/base-amount snapshot fields for future historical reporting.
 
 ### P1 — Multi-currency and recurring
 - [x] Validate exchange-rate codes and positive finite rates.
@@ -436,7 +438,7 @@ The branch has a good structural foundation, but it should not yet be considered
 - [x] Make Goal/Funnel balances consistently multi-currency in all DAO/UI paths.
   - [x] Funnel summaries use funnel allocation amounts in the funnel currency and surface other-currency allocations.
   - [x] Goal summaries display the configured goal currency instead of a hard-coded currency symbol.
-- [ ] Persist explicit source/destination currencies for transfers.
+- [x] Persist explicit source/destination currencies for transfers (ledger `currency`/`secondaryCurrency`).
 - [x] Add transaction currency to recurring rules.
 - [x] Audit recurring catch-up behavior and short-month handling with tests.
 
@@ -520,3 +522,10 @@ The branch has a good structural foundation, but it should not yet be considered
 ## CI Verification — 2026-09-24
 - Added the technical-debt branch to the APK workflow push trigger.
 - A workflow lookup for the resulting commit currently returns no workflow runs, so CI is not yet marked passed.
+
+
+## Accounting Validation Pass — 2026-09-25
+- Added Room-backed manual-adjustment apply/delete reversal coverage.
+- Hardened expense recording at the repository boundary: funnel allocations must be positive finite values, funnel currency codes must be valid when supplied, and the resolved funnel must exist before the ledger entry is posted.
+- Core accounting tests now cover income, expense/funnel, goal contribution, same-currency transfer, cross-currency transfer, and manual adjustment reversal.
+- CI execution remains unverified; no successful instrumentation result has been observed for the latest hardening commits through the available GitHub workflow-run lookup.
