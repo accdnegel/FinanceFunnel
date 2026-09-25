@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.LedgerType
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.ui.components.CurrencyDropdown
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,8 +49,8 @@ fun RecurringRulesScreen(viewModel: PitakaViewModel, onBack: () -> Unit) {
             if (showAddForm) {
                 AddRecurringForm(
                     pitakas = pitakas,
-                    onSave = { type, name, amount, category, pitakaId, day ->
-                        viewModel.createRecurringRule(type, name, amount, category, pitakaId, day)
+                    onSave = { type, name, amount, category, pitakaId, day, currency ->
+                        viewModel.createRecurringRule(type, name, amount, category, pitakaId, day, currency)
                         showAddForm = false
                     }
                 )
@@ -99,7 +100,7 @@ fun RecurringRulesScreen(viewModel: PitakaViewModel, onBack: () -> Unit) {
 @Composable
 private fun AddRecurringForm(
     pitakas: List<Pitaka>,
-    onSave: (LedgerType, String, Double, String?, Long, Int) -> Unit
+    onSave: (LedgerType, String, Double, String?, Long, Int, String) -> Unit
 ) {
     var type by remember { mutableStateOf(LedgerType.EXPENSE) }
     var name by remember { mutableStateOf("") }
@@ -107,6 +108,7 @@ private fun AddRecurringForm(
     var category by remember { mutableStateOf("") }
     var dayText by remember { mutableStateOf("1") }
     var pitaka by remember { mutableStateOf<Pitaka?>(pitakas.firstOrNull()) }
+    var currency by remember(pitaka?.id) { mutableStateOf(pitaka?.currency?.uppercase() ?: "PHP") }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -124,12 +126,13 @@ private fun AddRecurringForm(
         if (pitakas.isEmpty()) {
             Text("Create a Pitaka first.", color = Color.Gray)
         } else {
-            PitakaDropdown(label = "Pitaka", pitakas = pitakas, selected = pitaka, onSelected = { pitaka = it })
+            PitakaDropdown(label = "Pitaka", pitakas = pitakas, selected = pitaka, onSelected = { pitaka = it; currency = it.currency.uppercase() })
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name (e.g. Salary, Rent)") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("Amount") }, modifier = Modifier.fillMaxWidth())
             if (type == LedgerType.EXPENSE) {
                 OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, modifier = Modifier.fillMaxWidth())
             }
+            CurrencyDropdown(selected = currency, onSelected = { currency = it })
             OutlinedTextField(
                 value = dayText,
                 onValueChange = { dayText = it },
