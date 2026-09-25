@@ -298,8 +298,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation { repository.recordIncome(pitakaId, name, amount) }
     }
 
-    fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
-        launchOperation { repository.recordExpense(pitakaId, name, amount, category, funnelId, currency, funnelAmount, funnelCurrency, date) }
+    fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis(), onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.recordExpense(pitakaId, name, amount, category, funnelId, currency, funnelAmount, funnelCurrency, date) }, onSuccess)
     }
 
 
@@ -311,11 +311,13 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         currency: String? = null,
         goalAmount: Double? = null,
         goalCurrency: String? = null,
-        date: Long = System.currentTimeMillis()
+        date: Long = System.currentTimeMillis(),
+        onSuccess: (() -> Unit)? = null
     ) {
-        launchOperation {
-            repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency, goalAmount, goalCurrency, date)
-        }
+        launchOperation(
+            { repository.recordGoalContribution(sourcePitakaId, goalId, name, amount, currency, goalAmount, goalCurrency, date) },
+            onSuccess
+        )
     }
 
     fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP") {
