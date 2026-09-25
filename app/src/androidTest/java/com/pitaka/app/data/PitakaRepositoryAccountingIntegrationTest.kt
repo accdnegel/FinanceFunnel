@@ -146,6 +146,27 @@ class PitakaRepositoryAccountingIntegrationTest {
     }
 
     @Test
+    fun crossCurrencyTransferEditScalesDestinationAndReversesCleanly() = runBlocking {
+        db.currencyDao().upsertRate(ExchangeRate(code = "USD", rateToBase = 58.0))
+        val sourceId = repository.createPitaka("USD Source", 100.0, "USD", null)
+        val destinationId = repository.createPitaka("PHP Destination", 0.0, "PHP", null)
+
+        repository.recordTransfer(sourceId, destinationId, "Convert", 10.0, secondaryAmount = 580.0)
+        val entry = db.ledgerDao().getAllEntriesOnce().single()
+
+        repository.updateEntry(entry, "Convert", 15.0, null)
+
+        assertEquals("USD=85", db.pitakaDao().getPitaka(sourceId)!!.currencyBalances)
+        assertEquals("PHP=870", db.pitakaDao().getPitaka(destinationId)!!.currencyBalances)
+        assertEquals(870.0, db.ledgerDao().getAllEntriesOnce().single().secondaryAmount!!, 1e-9)
+
+        repository.deleteEntry(db.ledgerDao().getAllEntriesOnce().single())
+
+        assertEquals("USD=100", db.pitakaDao().getPitaka(sourceId)!!.currencyBalances)
+        assertEquals("PHP=0", db.pitakaDao().getPitaka(destinationId)!!.currencyBalances)
+    }
+
+    @Test
     fun manualAdjustmentApplyAndDeleteRestoresBalance() = runBlocking {
         val pitakaId = repository.createPitaka("Cash", 500.0, "PHP", null)
 
