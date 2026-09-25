@@ -31,16 +31,40 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE expense_funnels ADD COLUMN cardStyle TEXT NOT NULL DEFAULT 'solid'")
                 db.execSQL("ALTER TABLE expense_funnels ADD COLUMN isSystem INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_pitakas_parentPitakaId ON pitakas(parentPitakaId)")
-                db.execSQL("INSERT INTO expense_funnels(name,limit,currency,currencyBalances,validFrom,validUntil,colorHex,cardStyle,isSystem) SELECT 'Unclassified Expense', 0, 'PHP', 'PHP=0', NULL, NULL, NULL, 'solid', 1 WHERE NOT EXISTS (SELECT 1 FROM expense_funnels WHERE name='Unclassified Expense')")
+                db.execSQL("""
+                    INSERT INTO expense_funnels(
+                        name,
+                        "limit",
+                        currency,
+                        currencyBalances,
+                        validFrom,
+                        validUntil,
+                        colorHex,
+                        cardStyle,
+                        isSystem
+                    )
+                    SELECT
+                        'Unclassified Expense',
+                        0,
+                        'PHP',
+                        'PHP=0',
+                        NULL,
+                        NULL,
+                        NULL,
+                        'solid',
+                        1
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM expense_funnels
+                        WHERE name = 'Unclassified Expense'
+                    )
+                """.trimIndent())
             }
         }
 
         internal val MIGRATION_6_7 = object : Migration(6,7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryCurrency TEXT")
-                // Historical transfers without an explicit destination amount were same-currency
-                // transfers. Preserve that meaning; cross-currency rows retain their existing
-                // secondary amount/currency metadata when present.
                 db.execSQL("UPDATE ledger_entries SET secondaryCurrency = currency WHERE type = 'TRANSFER' AND secondaryCurrency IS NULL AND secondaryAmount IS NULL")
             }
         }
@@ -57,10 +81,6 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN funnelCurrency TEXT")
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN goalAmount REAL")
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN goalCurrency TEXT")
-
-                // Preserve the meaning of all historical rows. Existing transactions were
-                // recorded as one amount/currency, so those values are also the applied
-                // funnel/goal values.
                 db.execSQL("""
                     UPDATE ledger_entries
                     SET funnelAmount = amount,
