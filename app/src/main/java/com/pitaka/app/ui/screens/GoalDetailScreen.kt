@@ -138,7 +138,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                                         name = note.ifBlank { "Contribution" },
                                         amount = amount,
                                         currency = src.currency,
-                                        onSuccess = { note = ""; amountText = "" ; onDone() }
+                                        onSuccess = { note = ""; amountText = "" }
                                     )
                                     note = ""
                                     amountText = ""
@@ -199,7 +199,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                         if (converted == null) {
                             error = "A usable exchange rate is required to convert ${src.currency} to ${g.currency}."
                         } else {
-                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, converted, g.currency, onSuccess = { note = ""; amountText = ""; pendingContribution = null; onDone() })
+                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, converted, g.currency, onSuccess = { note = ""; amountText = ""; pendingContribution = null })
                         }
                     }) { Text("Convert to ${g.currency}") }
                 },
