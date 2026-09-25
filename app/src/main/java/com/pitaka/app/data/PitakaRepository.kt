@@ -320,7 +320,33 @@ class PitakaRepository(private val db: AppDatabase) {
             )
         )
     }
-    suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) = funnelDao.update(funnel)
+    suspend fun updateExpenseFunnel(funnel: ExpenseFunnel) {
+        db.withTransaction {
+            val existing = funnelDao.get(funnel.id) ?: error("Expense funnel not found.")
+            require(!existing.isSystem) { "System expense funnels cannot be edited." }
+            val name = funnel.name.trim()
+            val code = funnel.currency.trim().uppercase()
+            require(name.isNotBlank()) { "Funnel name cannot be blank." }
+            require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
+            require(funnel.limit >= 0 && funnel.limit.isFinite()) { "Funnel limit must be a non-negative finite number." }
+            require(funnel.validFrom == null || funnel.validUntil == null || funnel.validFrom <= funnel.validUntil) {
+                "Funnel start date must not be after its end date."
+            }
+            val balances = CurrencyBalances.parse(existing.currencyBalances)
+            require(code == existing.currency.uppercase() || (balances[code] ?: 0.0) == 0.0) {
+                "Cannot change the funnel currency while that currency has a non-zero balance. Move or reconcile the balance first."
+            }
+            funnelDao.update(existing.copy(
+                name = name,
+                currency = code,
+                limit = funnel.limit,
+                validFrom = funnel.validFrom,
+                validUntil = funnel.validUntil,
+                colorHex = funnel.colorHex,
+                cardStyle = funnel.cardStyle
+            ))
+        }
+    }
     suspend fun archiveExpenseFunnel(funnelId: Long) {
         val funnel = funnelDao.get(funnelId) ?: error("Expense funnel not found.")
         require(!funnel.isSystem) { "System expense funnels cannot be archived." }
