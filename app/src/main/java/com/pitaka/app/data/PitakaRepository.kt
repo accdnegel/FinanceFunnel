@@ -38,6 +38,9 @@ class PitakaRepository(private val db: AppDatabase) {
             // A lone Pitaka becoming a parent must not lose its existing money. Its first
             // child inherits every existing currency balance, then receives the child's
             // starting amount. The parent becomes a pure container.
+            if (parent != null) {
+                require(parent.archivedAt == null) { "Cannot create a child Pitaka under an archived parent." }
+            }
             if (parent != null && pitakaDao.countChildren(parent.id) == 0) {
                 val inherited = CurrencyBalances.parse(parent.currencyBalances)
                 if (inherited.isEmpty() && parent.currentAmount != 0.0) {
@@ -83,10 +86,12 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
         db.withTransaction {
             val p = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            require(p.archivedAt == null) { "Cannot change the hierarchy of an archived Pitaka." }
             require(parentPitakaId == null || parentPitakaId != pitakaId) { "A Pitaka cannot be its own parent." }
 
             if (parentPitakaId != null) {
                 val parent = pitakaDao.getPitaka(parentPitakaId) ?: error("Parent Pitaka not found.")
+                require(parent.archivedAt == null) { "Cannot assign an archived Pitaka as parent." }
                 // A parent is a logical container. Re-parenting is therefore allowed only
                 // when it does not turn a financially active Pitaka into a child of itself
                 // through an ancestor cycle.
@@ -104,6 +109,7 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid") {
         db.withTransaction {
             val existing = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            require(existing.archivedAt == null) { "Cannot edit an archived Pitaka." }
             val code = currency.trim().uppercase()
             require(name.trim().isNotBlank()) { "Pitaka name cannot be blank." }
             require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
