@@ -280,8 +280,12 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.updatePitakaMeta(pitakaId, name, currency, colorHex, cardStyle) }, onSuccess)
     }
 
-    fun deletePitaka(pitaka: Pitaka) {
-        launchOperation({ repository.deletePitakaCascade(pitaka) })
+    fun archivePitaka(pitakaId: Long, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.archivePitaka(pitakaId) }, onSuccess)
+    }
+
+    fun deletePitaka(pitaka: Pitaka, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.deletePitakaCascade(pitaka) }, onSuccess)
     }
 
     fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String, currency: String? = null) {
@@ -294,6 +298,10 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String? = null, onSuccess: (() -> Unit)? = null) {
         launchOperation({ repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }, onSuccess)
+    }
+
+    fun archiveGoal(goalId: Long, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.archiveGoal(goalId) }, onSuccess)
     }
 
     fun deleteGoal(goal: Goal, onSuccess: (() -> Unit)? = null) {
