@@ -623,7 +623,8 @@ class PitakaRepository(private val db: AppDatabase) {
         amount: Double,
         category: String?,
         pitakaId: Long,
-        dayOfMonth: Int
+        dayOfMonth: Int,
+        currency: String? = null
     ) {
         require(type == LedgerType.INCOME || type == LedgerType.EXPENSE) { "Only income and expense can recur." }
         require(name.trim().isNotBlank()) { "Recurring transaction name cannot be blank." }
@@ -631,15 +632,32 @@ class PitakaRepository(private val db: AppDatabase) {
         require(dayOfMonth in 1..31) { "Recurring day must be between 1 and 31." }
         val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
         require(pitaka.archivedAt == null) { "Cannot create a recurring rule for an archived Pitaka." }
+        val ruleCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
+        require(ruleCurrency.length == 3 && ruleCurrency.all { it in 'A'..'Z' }) {
+            "Recurring currency code must be exactly 3 letters."
+        }
+        if (type == LedgerType.EXPENSE) {
+            require((CurrencyBalances.parse(pitaka.currencyBalances)[ruleCurrency] ?: 0.0) >= amount) {
+                "Recurring expense currency " + ruleCurrency + " is not currently available in " + pitaka.name + "."
+            }
+        }
         recurringDao.insert(
             RecurringRule(
-                type = type, name = name.trim(), amount = amount, currency = pitaka.currency.uppercase(), category = category,
+                type = type, name = name.trim(), amount = amount, currency = ruleCurrency, category = category,
                 pitakaId = pitakaId, dayOfMonth = dayOfMonth
             )
         )
     }
 
     suspend fun setRecurringRuleActive(rule: RecurringRule, active: Boolean) {
+        if (active) {
+            val pitaka = pitakaDao.getPitaka(rule.pitakaId) ?: error("Pitaka not found.")
+            require(pitaka.archivedAt == null) { "Cannot activate a recurring rule for an archived Pitaka." }
+            val code = rule.currency.trim().uppercase()
+            require(code.length == 3 && code.all { it in 'A'..'Z' }) {
+                "Recurring currency code must be exactly 3 letters."
+            }
+        }
         recurringDao.update(rule.copy(active = active))
     }
 
