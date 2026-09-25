@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.time.YearMonth
@@ -37,9 +38,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearOperationError() { _operationError.value = null }
 
-    private fun launchOperation(block: suspend () -> Unit) = launchOperation(block, null)
-
-    private fun launchOperation(block: suspend () -> Unit, onSuccess: (() -> Unit)?) {
+    private fun launchOperation(block: suspend () -> Unit, onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
             runCatching { block() }
                 .onSuccess {
@@ -48,11 +47,6 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 .onFailure { _operationError.value = it.message ?: "Unable to complete the operation." }
         }
-    }
-
-    /** Convenience overload for operations that do not need a completion callback. */
-    private fun launchOperation(block: suspend () -> Unit) {
-        launchOperation(block, null)
     }
 
     fun recordTransfer(
