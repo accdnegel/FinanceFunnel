@@ -215,7 +215,7 @@ class PitakaRepositoryAccountingTest {
         val parentId = repository.createPitaka("Parent", 0.0, "PHP", null)
         val childId = repository.createPitaka("Child", 0.0, "PHP", null, parentPitakaId = parentId)
         var rejected = false
-        try { repository.deletePitakaCascade(parentId) } catch (_: IllegalArgumentException) { rejected = true }
+        try { repository.deletePitakaCascade(db.pitakaDao().getPitaka(parentId)!!) } catch (_: IllegalArgumentException) { rejected = true }
         assertTrue(rejected)
         repository.recordIncome(childId, "Salary", 1000.0)
         val child = db.pitakaDao().getPitaka(childId)!!
