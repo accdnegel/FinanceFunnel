@@ -20,4 +20,8 @@ interface RecurringRuleDao {
 
     @Query("SELECT * FROM recurring_rules WHERE active = 1")
     suspend fun getActiveRulesOnce(): List<RecurringRule>
+
+    /** Atomically claims a month so concurrent app-start catch-up calls cannot post twice. */
+    @Query("UPDATE recurring_rules SET lastAppliedMonth = :month WHERE id = :ruleId AND active = 1 AND (lastAppliedMonth IS NULL OR lastAppliedMonth != :month)")
+    suspend fun claimMonth(ruleId: Long, month: String): Int
 }
