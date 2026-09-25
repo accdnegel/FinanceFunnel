@@ -326,6 +326,7 @@ class PitakaRepository(private val db: AppDatabase) {
         db.withTransaction {
             val existing = funnelDao.get(funnel.id) ?: error("Expense funnel not found.")
             require(!existing.isSystem) { "System expense funnels cannot be edited." }
+            require(existing.archivedAt == null) { "Cannot edit an archived Expense Funnel." }
             val name = funnel.name.trim()
             val code = funnel.currency.trim().uppercase()
             require(name.isNotBlank()) { "Funnel name cannot be blank." }
