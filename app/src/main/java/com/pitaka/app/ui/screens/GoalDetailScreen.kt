@@ -234,8 +234,9 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
         EditEntryDialog(
             entry = entry,
             onSave = { newName, newAmount, _ ->
-                viewModel.updateEntry(entry, newName, newAmount, null)
-                editingEntry = null
+                viewModel.updateEntry(entry, newName, newAmount, null, onSuccess = {
+                    editingEntry = null
+                })
             },
             onDismiss = { editingEntry = null }
         )
