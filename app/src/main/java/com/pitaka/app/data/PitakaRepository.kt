@@ -469,7 +469,11 @@ class PitakaRepository(private val db: AppDatabase) {
                 val ratio = AccountingMath.editRatio(oldEntry.amount, newAmount)
                 val newAllocation = AccountingMath.scaleAllocation(oldAllocation, ratio)
                 if (allocationCurrency.equals(goal.currency, ignoreCase = true)) {
-                    require(existingProgress + newAllocation <= goal.targetAmount + 1e-9) {
+                    val progressExcludingEditedEntry = existingProgress - oldAllocation
+                    require(progressExcludingEditedEntry >= -1e-9) {
+                        "Goal balance is inconsistent with its contribution history."
+                    }
+                    require(progressExcludingEditedEntry + newAllocation <= goal.targetAmount + 1e-9) {
                         "Contribution exceeds the goal target for " + goal.name + "."
                     }
                 }
@@ -703,6 +707,15 @@ class PitakaRepository(private val db: AppDatabase) {
             require(funnel != null) { "Expense Funnel not found." }
             val appliedFunnelCurrency = funnelCurrency?.trim()?.uppercase()?.ifBlank { null } ?: txCurrency
             val appliedFunnelAmount = funnelAmount ?: amount
+            val expenseDate = java.time.Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            if (!funnel.isSystem) {
+                require(funnel.validFrom == null || !expenseDate.isBefore(funnel.validFrom)) {
+                    "Expense date is before the funnel validity period."
+                }
+                require(funnel.validUntil == null || !expenseDate.isAfter(funnel.validUntil)) {
+                    "Expense date is after the funnel validity period."
+                }
+            }
             if (!funnel.isSystem && appliedFunnelCurrency.equals(funnel.currency, ignoreCase = true)) {
                 val existingSpent = CurrencyBalances.parse(funnel.currencyBalances)[funnel.currency.uppercase()] ?: 0.0
                 require(existingSpent + appliedFunnelAmount <= funnel.limit + 1e-9) {
@@ -809,6 +822,12 @@ class PitakaRepository(private val db: AppDatabase) {
             val appliedGoalAmount = goalAmount ?: amount
             require(appliedGoalCurrency.length == 3 && appliedGoalCurrency.all { it in 'A'..'Z' }) { "Goal currency must be exactly 3 letters." }
             require(appliedGoalAmount > 0 && appliedGoalAmount.isFinite()) { "Goal allocation must be a positive finite number." }
+            if (appliedGoalCurrency.equals(goal.currency, ignoreCase = true)) {
+                val existingProgress = CurrencyBalances.parse(goal.currencyBalances)[goal.currency.uppercase()] ?: 0.0
+                require(existingProgress + appliedGoalAmount <= goal.targetAmount + 1e-9) {
+                    "Contribution exceeds the goal target for " + goal.name + "."
+                }
+            }
             val snapshot = historicalConversionSnapshot(txCurrency, amount)
             val entry = LedgerEntry(
                 type = LedgerType.GOAL_CONTRIBUTION,
