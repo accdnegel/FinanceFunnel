@@ -21,11 +21,11 @@ object CurrencyBalances {
             if (parts.size != 2) return@forEach
             val code = parts[0].trim().uppercase()
             if (code.isBlank()) return@forEach
-            val normalized = normalizedCode(code)
-            val amount = parts[1].toDoubleOrNull() ?: return@forEach
-            require(amount.isFinite()) { "Stored money amount must be finite." }
-            require(normalized !in result) { "Duplicate currency balance: $normalized." }
-            result[normalized] = amount
+            val normalized = code.takeIf { it.length == 3 && it.all { ch -> ch in 'A'..'Z' } } ?: return@forEach
+            val amount = parts[1].toDoubleOrNull()?.takeIf { it.isFinite() } ?: return@forEach
+            // Be tolerant of legacy/corrupted serialized rows: malformed tokens do not crash
+            // the dashboard, and duplicate legacy entries are safely combined.
+            result[normalized] = (result[normalized] ?: 0.0) + amount
         }
         return result
     }
