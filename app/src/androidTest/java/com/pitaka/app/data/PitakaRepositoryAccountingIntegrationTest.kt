@@ -100,6 +100,26 @@ class PitakaRepositoryAccountingIntegrationTest {
     }
 
     @Test
+    fun manualAdjustmentApplyAndDeleteRestoresBalance() = runBlocking {
+        val pitakaId = repository.createPitaka("Cash", 500.0, "PHP", null)
+
+        repository.adjustPitakaBalanceManually(
+            pitakaId = pitakaId,
+            newBalance = 725.0,
+            note = "Cash count reconciliation"
+        )
+
+        assertEquals(725.0, db.pitakaDao().getPitaka(pitakaId)!!.currentAmount, 1e-9)
+
+        val entry = db.ledgerDao().getAllEntriesOnce().single()
+        assertEquals(LedgerType.ADJUSTMENT, entry.type)
+
+        repository.deleteEntry(entry)
+
+        assertEquals(500.0, db.pitakaDao().getPitaka(pitakaId)!!.currentAmount, 1e-9)
+    }
+
+    @Test
     fun sameCurrencyTransferApplyAndDeleteRestoresBothPitakas() = runBlocking {
         val sourceId = repository.createPitaka("Source", 1000.0, "PHP", null)
         val destinationId = repository.createPitaka("Destination", 100.0, "PHP", null)
