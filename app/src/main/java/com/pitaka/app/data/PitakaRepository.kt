@@ -432,6 +432,26 @@ class PitakaRepository(private val db: AppDatabase) {
                 oldEntry.secondaryAmount
             }
 
+            // Historical base-currency snapshots belong to the ledger event. When an
+            // amount is edited, keep the transaction-time rate/base currency but
+            // recompute the stored base amount from the new transaction amount.
+            val updatedAmountInBase = oldEntry.conversionRateToBaseAtTransaction?.let { rate ->
+                require(rate.isFinite() && rate > 0.0) { "Existing historical conversion rate is invalid." }
+                MoneyMath.multiply(newAmount, rate)
+            }
+            val updatedSecondaryAmountInBase = oldEntry.secondaryAmountInBaseAtTransaction?.let { oldBaseAmount ->
+                require(oldBaseAmount.isFinite()) { "Existing historical destination base amount is invalid." }
+                val oldSecondary = oldEntry.secondaryAmount
+                if (oldSecondary != null && oldSecondary != 0.0 && oldEntry.secondaryConversionRateToBaseAtTransaction != null) {
+                    val secondaryRate = oldEntry.secondaryConversionRateToBaseAtTransaction
+                    require(secondaryRate.isFinite() && secondaryRate > 0.0) { "Existing destination historical conversion rate is invalid." }
+                    require(updatedSecondaryAmount != null) { "Historical destination snapshot has no destination amount." }
+                    MoneyMath.multiply(updatedSecondaryAmount, secondaryRate)
+                } else {
+                    AccountingMath.scaleAllocation(oldBaseAmount, ratio)
+                }
+            }
+
             if (oldEntry.type == LedgerType.TRANSFER) {
                 val fromId = requireNotNull(oldEntry.fromPitakaId) { "Transfer has no source Pitaka." }
                 val toId = requireNotNull(oldEntry.toPitakaId) { "Transfer has no destination Pitaka." }
@@ -461,7 +481,9 @@ class PitakaRepository(private val db: AppDatabase) {
                 pitakaId = newPitakaId,
                 funnelAmount = updatedFunnelAmount,
                 goalAmount = updatedGoalAmount,
-                secondaryAmount = updatedSecondaryAmount
+                secondaryAmount = updatedSecondaryAmount,
+                amountInBaseAtTransaction = updatedAmountInBase,
+                secondaryAmountInBaseAtTransaction = updatedSecondaryAmountInBase
             )
             ledgerDao.updateEntry(updated)
             applyEffect(updated)
