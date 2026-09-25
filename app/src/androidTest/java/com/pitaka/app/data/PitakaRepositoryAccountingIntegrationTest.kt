@@ -118,6 +118,29 @@ class PitakaRepositoryAccountingIntegrationTest {
     }
 
     @Test
+    fun archivedPitakaRejectsNewMoneyMovement() = runBlocking {
+        val pitakaId = repository.createPitaka("Archived", 500.0, "PHP", null)
+        repository.archivePitaka(pitakaId)
+
+        var incomeFailed = false
+        try {
+            repository.recordIncome(pitakaId, "Salary", 100.0)
+        } catch (_: IllegalArgumentException) {
+            incomeFailed = true
+        }
+
+        var expenseFailed = false
+        try {
+            repository.recordExpense(pitakaId, "Lunch", 10.0, null)
+        } catch (_: IllegalArgumentException) {
+            expenseFailed = true
+        }
+
+        assertEquals(true, incomeFailed)
+        assertEquals(true, expenseFailed)
+    }
+
+    @Test
     fun incomeApplyAndDeleteRestorePitakaBalance() = runBlocking {
         val pitakaId = repository.createPitaka("Income", 0.0, "PHP", null)
         repository.recordIncome(pitakaId, "Salary", 1000.0)
