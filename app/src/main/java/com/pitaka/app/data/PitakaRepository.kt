@@ -648,11 +648,20 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()) {
         require(amount > 0 && amount.isFinite()) { "Expense amount must be a positive finite number" }
+        require(funnelAmount == null || (funnelAmount > 0 && funnelAmount.isFinite())) {
+            "Funnel allocation must be a positive finite number."
+        }
+        funnelCurrency?.trim()?.uppercase()?.let { code ->
+            require(code.length == 3 && code.all { it in 'A'..'Z' }) {
+                "Funnel currency code must be exactly 3 letters."
+            }
+        }
         db.withTransaction {
             val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
+            require(funnelDao.get(resolvedFunnel) != null) { "Expense Funnel not found." }
             recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, txCurrency, funnelAmount, funnelCurrency, date)
         }
     }
