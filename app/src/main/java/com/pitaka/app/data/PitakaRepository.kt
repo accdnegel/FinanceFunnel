@@ -772,7 +772,9 @@ class PitakaRepository(private val db: AppDatabase) {
         name: String,
         amount: Double,
         secondaryAmount: Double? = null,
-        date: Long = System.currentTimeMillis()
+        date: Long = System.currentTimeMillis(),
+        sourceCurrency: String? = null,
+        destinationCurrency: String? = null
     ) {
         require(amount > 0 && amount.isFinite()) { "Transfer amount must be a positive finite number" }
         db.withTransaction {
@@ -781,11 +783,13 @@ class PitakaRepository(private val db: AppDatabase) {
             require(source.archivedAt == null) { "Cannot transfer from an archived Pitaka." }
             require(destination.archivedAt == null) { "Cannot transfer to an archived Pitaka." }
             require(fromPitakaId != toPitakaId) { "Source and destination must be different." }
-            val sourceCurrency = source.currency.uppercase()
-            require((CurrencyBalances.parse(source.currencyBalances)[sourceCurrency] ?: 0.0) >= amount) { "Insufficient " + sourceCurrency + " balance in " + source.name + "." }
+            val sourceCode = sourceCurrency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
+            val destinationCode = destinationCurrency?.trim()?.uppercase()?.ifBlank { null } ?: destination.currency.uppercase()
+            require(sourceCode.length == 3 && sourceCode.all { it in 'A'..'Z' }) { "Source currency code must be exactly 3 letters." }
+            require(destinationCode.length == 3 && destinationCode.all { it in 'A'..'Z' }) { "Destination currency code must be exactly 3 letters." }
+            require((CurrencyBalances.parse(source.currencyBalances)[sourceCode] ?: 0.0) >= amount) { "Insufficient " + sourceCode + " balance in " + source.name + "." }
             require(name.trim().isNotBlank()) { "Transfer name cannot be blank." }
-            val destinationCurrency = destination.currency.uppercase()
-            if (sourceCurrency != destinationCurrency) {
+            if (sourceCode != destinationCode) {
                 require(secondaryAmount != null && secondaryAmount > 0 && secondaryAmount.isFinite()) {
                     "A positive destination amount is required for a cross-currency transfer."
                 }
@@ -794,26 +798,26 @@ class PitakaRepository(private val db: AppDatabase) {
                 fun hasUsableRate(code: String): Boolean =
                     code.equals(baseCurrency, true) ||
                         rates.any { it.code.equals(code, true) && it.rateToBase.isFinite() && it.rateToBase > 0.0 }
-                require(hasUsableRate(sourceCurrency) && hasUsableRate(destinationCurrency)) {
-                    "Usable exchange rates for ${sourceCurrency} and ${destinationCurrency} are required for a cross-currency transfer."
+                require(hasUsableRate(sourceCode) && hasUsableRate(destinationCode)) {
+                    "Usable exchange rates for " + sourceCode + " and " + destinationCode + " are required for a cross-currency transfer."
                 }
             }
-            val destinationAmount = if (destinationCurrency == sourceCurrency) amount else (secondaryAmount ?: amount)
+            val destinationAmount = if (destinationCode == sourceCode) amount else (secondaryAmount ?: amount)
             val entry = LedgerEntry(
                 type = LedgerType.TRANSFER,
                 amount = amount,
-                currency = sourceCurrency,
+                currency = sourceCode,
                 name = name,
                 fromPitakaId = fromPitakaId,
                 toPitakaId = toPitakaId,
                 secondaryAmount = if (destinationCurrency == sourceCurrency) null else (secondaryAmount ?: amount),
-                secondaryCurrency = destinationCurrency,
+                secondaryCurrency = destinationCode,
                 date = date,
-                conversionRateToBaseAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).first,
-                amountInBaseAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).second,
-                baseCurrencyAtTransaction = historicalConversionSnapshot(sourceCurrency, amount).third,
-                secondaryConversionRateToBaseAtTransaction = historicalConversionSnapshot(destinationCurrency, destinationAmount).first,
-                secondaryAmountInBaseAtTransaction = historicalConversionSnapshot(destinationCurrency, destinationAmount).second
+                conversionRateToBaseAtTransaction = historicalConversionSnapshot(sourceCode, amount).first,
+                amountInBaseAtTransaction = historicalConversionSnapshot(sourceCode, amount).second,
+                baseCurrencyAtTransaction = historicalConversionSnapshot(sourceCode, amount).third,
+                secondaryConversionRateToBaseAtTransaction = historicalConversionSnapshot(destinationCode, destinationAmount).first,
+                secondaryAmountInBaseAtTransaction = historicalConversionSnapshot(destinationCode, destinationAmount).second
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
