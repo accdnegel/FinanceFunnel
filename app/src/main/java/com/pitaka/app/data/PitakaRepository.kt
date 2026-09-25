@@ -541,8 +541,22 @@ class PitakaRepository(private val db: AppDatabase) {
                 require(transferDestination != null) { "Transfer destination Pitaka not found." }
                 require(transferSource!!.archivedAt == null) { "Cannot edit a transfer from an archived Pitaka." }
                 require(transferDestination!!.archivedAt == null) { "Cannot edit a transfer to an archived Pitaka." }
-                if (oldEntry.secondaryCurrency != null && !oldEntry.secondaryCurrency.equals(oldEntry.currency, true)) {
-                    requireNotNull(updatedSecondaryAmount) { "Cross-currency transfer has no destination amount." }
+                val sourceCurrency = oldEntry.currency.trim().uppercase()
+                require(sourceCurrency.length == 3 && sourceCurrency.all { it in 'A'..'Z' }) {
+                    "Transfer source currency must be exactly 3 letters."
+                }
+                val availableSource = CurrencyBalances.parse(transferSource.currencyBalances)[sourceCurrency] ?: 0.0
+                require(availableSource >= newAmount) {
+                    "Insufficient " + sourceCurrency + " balance in " + transferSource.name + "."
+                }
+                if (oldEntry.secondaryCurrency != null) {
+                    val destinationCurrency = oldEntry.secondaryCurrency.trim().uppercase()
+                    require(destinationCurrency.length == 3 && destinationCurrency.all { it in 'A'..'Z' }) {
+                        "Transfer destination currency must be exactly 3 letters."
+                    }
+                    if (!destinationCurrency.equals(sourceCurrency, true)) {
+                        requireNotNull(updatedSecondaryAmount) { "Cross-currency transfer has no destination amount." }
+                    }
                 }
             }
 
