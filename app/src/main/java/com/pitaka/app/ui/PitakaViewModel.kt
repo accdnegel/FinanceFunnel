@@ -270,8 +270,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation { repository.setPitakaParent(pitakaId, parentPitakaId) }
     }
 
-    fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid") {
-        launchOperation { repository.updatePitakaMeta(pitakaId, name, currency, colorHex, cardStyle) }
+    fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid", onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.updatePitakaMeta(pitakaId, name, currency, colorHex, cardStyle) }, onSuccess)
     }
 
     fun deletePitaka(pitaka: Pitaka) {
@@ -286,8 +286,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }, onSuccess)
     }
 
-    fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String? = null) {
-        launchOperation { repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }
+    fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String? = null, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }, onSuccess)
     }
 
     fun deleteGoal(goal: Goal) {
