@@ -15,7 +15,8 @@ data class ExpenseFunnel(
     val colorHex: String? = null,
     val cardStyle: String = "solid",
     /** System funnels are created by the app and are not user-created categories. */
-    val isSystem: Boolean = false
+    val isSystem: Boolean = false,
+    val archivedAt: Long? = null
 )
 
 data class ExpenseFunnelWithSpend(
@@ -29,8 +30,8 @@ data class ExpenseFunnelWithSpend(
     val colorHex: String?,
     val cardStyle: String = "solid",
     val isSystem: Boolean = false,
-    val spent: Double
+    val spent: Double,
+    val spentByCurrency: Map<String, Double> = emptyMap()
 ) {
     val remaining: Double get() = limit - spent
-    val progress: Double get() = if (limit > 0.0) (spent / limit).coerceIn(0.0, 1.0) else 0.0
 }

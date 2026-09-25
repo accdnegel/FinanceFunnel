@@ -19,5 +19,6 @@ data class Pitaka(
     /** Batik/card art identifier; "solid" preserves the legacy color-only appearance. */
     val cardStyle: String = "solid",
     val lastUpdated: Long = System.currentTimeMillis(),
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val archivedAt: Long? = null
 )

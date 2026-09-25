@@ -32,11 +32,22 @@ data class LedgerEntry(
     val fromPitakaId: Long? = null,
     val toPitakaId: Long? = null,
     val secondaryAmount: Double? = null,
+    /** Explicit destination-side currency for cross-currency transfers. */
+    val secondaryCurrency: String? = null,
     val goalId: Long? = null,
     val funnelId: Long? = null,
     val funnelAmount: Double? = null,
     val funnelCurrency: String? = null,
     val goalAmount: Double? = null,
     val goalCurrency: String? = null,
-    val date: Long = System.currentTimeMillis()
+    val date: Long = System.currentTimeMillis(),
+    /** Exchange-rate snapshot used when this transaction was created; null for legacy rows. */
+    val conversionRateToBaseAtTransaction: Double? = null,
+    /** Transaction amount converted using the stored historical rate. */
+    val amountInBaseAtTransaction: Double? = null,
+    /** Base currency used for the historical conversion snapshot. */
+    val baseCurrencyAtTransaction: String? = null,
+    /** Destination-side conversion snapshot for cross-currency transfers. */
+    val secondaryConversionRateToBaseAtTransaction: Double? = null,
+    val secondaryAmountInBaseAtTransaction: Double? = null
 )

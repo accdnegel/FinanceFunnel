@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Pitaka::class, Goal::class, LedgerEntry::class, MonthlyBudget::class, ExpenseFunnel::class, CurrencySettings::class, ExchangeRate::class, RecurringRule::class],
-    version = 6,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -23,7 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
 
-        private val MIGRATION_4_5 = object : Migration(4,5) {
+        internal val MIGRATION_4_5 = object : Migration(4,5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE pitakas ADD COLUMN parentPitakaId INTEGER")
                 db.execSQL("ALTER TABLE pitakas ADD COLUMN cardStyle TEXT NOT NULL DEFAULT 'solid'")
@@ -35,7 +35,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_5_6 = object : Migration(5, 6) {
+        internal val MIGRATION_6_7 = object : Migration(6,7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryCurrency TEXT")
+                // Historical transfers without an explicit destination amount were same-currency
+                // transfers. Preserve that meaning; cross-currency rows retain their existing
+                // secondary amount/currency metadata when present.
+                db.execSQL("UPDATE ledger_entries SET secondaryCurrency = currency WHERE type = 'TRANSFER' AND secondaryCurrency IS NULL AND secondaryAmount IS NULL")
+            }
+        }
+
+        internal val MIGRATION_7_8 = object : Migration(7,8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recurring_rules ADD COLUMN currency TEXT NOT NULL DEFAULT 'PHP'")
+            }
+        }
+
+        internal val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN funnelAmount REAL")
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN funnelCurrency TEXT")
@@ -60,9 +76,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN conversionRateToBaseAtTransaction REAL")
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN amountInBaseAtTransaction REAL")
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN baseCurrencyAtTransaction TEXT")
+            }
+        }
+
+        internal val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pitakas ADD COLUMN archivedAt INTEGER")
+                db.execSQL("ALTER TABLE goals ADD COLUMN archivedAt INTEGER")
+                db.execSQL("ALTER TABLE expense_funnels ADD COLUMN archivedAt INTEGER")
+            }
+        }
+
+        internal val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryConversionRateToBaseAtTransaction REAL")
+                db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryAmountInBaseAtTransaction REAL")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pitaka.db")
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build().also { INSTANCE = it }
         }
     }

@@ -11,11 +11,13 @@ interface LedgerDao {
     @Insert suspend fun insertEntry(entry: LedgerEntry): Long
     @Update suspend fun updateEntry(entry: LedgerEntry)
     @Delete suspend fun deleteEntry(entry: LedgerEntry)
+    @Query("SELECT COUNT(*) FROM ledger_entries WHERE pitakaId = :pitakaId OR fromPitakaId = :pitakaId OR toPitakaId = :pitakaId")
+    suspend fun countEntriesForPitaka(pitakaId: Long): Int
+
     @Query("DELETE FROM ledger_entries WHERE pitakaId = :pitakaId OR fromPitakaId = :pitakaId OR toPitakaId = :pitakaId")
     suspend fun deleteEntriesForPitaka(pitakaId: Long)
     @Query("SELECT * FROM ledger_entries ORDER BY date DESC") suspend fun getAllEntriesOnce(): List<LedgerEntry>
     @Query("SELECT * FROM ledger_entries ORDER BY date DESC") fun observeAllEntries(): Flow<List<LedgerEntry>>
-    @Query("SELECT * FROM ledger_entries WHERE type IN ('EXPENSE','INCOME') ORDER BY date DESC") fun observeFinancialEntries(): Flow<List<LedgerEntry>>
     @Query("SELECT * FROM ledger_entries WHERE pitakaId = :pitakaId OR fromPitakaId = :pitakaId OR toPitakaId = :pitakaId ORDER BY date DESC")
     fun observeEntriesForPitaka(pitakaId: Long): Flow<List<LedgerEntry>>
     @Query("SELECT * FROM ledger_entries WHERE goalId = :goalId ORDER BY date DESC")
