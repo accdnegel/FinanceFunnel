@@ -80,6 +80,40 @@ class PitakaRepositoryAccountingIntegrationTest {
     }
 
     @Test
+    fun expenseOutsideFunnelValidityPeriodIsRejected() = runBlocking {
+        val pitakaId = repository.createPitaka("Wallet", 1000.0, "PHP", null)
+        val funnelId = repository.createExpenseFunnel(
+            name = "Travel",
+            limit = 500.0,
+            validFrom = LocalDate.now().plusDays(1),
+            validUntil = LocalDate.now().plusDays(10),
+            currency = "PHP"
+        )
+
+        var failed = false
+        try {
+            repository.recordExpense(pitakaId, "Today", 10.0, "Travel", funnelId, date = System.currentTimeMillis())
+        } catch (_: IllegalArgumentException) {
+            failed = true
+        }
+        assertEquals(true, failed)
+    }
+
+    @Test
+    fun goalContributionCannotExceedTargetAtCreation() = runBlocking {
+        val pitakaId = repository.createPitaka("Savings", 1000.0, "PHP", null)
+        val goalId = repository.createGoal("Emergency", GoalType.SAVINGS, 100.0, LocalDate.now().plusMonths(1).toEpochDay(), null)
+
+        var failed = false
+        try {
+            repository.recordGoalContribution(pitakaId, goalId, "Overflow", 101.0)
+        } catch (_: IllegalArgumentException) {
+            failed = true
+        }
+        assertEquals(true, failed)
+    }
+
+    @Test
     fun incomeApplyAndDeleteRestorePitakaBalance() = runBlocking {
         val pitakaId = repository.createPitaka("Income", 0.0, "PHP", null)
         repository.recordIncome(pitakaId, "Salary", 1000.0)
