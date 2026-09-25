@@ -207,13 +207,15 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
 
     if (showDeleteConfirm) {
         ConfirmDeleteDialog(
-            title = "Delete this Pitaka?",
-            message = "This permanently removes \"${pitaka?.name}\" and every income, expense, " +
-                "transfer, and contribution logged against it. This can't be undone.",
+            title = "Archive this Pitaka?",
+            message = "Archive \"${pitaka?.name}\" to hide it from active Pitakas while preserving its balance and transaction history.",
             onConfirm = {
-                pitaka?.let { viewModel.deletePitaka(it) }
-                showDeleteConfirm = false
-                onBack()
+                pitaka?.let { pitakaToArchive ->
+                    viewModel.archivePitaka(pitakaToArchive.id, onSuccess = {
+                        showDeleteConfirm = false
+                        onBack()
+                    })
+                }
             },
             onDismiss = { showDeleteConfirm = false }
         )
