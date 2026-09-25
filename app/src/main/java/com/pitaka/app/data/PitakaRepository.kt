@@ -765,12 +765,11 @@ class PitakaRepository(private val db: AppDatabase) {
                     "A funnel currency must be selected explicitly when the expense currency differs from the funnel currency."
                 }
             }
-            val expenseDate = java.time.Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
             if (!funnel.isSystem) {
-                require(funnel.validFrom == null || !expenseDate.isBefore(funnel.validFrom)) {
+                require(funnel.validFrom == null || date >= funnel.validFrom) {
                     "Expense date is before the funnel validity period."
                 }
-                require(funnel.validUntil == null || !expenseDate.isAfter(funnel.validUntil)) {
+                require(funnel.validUntil == null || date <= funnel.validUntil) {
                     "Expense date is after the funnel validity period."
                 }
             }
