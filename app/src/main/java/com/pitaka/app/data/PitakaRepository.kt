@@ -636,11 +636,6 @@ class PitakaRepository(private val db: AppDatabase) {
         require(ruleCurrency.length == 3 && ruleCurrency.all { it in 'A'..'Z' }) {
             "Recurring currency code must be exactly 3 letters."
         }
-        if (type == LedgerType.EXPENSE) {
-            require((CurrencyBalances.parse(pitaka.currencyBalances)[ruleCurrency] ?: 0.0) >= amount) {
-                "Recurring expense currency " + ruleCurrency + " is not currently available in " + pitaka.name + "."
-            }
-        }
         recurringDao.insert(
             RecurringRule(
                 type = type, name = name.trim(), amount = amount, currency = ruleCurrency, category = category,
