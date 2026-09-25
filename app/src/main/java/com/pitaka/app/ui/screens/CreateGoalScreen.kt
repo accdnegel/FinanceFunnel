@@ -11,7 +11,6 @@ import com.pitaka.app.ui.components.PitakaDropdown
 import com.pitaka.app.ui.components.ColorSwatchPicker
 import com.pitaka.app.ui.components.CardStylePicker
 import com.pitaka.app.ui.components.DatePickerButton
-import com.pitaka.app.ui.theme.parseHexColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
