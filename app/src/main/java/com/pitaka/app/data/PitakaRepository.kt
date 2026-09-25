@@ -662,7 +662,9 @@ class PitakaRepository(private val db: AppDatabase) {
                     .toInstant().toEpochMilli()
                 val currency = rule.currency.trim().uppercase()
                 require(currency.length == 3 && currency.all { it in 'A'..'Z' }) { "Recurring rule has an invalid currency." }
-                pitakaDao.getPitaka(rule.pitakaId) ?: error("Pitaka for recurring rule not found.")
+                val recurringPitaka = pitakaDao.getPitaka(rule.pitakaId)
+                require(recurringPitaka != null) { "Pitaka for recurring rule not found." }
+                require(recurringPitaka.archivedAt == null) { "Recurring rule targets an archived Pitaka." }
                 when (rule.type) {
                     LedgerType.INCOME -> recordIncomeInternal(rule.pitakaId, rule.name + " (recurring)", rule.amount, date = scheduledDate, currency = currency)
                     LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, rule.name + " (recurring)", rule.amount, rule.category, null, currency, date = scheduledDate)
@@ -824,7 +826,9 @@ class PitakaRepository(private val db: AppDatabase) {
         require(amount > 0 && amount.isFinite()) { "Contribution amount must be a positive finite number" }
         db.withTransaction {
             val source = pitakaDao.getPitaka(sourcePitakaId) ?: error("Source Pitaka not found.")
+            require(source.archivedAt == null) { "Cannot contribute from an archived Pitaka." }
             val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
+            require(goal.archivedAt == null) { "Cannot contribute to an archived Goal." }
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
             val appliedGoalCurrency = goalCurrency?.trim()?.uppercase()?.ifBlank { null } ?: txCurrency
