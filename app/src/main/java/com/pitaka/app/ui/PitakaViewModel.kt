@@ -263,8 +263,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     // ---- Actions ----
 
-    fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid") {
-        launchOperation { repository.createPitaka(name, startingBalance, currency, colorHex, parentPitakaId, cardStyle) }
+    fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid", onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.createPitaka(name, startingBalance, currency, colorHex, parentPitakaId, cardStyle) }, onSuccess)
     }
     fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
         launchOperation { repository.setPitakaParent(pitakaId, parentPitakaId) }
@@ -282,8 +282,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation { repository.adjustPitakaBalanceManually(pitakaId, newBalance, note, currency) }
     }
 
-    fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP") {
-        launchOperation { repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }
+    fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP", onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }, onSuccess)
     }
 
     fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String? = null) {
@@ -320,16 +320,16 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
-    fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP") {
-        launchOperation { repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle, currency) }
+    fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP", onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle, currency) }, onSuccess)
     }
 
     fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
         launchOperation { repository.deleteExpenseFunnel(funnel) }
     }
 
-    fun updateExpenseFunnel(funnel: ExpenseFunnel) {
-        launchOperation { repository.updateExpenseFunnel(funnel) }
+    fun updateExpenseFunnel(funnel: ExpenseFunnel, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.updateExpenseFunnel(funnel) }, onSuccess)
     }
 
     fun deleteEntry(entry: LedgerEntry) {
