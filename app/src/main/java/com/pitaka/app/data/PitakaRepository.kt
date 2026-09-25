@@ -162,6 +162,7 @@ class PitakaRepository(private val db: AppDatabase) {
         db.withTransaction {
             require(newBalance.isFinite() && newBalance >= 0) { "Adjusted balance must be a non-negative finite number." }
             val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            require(pitaka.archivedAt == null) { "Cannot adjust an archived Pitaka." }
             val code = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
             require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
             val current = CurrencyBalances.parse(pitaka.currencyBalances)[code] ?: 0.0
@@ -419,6 +420,7 @@ class PitakaRepository(private val db: AppDatabase) {
             if (oldEntry.type == LedgerType.INCOME || oldEntry.type == LedgerType.EXPENSE || oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
                 val target = newPitakaId?.let { pitakaDao.getPitaka(it) }
                 require(target != null) { "Target Pitaka not found." }
+                require(target!!.archivedAt == null) { "Cannot edit a transaction onto an archived Pitaka." }
                 if (oldEntry.type == LedgerType.EXPENSE) {
                     require(target!!.currency.equals(oldEntry.currency, ignoreCase = true)) {
                         "Changing an expense to a Pitaka with a different currency requires a currency-aware edit."
@@ -433,6 +435,7 @@ class PitakaRepository(private val db: AppDatabase) {
                 if (oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
                     val goal = oldEntry.goalId?.let { goalDao.getGoal(it) }
                     require(goal != null) { "Goal not found." }
+                    require(goal!!.archivedAt == null) { "Cannot edit a contribution onto an archived Goal." }
                 }
             }
 
@@ -532,8 +535,12 @@ class PitakaRepository(private val db: AppDatabase) {
                 val fromId = requireNotNull(oldEntry.fromPitakaId) { "Transfer has no source Pitaka." }
                 val toId = requireNotNull(oldEntry.toPitakaId) { "Transfer has no destination Pitaka." }
                 require(fromId != toId) { "Transfer source and destination must differ." }
-                require(pitakaDao.getPitaka(fromId) != null) { "Transfer source Pitaka not found." }
-                require(pitakaDao.getPitaka(toId) != null) { "Transfer destination Pitaka not found." }
+                val transferSource = pitakaDao.getPitaka(fromId)
+                val transferDestination = pitakaDao.getPitaka(toId)
+                require(transferSource != null) { "Transfer source Pitaka not found." }
+                require(transferDestination != null) { "Transfer destination Pitaka not found." }
+                require(transferSource!!.archivedAt == null) { "Cannot edit a transfer from an archived Pitaka." }
+                require(transferDestination!!.archivedAt == null) { "Cannot edit a transfer to an archived Pitaka." }
                 if (oldEntry.secondaryCurrency != null && !oldEntry.secondaryCurrency.equals(oldEntry.currency, true)) {
                     requireNotNull(updatedSecondaryAmount) { "Cross-currency transfer has no destination amount." }
                 }
