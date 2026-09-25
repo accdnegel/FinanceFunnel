@@ -734,6 +734,8 @@ class PitakaRepository(private val db: AppDatabase) {
         name: String,
         amount: Double,
         currency: String? = null,
+        goalAmount: Double? = null,
+        goalCurrency: String? = null,
         date: Long = System.currentTimeMillis()
     ) {
         require(amount > 0 && amount.isFinite()) { "Contribution amount must be a positive finite number" }
@@ -742,7 +744,10 @@ class PitakaRepository(private val db: AppDatabase) {
             val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
-            // Goals support multiple held currencies; preserve the contribution currency.
+            val appliedGoalCurrency = goalCurrency?.trim()?.uppercase()?.ifBlank { null } ?: txCurrency
+            val appliedGoalAmount = goalAmount ?: amount
+            require(appliedGoalCurrency.length == 3 && appliedGoalCurrency.all { it in 'A'..'Z' }) { "Goal currency must be exactly 3 letters." }
+            require(appliedGoalAmount > 0 && appliedGoalAmount.isFinite()) { "Goal allocation must be a positive finite number." }
             val snapshot = historicalConversionSnapshot(txCurrency, amount)
             val entry = LedgerEntry(
                 type = LedgerType.GOAL_CONTRIBUTION,
@@ -751,8 +756,8 @@ class PitakaRepository(private val db: AppDatabase) {
                 name = name,
                 pitakaId = sourcePitakaId,
                 goalId = goalId,
-                goalAmount = amount,
-                goalCurrency = txCurrency,
+                goalAmount = appliedGoalAmount,
+                goalCurrency = appliedGoalCurrency,
                 date = date,
                 conversionRateToBaseAtTransaction = snapshot.first,
                 amountInBaseAtTransaction = snapshot.second,
