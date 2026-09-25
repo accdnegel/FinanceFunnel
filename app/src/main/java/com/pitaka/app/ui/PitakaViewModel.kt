@@ -48,6 +48,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /** Convenience overload for operations that do not need a completion callback. */
+    private fun launchOperation(block: suspend () -> Unit) {
+        launchOperation(block, null)
+    }
+
     fun recordTransfer(
         fromPitakaId: Long,
         toPitakaId: Long,
