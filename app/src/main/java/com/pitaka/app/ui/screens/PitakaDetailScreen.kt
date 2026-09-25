@@ -223,9 +223,15 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
 
     if (showAdjustDialog) {
         AdjustBalanceDialog(
-            currentBalance = pitaka?.currentAmount ?: 0.0,
-            onConfirm = { newBalance ->
-                viewModel.adjustPitakaBalanceManually(pitakaId, newBalance, "Manual adjustment")
+            balances = pitaka?.let { CurrencyBalances.parse(it.currencyBalances) } ?: emptyMap(),
+            defaultCurrency = currency,
+            onConfirm = { adjustmentCurrency, newBalance ->
+                viewModel.adjustPitakaBalanceManually(
+                    pitakaId,
+                    newBalance,
+                    "Manual adjustment",
+                    adjustmentCurrency
+                )
                 showAdjustDialog = false
             },
             onDismiss = { showAdjustDialog = false }
