@@ -137,7 +137,8 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                                         goalId = goalId,
                                         name = note.ifBlank { "Contribution" },
                                         amount = amount,
-                                        currency = src.currency
+                                        currency = src.currency,
+                                        onSuccess = { note = ""; amountText = "" ; onDone() }
                                     )
                                     note = ""
                                     amountText = ""
@@ -198,16 +199,14 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                         if (converted == null) {
                             error = "A usable exchange rate is required to convert ${src.currency} to ${g.currency}."
                         } else {
-                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, converted, g.currency)
-                            note = ""; amountText = ""; pendingContribution = null
+                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, converted, g.currency, onSuccess = { note = ""; amountText = ""; pendingContribution = null; onDone() })
                         }
                     }) { Text("Convert to ${g.currency}") }
                 },
                 dismissButton = {
                     Row {
                         TextButton(onClick = {
-                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, sourceAmount, src.currency)
-                            note = ""; amountText = ""; pendingContribution = null
+                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, sourceAmount, src.currency, onSuccess = { note = ""; amountText = ""; pendingContribution = null; onDone() })
                         }) { Text("Keep ${src.currency}") }
                         TextButton(onClick = { pendingContribution = null }) { Text("Cancel") }
                     }
