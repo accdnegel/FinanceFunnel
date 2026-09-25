@@ -790,6 +790,9 @@ class PitakaRepository(private val db: AppDatabase) {
         val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
         require(source.archivedAt == null) { "Cannot record an expense from an archived Pitaka." }
         val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
+        require(txCurrency.length == 3 && txCurrency.all { it in 'A'..'Z' }) {
+            "Expense currency must be exactly 3 letters."
+        }
         require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) {
             "Insufficient " + txCurrency + " balance in " + source.name + "."
         }
