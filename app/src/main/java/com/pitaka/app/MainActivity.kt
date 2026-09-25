@@ -3,7 +3,6 @@ package com.pitaka.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -25,8 +24,6 @@ import com.pitaka.app.ui.theme.PitakaTheme
 import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
-    private val viewModel: PitakaViewModel by viewModels { PitakaViewModelFactory(application) }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -34,12 +31,13 @@ class MainActivity : ComponentActivity() {
                 var showSplash by remember { mutableStateOf(savedInstanceState == null) }
                 var databaseReady by remember { mutableStateOf(false) }
                 var databaseError by remember { mutableStateOf<Throwable?>(null) }
+                var viewModelError by remember { mutableStateOf<Throwable?>(null) }
 
                 LaunchedEffect(Unit) {
                     runCatching {
-                        // Force Room to open the real SQLite database while we still control
-                        // the startup state. Migration failures must become a visible error,
-                        // not a silent process death after the splash screen.
+                        // Open Room before constructing the ViewModel. The ViewModel's
+                        // repository is created eagerly, so doing this first makes any
+                        // migration/open failure observable here.
                         AppDatabase.getInstance(application).openHelper.writableDatabase
                     }.onSuccess {
                         databaseReady = true
@@ -53,7 +51,20 @@ class MainActivity : ComponentActivity() {
                         showSplash -> PitakaSplashScreen { showSplash = false }
                         databaseError != null -> StartupErrorScreen(databaseError!!)
                         !databaseReady -> StartupCheckingScreen()
-                        else -> PitakaNavGraph(viewModel)
+                        viewModelError != null -> StartupErrorScreen(viewModelError!!)
+                        else -> {
+                            // Create the ViewModel only after the database has opened.
+                            // If repository/ViewModel initialization still fails, keep the
+                            // process alive and expose the exact exception instead of closing.
+                            val result = runCatching {
+                                androidx.lifecycle.viewmodel.compose.viewModel<PitakaViewModel>(
+                                    factory = PitakaViewModelFactory(application)
+                                )
+                            }
+                            result.onFailure { viewModelError = it }
+                            result.getOrNull()?.let { PitakaNavGraph(it) }
+                                ?: if (viewModelError == null) StartupCheckingScreen() else Unit
+                        }
                     }
                 }
             }
