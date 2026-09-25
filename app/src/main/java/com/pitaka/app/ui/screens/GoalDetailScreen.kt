@@ -206,7 +206,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                 dismissButton = {
                     Row {
                         TextButton(onClick = {
-                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, sourceAmount, src.currency, onSuccess = { note = ""; amountText = ""; pendingContribution = null; onDone() })
+                            viewModel.recordGoalContribution(src.id, g.id, note.ifBlank { "Contribution" }, sourceAmount, src.currency, sourceAmount, src.currency, onSuccess = { note = ""; amountText = ""; pendingContribution = null })
                         }) { Text("Keep ${src.currency}") }
                         TextButton(onClick = { pendingContribution = null }) { Text("Cancel") }
                     }
