@@ -217,13 +217,11 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
 
     if (showDeleteConfirm) {
         ConfirmDeleteDialog(
-            title = "Delete this Goal?",
-            message = "This removes \"${goal?.name}\" from your Goals. Any money already " +
-                "contributed to it stays deducted from the Pitakas it came from — only the " +
-                "progress tracking for this goal goes away.",
+            title = "Archive this Goal?",
+            message = "Archive \"${goal?.name}\" to hide it from active Goals while preserving its contribution history.",
             onConfirm = {
-                goal?.let { goalToDelete ->
-                    viewModel.deleteGoal(goalToDelete, onSuccess = {
+                goal?.let { goalToArchive ->
+                    viewModel.archiveGoal(goalToArchive.id, onSuccess = {
                         showDeleteConfirm = false
                         onBack()
                     })
