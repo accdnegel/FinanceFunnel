@@ -614,6 +614,8 @@ class PitakaRepository(private val db: AppDatabase) {
             if (today.dayOfMonth < effectiveDay) continue
 
             db.withTransaction {
+                if (recurringDao.claimMonth(rule.id, currentMonth) != 1) return@withTransaction
+
                 val scheduledDate = today.withDayOfMonth(effectiveDay)
                     .atStartOfDay(java.time.ZoneId.systemDefault())
                     .toInstant().toEpochMilli()
@@ -625,7 +627,6 @@ class PitakaRepository(private val db: AppDatabase) {
                     LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, rule.name + " (recurring)", rule.amount, rule.category, null, currency, date = scheduledDate)
                     else -> error("Unsupported recurring transaction type.")
                 }
-                recurringDao.update(rule.copy(lastAppliedMonth = currentMonth))
             }
         }
     }
