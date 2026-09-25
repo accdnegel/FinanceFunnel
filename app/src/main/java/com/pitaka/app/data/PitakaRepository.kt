@@ -445,6 +445,9 @@ class PitakaRepository(private val db: AppDatabase) {
             if (oldEntry.type == LedgerType.EXPENSE) {
                 val funnel = oldEntry.funnelId?.let { funnelDao.get(it) }
                 require(funnel != null) { "Expense Funnel not found." }
+                require(funnel.isSystem || funnel.archivedAt == null) {
+                    "Cannot edit an expense allocation against an archived Expense Funnel."
+                }
                 val allocationCurrency = (oldEntry.funnelCurrency ?: oldEntry.currency).uppercase()
                 val existingSpent = CurrencyBalances.parse(funnel.currencyBalances)[allocationCurrency] ?: 0.0
                 val oldAllocation = oldEntry.funnelAmount ?: oldEntry.amount
