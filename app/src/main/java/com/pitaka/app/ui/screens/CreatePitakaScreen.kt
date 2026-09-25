@@ -80,8 +80,7 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
                         val firstChild = parent != null && pitakas.none { it.parentPitakaId == parent.id }
                         if(firstChild && hasExistingBalance) showFirstChildConfirm = true
                         else {
-                            viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,cardStyle)
-                            onDone()
+                            viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,cardStyle, onSuccess = onDone)
                         }
                     } else {
                         viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,cardStyle)
