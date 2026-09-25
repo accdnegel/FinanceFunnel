@@ -12,11 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.time.YearMonth
@@ -67,7 +63,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         // Catch up on any recurring income/expenses due since the app was last opened.
-        launchOperation { repository.applyDueRecurringRules() }
+        launchOperation({ repository.applyDueRecurringRules() })
+        startMonthBoundaryWatcher()
     }
 
     // ---- Core data ----
@@ -101,15 +98,15 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val exchangeRates: Flow<List<ExchangeRate>> = repository.observeExchangeRates()
 
     fun setBaseCurrency(code: String) {
-        launchOperation { repository.setBaseCurrency(code) }
+        launchOperation({ repository.setBaseCurrency(code) })
     }
 
     fun setExchangeRate(code: String, rateToBase: Double) {
-        launchOperation { repository.setExchangeRate(code, rateToBase) }
+        launchOperation({ repository.setExchangeRate(code, rateToBase) })
     }
 
     fun deleteExchangeRate(code: String) {
-        launchOperation { repository.deleteExchangeRate(code) }
+        launchOperation({ repository.deleteExchangeRate(code) })
     }
 
     /** Liquid total (all Pitakas), converted to the base/display currency. */
@@ -177,15 +174,20 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     // ---- Monthly expense budgets ----
 
-    private val currentMonthKeyFlow: Flow<String> = flow {
-        while (true) {
-            emit(YearMonth.now().toString())
-            delay(60_000)
-        }
-    }.distinctUntilChanged().shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+    private val _currentMonthKey = MutableStateFlow(YearMonth.now().toString())
+    val currentMonthKeyFlow: StateFlow<String> = _currentMonthKey.asStateFlow()
 
     val currentMonthKey: String
-        get() = currentMonthKeyFlow.replayCache.firstOrNull() ?: YearMonth.now().toString()
+        get() = _currentMonthKey.value
+
+    private fun startMonthBoundaryWatcher() {
+        viewModelScope.launch {
+            while (true) {
+                _currentMonthKey.value = YearMonth.now().toString()
+                delay(60_000)
+            }
+        }
+    }
 
     val currentMonthBudget: Flow<MonthlyBudget?> =
         currentMonthKeyFlow.flatMapLatest { month -> repository.observeEffectiveBudget(month) }
@@ -200,7 +202,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     suspend fun getExactBudgetForMonth(month: String): MonthlyBudget? = repository.getExactBudgetForMonth(month)
 
     fun setMonthlyExpenseLimit(month: String, limit: Double?) {
-        launchOperation { repository.setMonthlyExpenseLimit(month, limit) }
+        launchOperation({ repository.setMonthlyExpenseLimit(month, limit) })
     }
 
     // ---- Statistics ----
@@ -254,15 +256,15 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val recurringRules: Flow<List<RecurringRule>> = repository.observeRecurringRules()
 
     fun createRecurringRule(type: LedgerType, name: String, amount: Double, category: String?, pitakaId: Long, dayOfMonth: Int) {
-        launchOperation { repository.createRecurringRule(type, name, amount, category, pitakaId, dayOfMonth) }
+        launchOperation({ repository.createRecurringRule(type, name, amount, category, pitakaId, dayOfMonth) })
     }
 
     fun setRecurringRuleActive(rule: RecurringRule, active: Boolean) {
-        launchOperation { repository.setRecurringRuleActive(rule, active) }
+        launchOperation({ repository.setRecurringRuleActive(rule, active) })
     }
 
     fun deleteRecurringRule(rule: RecurringRule) {
-        launchOperation { repository.deleteRecurringRule(rule) }
+        launchOperation({ repository.deleteRecurringRule(rule) })
     }
 
     // ---- Actions ----
@@ -271,7 +273,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.createPitaka(name, startingBalance, currency, colorHex, parentPitakaId, cardStyle) }, onSuccess)
     }
     fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
-        launchOperation { repository.setPitakaParent(pitakaId, parentPitakaId) }
+        launchOperation({ repository.setPitakaParent(pitakaId, parentPitakaId) })
     }
 
     fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid", onSuccess: (() -> Unit)? = null) {
@@ -279,11 +281,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun deletePitaka(pitaka: Pitaka) {
-        launchOperation { repository.deletePitakaCascade(pitaka) }
+        launchOperation({ repository.deletePitakaCascade(pitaka) })
     }
 
     fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String, currency: String? = null) {
-        launchOperation { repository.adjustPitakaBalanceManually(pitakaId, newBalance, note, currency) }
+        launchOperation({ repository.adjustPitakaBalanceManually(pitakaId, newBalance, note, currency) })
     }
 
     fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP", onSuccess: (() -> Unit)? = null) {
@@ -299,7 +301,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun recordIncome(pitakaId: Long, name: String, amount: Double) {
-        launchOperation { repository.recordIncome(pitakaId, name, amount) }
+        launchOperation({ repository.recordIncome(pitakaId, name, amount) })
     }
 
     fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis(), onSuccess: (() -> Unit)? = null) {
@@ -329,7 +331,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
-        launchOperation { repository.deleteExpenseFunnel(funnel) }
+        launchOperation({ repository.deleteExpenseFunnel(funnel) })
     }
 
     fun updateExpenseFunnel(funnel: ExpenseFunnel, onSuccess: (() -> Unit)? = null) {
