@@ -48,8 +48,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
                         error = null
                         pendingExpense = selectedFunnel != null && !currency.equals(selectedFunnel!!.currency, ignoreCase = true)
                         if (!pendingExpense) {
-                            viewModel.recordExpense(selectedPitaka!!.id, name, a, category, selectedFunnel?.id, currency = currency, date = date ?: System.currentTimeMillis())
-                            onDone()
+                            viewModel.recordExpense(selectedPitaka!!.id, name, a, category, selectedFunnel?.id, currency = currency, date = date ?: System.currentTimeMillis(), onSuccess = onDone)
                         }
                     }
                 }
@@ -78,16 +77,14 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
                         val converted = funnelAmount.toDoubleOrNull()
                         if (converted == null || converted <= 0) error = "Enter a valid ${funnel.currency.uppercase()} funnel amount."
                         else {
-                            viewModel.recordExpense(pitaka.id,name,sourceAmount,category,funnel.id,currency=currency,funnelAmount=converted,funnelCurrency=funnel.currency,date=date ?: System.currentTimeMillis())
-                            pendingExpense=false; onDone()
+                            viewModel.recordExpense(pitaka.id,name,sourceAmount,category,funnel.id,currency=currency,funnelAmount=converted,funnelCurrency=funnel.currency,date=date ?: System.currentTimeMillis(),onSuccess={ pendingExpense=false; onDone() })
                         }
                     }) { Text("Use ${funnel.currency.uppercase()}") }
                 },
                 dismissButton = {
                     Row {
                         TextButton(onClick = {
-                            viewModel.recordExpense(pitaka.id,name,sourceAmount,category,funnel.id,currency=currency,funnelAmount=sourceAmount,funnelCurrency=currency,date=date ?: System.currentTimeMillis())
-                            pendingExpense=false; onDone()
+                            viewModel.recordExpense(pitaka.id,name,sourceAmount,category,funnel.id,currency=currency,funnelAmount=sourceAmount,funnelCurrency=currency,date=date ?: System.currentTimeMillis(),onSuccess={ pendingExpense=false; onDone() })
                         }) { Text("Keep ${currency.uppercase()}") }
                         TextButton(onClick={pendingExpense=false}) { Text("Cancel") }
                     }
