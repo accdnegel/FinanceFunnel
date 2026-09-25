@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
@@ -69,8 +70,10 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     // ---- Core data ----
 
-    val pitakas: Flow<List<Pitaka>> = repository.observePitakas()
-    val rootPitakas: Flow<List<Pitaka>> = repository.observeRootPitakas()
+    private fun <T> Flow<T>.recoverForUi(fallback: T): Flow<T> = catch { emit(fallback) }
+
+    val pitakas: Flow<List<Pitaka>> = repository.observePitakas().recoverForUi(emptyList())
+    val rootPitakas: Flow<List<Pitaka>> = repository.observeRootPitakas().recoverForUi(emptyList())
     fun childrenOfPitaka(id: Long): Flow<List<Pitaka>> = repository.observeChildren(id)
 
     fun effectivePitakaBalances(pitakaId: Long, all: List<Pitaka>): Map<String, Double> {
@@ -89,15 +92,15 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         return collect(pitakaId)
     }
 
-    val goals: Flow<List<GoalWithProgress>> = repository.observeGoals()
-    val expenseFunnels: Flow<List<ExpenseFunnel>> = repository.observeExpenseFunnels()
+    val goals: Flow<List<GoalWithProgress>> = repository.observeGoals().recoverForUi(emptyList())
+    val expenseFunnels: Flow<List<ExpenseFunnel>> = repository.observeExpenseFunnels().recoverForUi(emptyList())
 
-    val financialEntries: Flow<List<LedgerEntry>> = repository.observeFinancialEntries()
+    val financialEntries: Flow<List<LedgerEntry>> = repository.observeFinancialEntries().recoverForUi(emptyList())
 
     // ---- Currency ----
 
-    val currencySettings: Flow<CurrencySettings?> = repository.observeCurrencySettings()
-    val exchangeRates: Flow<List<ExchangeRate>> = repository.observeExchangeRates()
+    val currencySettings: Flow<CurrencySettings?> = repository.observeCurrencySettings().recoverForUi(CurrencySettings())
+    val exchangeRates: Flow<List<ExchangeRate>> = repository.observeExchangeRates().recoverForUi(emptyList())
 
     fun setBaseCurrency(code: String) {
         launchOperation({ repository.setBaseCurrency(code) })
