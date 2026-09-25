@@ -230,6 +230,7 @@ class PitakaRepository(private val db: AppDatabase) {
         currency: String? = null
     ) {
         val existing = goalDao.getGoal(goalId) ?: return
+        require(existing.archivedAt == null) { "Cannot edit an archived Goal." }
         val code = (currency?.trim()?.uppercase()?.ifBlank { null } ?: existing.currency.uppercase())
         require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
         require(targetAmount > 0 && targetAmount.isFinite()) { "Goal target must be a positive finite number." }
