@@ -418,6 +418,11 @@ class PitakaRepository(private val db: AppDatabase) {
             if (oldEntry.type == LedgerType.INCOME || oldEntry.type == LedgerType.EXPENSE || oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
                 val target = newPitakaId?.let { pitakaDao.getPitaka(it) }
                 require(target != null) { "Target Pitaka not found." }
+                if (oldEntry.type == LedgerType.EXPENSE) {
+                    require(target!!.currency.equals(oldEntry.currency, ignoreCase = true)) {
+                        "Changing an expense to a Pitaka with a different currency requires a currency-aware edit."
+                    }
+                }
                 val available = CurrencyBalances.parse(target.currencyBalances)[oldEntry.currency.uppercase()] ?: 0.0
                 if (oldEntry.type != LedgerType.INCOME) {
                     require(available >= newAmount) {
