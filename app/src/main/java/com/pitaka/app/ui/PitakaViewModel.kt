@@ -261,7 +261,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val recurringRules: Flow<List<RecurringRule>> = repository.observeRecurringRules()
 
     fun createRecurringRule(type: LedgerType, name: String, amount: Double, category: String?, pitakaId: Long, dayOfMonth: Int, currency: String? = null) {
-        launchOperation { repository.createRecurringRule(type, name, amount, category, pitakaId, dayOfMonth, currency) }
+        launchOperation({ repository.createRecurringRule(type, name, amount, category, pitakaId, dayOfMonth, currency) })
     }
 
     fun setRecurringRuleActive(rule: RecurringRule, active: Boolean) {
