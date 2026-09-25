@@ -156,14 +156,23 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     // ---- Monthly expense budgets ----
 
-    val currentMonthKey: String = YearMonth.now().toString()
+    private val currentMonthKeyFlow: Flow<String> = flow {
+        while (true) {
+            emit(YearMonth.now().toString())
+            delay(60_000)
+        }
+    }.distinctUntilChanged().shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
 
-    val currentMonthBudget: Flow<MonthlyBudget?> = repository.observeEffectiveBudget(currentMonthKey)
+    val currentMonthKey: String
+        get() = currentMonthKeyFlow.replayCache.firstOrNull() ?: YearMonth.now().toString()
+
+    val currentMonthBudget: Flow<MonthlyBudget?> =
+        currentMonthKeyFlow.flatMapLatest { month -> repository.observeEffectiveBudget(month) }
     val allBudgets: Flow<List<MonthlyBudget>> = repository.observeAllBudgets()
 
     val currentMonthExpenseTotal: Flow<Double> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        entries.asSequence().filter { it.type == LedgerType.EXPENSE && monthKey(it.date) == currentMonthKey }
+        entries.asSequence().filter { it.type == LedgerType.EXPENSE && monthKey(it.date) == YearMonth.now().toString() }
             .mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()
     }
 
