@@ -677,8 +677,20 @@ class PitakaRepository(private val db: AppDatabase) {
                 require(recurringPitaka != null) { "Pitaka for recurring rule not found." }
                 require(recurringPitaka.archivedAt == null) { "Recurring rule targets an archived Pitaka." }
                 when (rule.type) {
-                    LedgerType.INCOME -> recordIncomeInternal(rule.pitakaId, rule.name + " (recurring)", rule.amount, date = scheduledDate, currency = currency)
-                    LedgerType.EXPENSE -> recordExpenseInternal(rule.pitakaId, rule.name + " (recurring)", rule.amount, rule.category, null, currency, date = scheduledDate)
+                    LedgerType.INCOME -> recordIncomeInternal(
+                        rule.pitakaId, rule.name + " (recurring)", rule.amount,
+                        date = scheduledDate, currency = currency
+                    )
+                    LedgerType.EXPENSE -> {
+                        // Recurring expenses intentionally do not guess a funnel currency.
+                        // They use the transaction currency against the system funnel; a
+                        // user-created funnel must be selected explicitly in a normal expense
+                        // flow so cross-currency allocation cannot be silently misclassified.
+                        recordExpenseInternal(
+                            rule.pitakaId, rule.name + " (recurring)", rule.amount,
+                            rule.category, null, currency, date = scheduledDate
+                        )
+                    }
                     else -> error("Unsupported recurring transaction type.")
                 }
             }
