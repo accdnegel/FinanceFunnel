@@ -39,6 +39,11 @@ class PitakaRepositoryAccountingIntegrationTest {
 
         repository.recordExpense(pitakaId, "Lunch", 100.0, "Food", funnelId)
 
+        // Editing the existing 100 PHP expense must be allowed when its replacement
+        // remains within the same 100 PHP funnel limit.
+        val entry = db.ledgerDao().observeAllEntries().first().single()
+        repository.updateEntry(entry, "Lunch corrected", 100.0, "Food", pitakaId)
+
         var failed = false
         try {
             repository.recordExpense(pitakaId, "Dinner", 1.0, "Food", funnelId)
