@@ -141,6 +141,21 @@ class PitakaRepositoryAccountingIntegrationTest {
     }
 
     @Test
+    fun archivedGoalRejectsNewContribution() = runBlocking {
+        val pitakaId = repository.createPitaka("Source", 500.0, "PHP", null)
+        val goalId = repository.createGoal("Goal", GoalType.SAVINGS, 100.0, LocalDate.now().plusMonths(1).toEpochDay(), null)
+        repository.archiveGoal(goalId)
+
+        var failed = false
+        try {
+            repository.recordGoalContribution(pitakaId, goalId, "Contribution", 10.0)
+        } catch (_: IllegalArgumentException) {
+            failed = true
+        }
+        assertEquals(true, failed)
+    }
+
+    @Test
     fun incomeApplyAndDeleteRestorePitakaBalance() = runBlocking {
         val pitakaId = repository.createPitaka("Income", 0.0, "PHP", null)
         repository.recordIncome(pitakaId, "Salary", 1000.0)
