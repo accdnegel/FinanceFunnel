@@ -451,7 +451,11 @@ class PitakaRepository(private val db: AppDatabase) {
                 val ratio = AccountingMath.editRatio(oldEntry.amount, newAmount)
                 val newAllocation = AccountingMath.scaleAllocation(oldAllocation, ratio)
                 if (!funnel.isSystem && allocationCurrency.equals(funnel.currency, ignoreCase = true)) {
-                    require(existingSpent + newAllocation <= funnel.limit + 1e-9) {
+                    val spentExcludingEditedEntry = existingSpent - oldAllocation
+                    require(spentExcludingEditedEntry >= -1e-9) {
+                        "Funnel balance is inconsistent with its expense history."
+                    }
+                    require(spentExcludingEditedEntry + newAllocation <= funnel.limit + 1e-9) {
                         "Expense exceeds the funnel limit for " + funnel.name + "."
                     }
                 }
