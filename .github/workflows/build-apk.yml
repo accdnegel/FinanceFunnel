@@ -34,6 +34,9 @@ jobs:
         with:
           gradle-version: "8.7"
 
+      - name: Run JVM accounting regression tests
+        run: gradle testDebugUnitTest --no-daemon
+
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
