@@ -338,6 +338,11 @@ class PitakaRepository(private val db: AppDatabase) {
             require(code == existing.currency.uppercase() || (balances[code] ?: 0.0) == 0.0) {
                 "Cannot change the funnel currency while that currency has a non-zero balance. Move or reconcile the balance first."
             }
+            if (code.equals(existing.currency, ignoreCase = true)) {
+                require((balances[code] ?: 0.0) <= funnel.limit + 1e-9) {
+                    "Funnel limit cannot be set below its existing spending."
+                }
+            }
             funnelDao.update(existing.copy(
                 name = name,
                 currency = code,
