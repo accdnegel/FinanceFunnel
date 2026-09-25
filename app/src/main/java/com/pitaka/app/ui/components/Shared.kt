@@ -218,11 +218,22 @@ fun EditEntryDialog(
 /** Warns before letting the user override a Pitaka's balance directly, bypassing the logs. */
 @Composable
 fun AdjustBalanceDialog(
-    currentBalance: Double,
-    onConfirm: (newBalance: Double) -> Unit,
+    balances: Map<String, Double>,
+    defaultCurrency: String,
+    onConfirm: (currency: String, newBalance: Double) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var newBalanceText by remember { mutableStateOf(currentBalance.toString()) }
+    val normalizedBalances = balances.mapKeys { it.key.trim().uppercase() }
+    val currencies = (normalizedBalances.keys + defaultCurrency.trim().uppercase())
+        .filter { it.length == 3 }
+        .distinct()
+        .sorted()
+    var selectedCurrency by remember(currencies) {
+        mutableStateOf(defaultCurrency.trim().uppercase().takeIf { it in currencies } ?: currencies.firstOrNull() ?: "PHP")
+    }
+    var newBalanceText by remember(selectedCurrency) {
+        mutableStateOf((normalizedBalances[selectedCurrency] ?: 0.0).toString())
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -232,20 +243,31 @@ fun AdjustBalanceDialog(
                 Text(
                     "This bypasses your income/expense/transfer logs. A manual adjustment entry " +
                         "will be recorded so there's a trail, but this can make your history harder " +
-                        "to reconcile later. Proceed only if you know the real balance differs.",
+                        "to reconcile later.",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
+                if (currencies.size > 1) {
+                    CurrencyDropdown(
+                        selected = selectedCurrency,
+                        onSelected = { code ->
+                            selectedCurrency = code
+                            newBalanceText = (normalizedBalances[code] ?: 0.0).toString()
+                        }
+                    )
+                } else {
+                    Text("Currency: $selectedCurrency", style = MaterialTheme.typography.labelLarge)
+                }
                 OutlinedTextField(
                     value = newBalanceText,
                     onValueChange = { newBalanceText = it },
-                    label = { Text("New Balance") }
+                    label = { Text("New Balance ($selectedCurrency)") }
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                newBalanceText.toDoubleOrNull()?.let { onConfirm(it) }
+                newBalanceText.toDoubleOrNull()?.let { onConfirm(selectedCurrency, it) }
             }) { Text("Proceed Anyway", color = MaterialTheme.colorScheme.error) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
