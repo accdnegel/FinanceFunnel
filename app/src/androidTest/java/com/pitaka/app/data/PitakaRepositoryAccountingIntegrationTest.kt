@@ -123,6 +123,7 @@ class PitakaRepositoryAccountingIntegrationTest {
 
     @Test
     fun crossCurrencyTransferApplyAndDeleteRestoresBothCurrencyBalances() = runBlocking {
+        db.currencyDao().upsertRate(ExchangeRate(code = "USD", rateToBase = 58.0))
         val sourceId = repository.createPitaka("USD Source", 100.0, "USD", null)
         val destinationId = repository.createPitaka("PHP Destination", 0.0, "PHP", null)
 
