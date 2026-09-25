@@ -100,6 +100,52 @@ class PitakaRepositoryAccountingIntegrationTest {
     }
 
     @Test
+    fun expenseEditScalesFunnelAllocationAndRestoresOnDelete() = runBlocking {
+        val pitakaId = repository.createPitaka("Wallet", 1000.0, "PHP", null)
+        val funnelId = repository.createExpenseFunnel("Travel", 500.0, null, null, null)
+
+        repository.recordExpense(pitakaId, "Taxi", 100.0, "Transport", funnelId)
+        val entry = db.ledgerDao().getAllEntriesOnce().single()
+
+        repository.updateEntry(entry, "Taxi", 150.0, "Transport")
+
+        assertEquals(850.0, db.pitakaDao().getPitaka(pitakaId)!!.currentAmount, 1e-9)
+        assertEquals("PHP=150", db.expenseFunnelDao().get(funnelId)!!.currencyBalances)
+
+        val updated = db.ledgerDao().getAllEntriesOnce().single()
+        repository.deleteEntry(updated)
+
+        assertEquals(1000.0, db.pitakaDao().getPitaka(pitakaId)!!.currentAmount, 1e-9)
+        assertEquals("PHP=0", db.expenseFunnelDao().get(funnelId)!!.currencyBalances)
+    }
+
+    @Test
+    fun goalContributionEditScalesGoalAllocationAndRestoresOnDelete() = runBlocking {
+        val pitakaId = repository.createPitaka("Savings Source", 1000.0, "PHP", null)
+        val goalId = repository.createGoal(
+            name = "Emergency",
+            type = GoalType.SAVINGS,
+            targetAmount = 5000.0,
+            targetDate = LocalDate.now().plusMonths(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            colorHex = null
+        )
+
+        repository.recordGoalContribution(pitakaId, goalId, "Contribution", 200.0)
+        val entry = db.ledgerDao().getAllEntriesOnce().single()
+
+        repository.updateEntry(entry, "Contribution", 300.0, null)
+
+        assertEquals(700.0, db.pitakaDao().getPitaka(pitakaId)!!.currentAmount, 1e-9)
+        assertEquals("PHP=300", db.goalDao().getGoal(goalId)!!.currencyBalances)
+
+        val updated = db.ledgerDao().getAllEntriesOnce().single()
+        repository.deleteEntry(updated)
+
+        assertEquals(1000.0, db.pitakaDao().getPitaka(pitakaId)!!.currentAmount, 1e-9)
+        assertEquals("PHP=0", db.goalDao().getGoal(goalId)!!.currencyBalances)
+    }
+
+    @Test
     fun manualAdjustmentApplyAndDeleteRestoresBalance() = runBlocking {
         val pitakaId = repository.createPitaka("Cash", 500.0, "PHP", null)
 
