@@ -78,9 +78,9 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
                                     toPitakaId = toPitaka!!.id,
                                     name = name.ifBlank { "Transfer" },
                                     amount = amount,
-                                    secondaryAmount = convertedAmount
+                                    secondaryAmount = convertedAmount,
+                                    onSuccess = onDone
                                 )
-                                onDone()
                             }
                         }
                     },
