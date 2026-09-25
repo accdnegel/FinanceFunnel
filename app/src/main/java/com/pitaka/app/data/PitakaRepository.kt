@@ -849,10 +849,16 @@ class PitakaRepository(private val db: AppDatabase) {
             require(goal.archivedAt == null) { "Cannot contribute to an archived Goal." }
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
-            val appliedGoalCurrency = goalCurrency?.trim()?.uppercase()?.ifBlank { null } ?: txCurrency
+            val normalizedGoalCurrency = goalCurrency?.trim()?.uppercase()?.ifBlank { null }
+            val appliedGoalCurrency = normalizedGoalCurrency ?: txCurrency
             val appliedGoalAmount = goalAmount ?: amount
             require(appliedGoalCurrency.length == 3 && appliedGoalCurrency.all { it in 'A'..'Z' }) { "Goal currency must be exactly 3 letters." }
             require(appliedGoalAmount > 0 && appliedGoalAmount.isFinite()) { "Goal allocation must be a positive finite number." }
+            if (!appliedGoalCurrency.equals(goal.currency, ignoreCase = true) && normalizedGoalCurrency == null) {
+                require(false) {
+                    "A goal currency must be selected explicitly when the contribution currency differs from the Goal currency."
+                }
+            }
             if (appliedGoalCurrency.equals(goal.currency, ignoreCase = true)) {
                 val existingProgress = CurrencyBalances.parse(goal.currencyBalances)[goal.currency.uppercase()] ?: 0.0
                 require(existingProgress + appliedGoalAmount <= goal.targetAmount + 1e-9) {
