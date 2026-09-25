@@ -9,8 +9,11 @@ interface ExpenseFunnelDao {
     @Update suspend fun update(funnel: ExpenseFunnel)
     @Delete suspend fun delete(funnel: ExpenseFunnel)
 
-    @Query("SELECT * FROM expense_funnels ORDER BY name COLLATE NOCASE")
+    @Query("SELECT * FROM expense_funnels WHERE archivedAt IS NULL ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<ExpenseFunnel>>
+
+    @Query("SELECT COUNT(*) FROM ledger_entries WHERE funnelId = :id AND type = 'EXPENSE'")
+    suspend fun countExpenses(id: Long): Int
 
     @Query("SELECT * FROM expense_funnels WHERE id = :id")
     suspend fun get(id: Long): ExpenseFunnel?

@@ -3,7 +3,7 @@ name: Build Pitaka APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "feature/pitaka-home-hierarchy-spending-refactor" ]
+    branches: [ "main", "feature/pitaka-home-hierarchy-spending-refactor", "feature/technical-debt-accounting-hardening" ]
 
 jobs:
   build:
@@ -33,6 +33,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
+
+      - name: Run JVM accounting regression tests
+        run: gradle testDebugUnitTest --no-daemon
 
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon

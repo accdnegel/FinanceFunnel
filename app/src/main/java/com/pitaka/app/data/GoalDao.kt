@@ -13,7 +13,8 @@ data class GoalWithProgress(
     val colorHex: String?,
     val cardStyle: String,
     val createdAt: Long,
-    val progress: Double
+    val progress: Double,
+    val currencyBalances: String
 )
 
 @Dao
@@ -27,11 +28,14 @@ interface GoalDao {
     @Delete
     suspend fun deleteGoal(goal: Goal)
 
+    @Query("SELECT COUNT(*) FROM ledger_entries WHERE goalId = :id AND type = 'GOAL_CONTRIBUTION'")
+    suspend fun countContributions(id: Long): Int
+
     @Query("SELECT * FROM goals WHERE id = :id")
     suspend fun getGoal(id: Long): Goal?
 
     @Query("""
-        SELECT g.id, g.name, g.type, g.targetAmount, g.currency, g.targetDate, g.colorHex, g.cardStyle, g.createdAt,
+        SELECT g.id, g.name, g.type, g.targetAmount, g.currency, g.targetDate, g.currencyBalances, g.colorHex, g.cardStyle, g.createdAt,
                COALESCE((
                    SELECT SUM(COALESCE(l.goalAmount, l.amount))
                    FROM ledger_entries l
@@ -40,6 +44,7 @@ interface GoalDao {
                      AND COALESCE(l.goalCurrency, l.currency) = g.currency
                ), 0) AS progress
         FROM goals g
+        WHERE g.archivedAt IS NULL
         ORDER BY g.createdAt DESC
     """)
     fun observeGoalsWithProgress(): Flow<List<GoalWithProgress>>
