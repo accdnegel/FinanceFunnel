@@ -25,6 +25,9 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun getPitaka(id: Long): Pitaka? = pitakaDao.getPitaka(id)
 
+    suspend fun addSubPitaka(parentId: Long, name: String, startingBalance: Double, currency: String, colorHex: String?, cardStyle: String = "solid"): Long =
+        createPitaka(name, startingBalance, currency, colorHex, parentId, cardStyle)
+
     suspend fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid"): Long {
         require(startingBalance.isFinite() && startingBalance >= 0) { "Starting balance must be a non-negative finite number." }
         require(name.trim().isNotBlank()) { "Pitaka name cannot be blank." }
