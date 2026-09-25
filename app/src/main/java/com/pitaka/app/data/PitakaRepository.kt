@@ -724,7 +724,12 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     private suspend fun recordIncomeInternal(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis(), currency: String? = null) {
-        val pitakaCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitakaDao.getPitaka(pitakaId)?.currency ?: "PHP"
+        val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+        require(pitaka.archivedAt == null) { "Cannot record income against an archived Pitaka." }
+        val pitakaCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
+        require(pitakaCurrency.length == 3 && pitakaCurrency.all { it in 'A'..'Z' }) {
+            "Income currency must be exactly 3 letters."
+        }
         val snapshot = historicalConversionSnapshot(pitakaCurrency, amount)
         val entry = LedgerEntry(type = LedgerType.INCOME, amount = amount, currency = pitakaCurrency, name = name, pitakaId = pitakaId, date = date, conversionRateToBaseAtTransaction = snapshot.first, amountInBaseAtTransaction = snapshot.second, baseCurrencyAtTransaction = snapshot.third)
         ledgerDao.insertEntry(entry)
