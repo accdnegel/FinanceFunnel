@@ -44,6 +44,10 @@ class PitakaRepositoryAccountingIntegrationTest {
         val entry = db.ledgerDao().observeAllEntries().first().single()
         repository.updateEntry(entry, "Lunch corrected", 100.0, "Food", pitakaId)
 
+        // The limit should also allow a smaller replacement after the old allocation
+        // has already been reversed inside the edit transaction.
+        repository.updateEntry(entry.copy(name = "Lunch corrected"), "Lunch smaller", 90.0, "Food", pitakaId)
+
         var failed = false
         try {
             repository.recordExpense(pitakaId, "Dinner", 1.0, "Food", funnelId)
