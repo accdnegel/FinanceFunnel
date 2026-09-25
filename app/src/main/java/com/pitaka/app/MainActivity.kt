@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.pitaka.app.data.AppDatabase
 import com.pitaka.app.navigation.PitakaNavGraph
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.PitakaViewModelFactory
@@ -25,14 +26,94 @@ import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
     private val viewModel: PitakaViewModel by viewModels { PitakaViewModelFactory(application) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { PitakaTheme {
-            var showSplash by remember { mutableStateOf(savedInstanceState == null) }
-            Surface(Modifier.fillMaxSize()) {
-                if (showSplash) PitakaSplashScreen { showSplash=false } else PitakaNavGraph(viewModel)
+        setContent {
+            PitakaTheme {
+                var showSplash by remember { mutableStateOf(savedInstanceState == null) }
+                var databaseReady by remember { mutableStateOf(false) }
+                var databaseError by remember { mutableStateOf<Throwable?>(null) }
+
+                LaunchedEffect(Unit) {
+                    runCatching {
+                        // Force Room to open the real SQLite database while we still control
+                        // the startup state. Migration failures must become a visible error,
+                        // not a silent process death after the splash screen.
+                        AppDatabase.getInstance(application).openHelper.writableDatabase
+                    }.onSuccess {
+                        databaseReady = true
+                    }.onFailure {
+                        databaseError = it
+                    }
+                }
+
+                Surface(Modifier.fillMaxSize()) {
+                    when {
+                        showSplash -> PitakaSplashScreen { showSplash = false }
+                        databaseError != null -> StartupErrorScreen(databaseError!!)
+                        !databaseReady -> StartupCheckingScreen()
+                        else -> PitakaNavGraph(viewModel)
+                    }
+                }
             }
-        }}
+        }
+    }
+}
+
+@Composable
+private fun StartupCheckingScreen() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Spacer(Modifier.height(16.dp))
+            Text("Opening Pitaka…")
+        }
+    }
+}
+
+@Composable
+private fun StartupErrorScreen(error: Throwable) {
+    val message = buildString {
+        append(error::class.java.simpleName)
+        error.message?.takeIf { it.isNotBlank() }?.let {
+            append("\n\n")
+            append(it)
+        }
+        error.cause?.let {
+            append("\n\nCause: ")
+            append(it::class.java.simpleName)
+            it.message?.takeIf { message -> message.isNotBlank() }?.let { message ->
+                append(": ")
+                append(message)
+            }
+        }
+    }
+
+    Box(
+        Modifier.fillMaxSize().padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Pitaka could not start", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                "Your local data was not deleted. The database/startup error is shown below.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Surface(
+                tonalElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    message,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
     }
 }
 
