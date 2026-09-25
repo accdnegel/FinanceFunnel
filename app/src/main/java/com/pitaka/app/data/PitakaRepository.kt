@@ -26,7 +26,8 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun getPitaka(id: Long): Pitaka? = pitakaDao.getPitaka(id)
 
     suspend fun createPitaka(name: String, startingBalance: Double, currency: String, colorHex: String?, parentPitakaId: Long? = null, cardStyle: String = "solid"): Long {
-        require(startingBalance >= 0) { "Starting balance cannot be negative." }
+        require(startingBalance.isFinite() && startingBalance >= 0) { "Starting balance must be a non-negative finite number." }
+        require(name.trim().isNotBlank()) { "Pitaka name cannot be blank." }
         val code = currency.trim().uppercase().ifBlank { "PHP" }
         require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
 
@@ -530,6 +531,8 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun getExactBudgetForMonth(month: String): MonthlyBudget? = budgetDao.getExactForMonth(month)
 
     suspend fun setMonthlyExpenseLimit(month: String, limit: Double?) {
+        require(month.matches(Regex("\\d{4}-\\d{2}"))) { "Budget month must use yyyy-MM format." }
+        require(limit == null || (limit.isFinite() && limit >= 0.0)) { "Monthly expense limit must be a non-negative finite number." }
         if (limit == null) {
             budgetDao.clearForMonth(month)
         } else {
@@ -630,6 +633,7 @@ class PitakaRepository(private val db: AppDatabase) {
     // ---- Money-movement operations (all atomic) ----
 
     suspend fun recordIncome(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis()) {
+        require(name.trim().isNotBlank()) { "Income name cannot be blank." }
         require(amount > 0 && amount.isFinite()) { "Income amount must be a positive finite number" }
         db.withTransaction {
             val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
