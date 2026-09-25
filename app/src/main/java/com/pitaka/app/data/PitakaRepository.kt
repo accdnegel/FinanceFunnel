@@ -421,12 +421,11 @@ class PitakaRepository(private val db: AppDatabase) {
                 val target = newPitakaId?.let { pitakaDao.getPitaka(it) }
                 require(target != null) { "Target Pitaka not found." }
                 require(target!!.archivedAt == null) { "Cannot edit a transaction onto an archived Pitaka." }
-                if (oldEntry.type == LedgerType.EXPENSE) {
-                    require(target!!.currency.equals(oldEntry.currency, ignoreCase = true)) {
-                        "Changing an expense to a Pitaka with a different currency requires a currency-aware edit."
-                    }
+                val transactionCurrency = oldEntry.currency.trim().uppercase()
+                require(transactionCurrency.length == 3 && transactionCurrency.all { it in 'A'..'Z' }) {
+                    "Existing transaction currency must be exactly 3 letters."
                 }
-                val available = CurrencyBalances.parse(target.currencyBalances)[oldEntry.currency.uppercase()] ?: 0.0
+                val available = CurrencyBalances.parse(target.currencyBalances)[transactionCurrency] ?: 0.0
                 if (oldEntry.type != LedgerType.INCOME) {
                     require(available >= newAmount) {
                         "Insufficient " + oldEntry.currency.uppercase() + " balance in " + target.name + "."
