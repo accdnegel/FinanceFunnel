@@ -25,7 +25,7 @@ class AccountingInvariantTest {
     @Test
     fun reversingAnEffectRestoresOriginalDelta() {
         val delta = 1234.5678
-        assertEquals(0.0, AccountingMath.add(delta, -delta), 1e-9)
+        assertEquals(0.0, delta + AccountingMath.reverse(delta), 1e-9)
     }
 
     @Test
