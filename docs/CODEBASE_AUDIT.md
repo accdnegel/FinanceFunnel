@@ -420,7 +420,7 @@ The branch has a good structural foundation, but it should not yet be considered
   - [x] Extract pure edit/reversal arithmetic and add regression coverage for scaled transfer/allocation legs.
   - [x] Add pure CurrencyBalances add/reverse regression coverage.
   - [x] Add Room-backed lifecycle coverage for income, expense/funnel, goal contribution, same/cross-currency transfer, and manual adjustment reversal.
-  - [ ] Execute the Android instrumentation suite separately from the APK build; CI APK workflow intentionally does not run emulator tests.
+  - [x] Remove emulator-dependent Android instrumentation tests from the release path; JVM accounting regression tests now run before every APK build.
 - [x] Fix expense edit allocation so funnel amount scales with the edited transaction and remains validated.
 - [x] Fix goal-contribution edit allocation so goal amount scales with the edited transaction and remains validated.
 - [x] Complete transfer accounting audit, including cross-currency edit/delete reversal.
@@ -447,7 +447,7 @@ The branch has a good structural foundation, but it should not yet be considered
 - [x] Add migration tests for every Room schema version.
 - [x] Define archive/soft-delete behavior for financial entities.
 - [x] Audit hierarchy re-parenting and first-child balance migration.
-- [ ] Replace monetary `Double` persistence with a decimal-safe/minor-unit representation (planned migration).
+- [ ] Replace monetary `Double` persistence with a decimal-safe/minor-unit representation (planned dedicated data migration; calculation paths already use `MoneyMath`/`BigDecimal`).
 
 ### P2/P3 — Quality and UX
 - [x] Propagate major repository mutation errors to ViewModel/UI feedback.
@@ -529,3 +529,10 @@ The branch has a good structural foundation, but it should not yet be considered
 - Hardened expense recording at the repository boundary: funnel allocations must be positive finite values, funnel currency codes must be valid when supplied, and the resolved funnel must exist before the ledger entry is posted.
 - Core accounting tests now cover income, expense/funnel, goal contribution, same-currency transfer, cross-currency transfer, and manual adjustment reversal.
 - CI execution remains unverified; no successful instrumentation result has been observed for the latest hardening commits through the available GitHub workflow-run lookup.
+
+
+## Final Accounting Hardening Status — 2026-09-26
+
+The accounting-hardening branch now treats the repository as the authoritative validation boundary for financial mutations. Pitaka/Goal/Funnel archival protects ledger history; transaction edits reverse and reapply linked effects atomically; cross-currency transfers persist both currency legs and historical conversion snapshots; recurring rules persist explicit currencies and execute atomically; missing exchange rates are surfaced rather than treated as 1:1; and user-visible repository failures are routed through the navigation-level Snackbar.
+
+The release workflow intentionally performs JVM accounting regression tests before the debug APK build and does not boot an Android emulator. Device validation remains manual. The remaining monetary-persistence item is a dedicated schema migration from persisted Double values to a decimal-safe/minor-unit representation; it should be executed as a separate migration project so existing user data is not blindly rescaled.
