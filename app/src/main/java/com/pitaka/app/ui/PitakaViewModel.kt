@@ -78,18 +78,29 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun effectivePitakaBalances(pitakaId: Long, all: List<Pitaka>): Map<String, Double> {
         val byParent = all.groupBy { it.parentPitakaId }
-        fun collect(id: Long): Map<String, Double> {
+        val byId = all.associateBy { it.id }
+
+        // Existing databases can contain a hierarchy created by an older build. Never let
+        // malformed cyclic parent data recurse forever and crash the first screen.
+        fun collect(id: Long, visiting: Set<Long>): Map<String, Double> {
+            if (id in visiting) return emptyMap()
+            val node = byId[id] ?: return emptyMap()
             val children = byParent[id].orEmpty()
-            if (children.isEmpty()) return CurrencyBalances.parse(all.firstOrNull { it.id == id }?.currencyBalances)
+            if (children.isEmpty()) {
+                return CurrencyBalances.parse(node.currencyBalances)
+            }
+
+            val nextVisiting = visiting + id
             val result = mutableMapOf<String, Double>()
             children.forEach { child ->
-                collect(child.id).forEach { (code, amount) ->
+                collect(child.id, nextVisiting).forEach { (code, amount) ->
                     result[code] = (result[code] ?: 0.0) + amount
                 }
             }
             return result
         }
-        return collect(pitakaId)
+
+        return collect(pitakaId, emptySet())
     }
 
     val goals: Flow<List<GoalWithProgress>> = repository.observeGoals().recoverForUi(emptyList())
