@@ -38,6 +38,9 @@ abstract class AppDatabase : RoomDatabase() {
         internal val MIGRATION_6_7 = object : Migration(6,7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE ledger_entries ADD COLUMN secondaryCurrency TEXT")
+                // Historical transfers without an explicit destination amount were same-currency
+                // transfers. Preserve that meaning; cross-currency rows retain their existing
+                // secondary amount/currency metadata when present.
                 db.execSQL("UPDATE ledger_entries SET secondaryCurrency = currency WHERE type = 'TRANSFER' AND secondaryCurrency IS NULL AND secondaryAmount IS NULL")
             }
         }
