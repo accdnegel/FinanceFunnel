@@ -727,8 +727,14 @@ class PitakaRepository(private val db: AppDatabase) {
             require(funnel.archivedAt == null || funnel.isSystem) {
                 "Cannot record an expense against an archived Expense Funnel."
             }
-            val appliedFunnelCurrency = funnelCurrency?.trim()?.uppercase()?.ifBlank { null } ?: txCurrency
+            val normalizedFunnelCurrency = funnelCurrency?.trim()?.uppercase()?.ifBlank { null }
+            val appliedFunnelCurrency = normalizedFunnelCurrency ?: txCurrency
             val appliedFunnelAmount = funnelAmount ?: amount
+            if (!funnel.isSystem && !appliedFunnelCurrency.equals(funnel.currency, ignoreCase = true) && normalizedFunnelCurrency == null) {
+                require(false) {
+                    "A funnel currency must be selected explicitly when the expense currency differs from the funnel currency."
+                }
+            }
             val expenseDate = java.time.Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
             if (!funnel.isSystem) {
                 require(funnel.validFrom == null || !expenseDate.isBefore(funnel.validFrom)) {
