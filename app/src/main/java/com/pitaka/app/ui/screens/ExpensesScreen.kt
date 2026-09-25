@@ -55,7 +55,7 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
     }
     editing?.let { entry ->
         EditExpenseDialog(entry,pitakas,categories,{name,amount,category,pitakaId->
-            viewModel.updateEntry(entry,name,amount,category,pitakaId);editing=null
+            viewModel.updateEntry(entry,name,amount,category,pitakaId,onSuccess={editing=null})
         },{editing=null})
     }
 }
