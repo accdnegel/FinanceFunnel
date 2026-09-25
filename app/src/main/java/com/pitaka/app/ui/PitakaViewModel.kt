@@ -37,7 +37,9 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearOperationError() { _operationError.value = null }
 
-    private fun launchOperation(block: suspend () -> Unit, onSuccess: (() -> Unit)? = null) {
+    private fun launchOperation(block: suspend () -> Unit) = launchOperation(block, null)
+
+    private fun launchOperation(block: suspend () -> Unit, onSuccess: (() -> Unit)?) {
         viewModelScope.launch {
             runCatching { block() }
                 .onSuccess {
