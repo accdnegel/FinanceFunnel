@@ -1,4 +1,4 @@
-packa\n\n    fun convertCurrency(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double =\n        convert(amount, from, to, rates) ?: 0.0\nge com.pitaka.app.ui
+package com.pitaka.app.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -92,7 +92,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     val goals: Flow<List<GoalWithProgress>> = repository.observeGoals()
     val expenseFunnels: Flow<List<ExpenseFunnel>> = repository.observeExpenseFunnels()
 
-    // Compatibility aliases used by the advanced Pitaka Home UI.\n    val financialEntries: Flow<List<LedgerEntry>> = repository.observeFinancialEntries()\n
+    val financialEntries: Flow<List<LedgerEntry>> = repository.observeFinancialEntries()
+
     // ---- Currency ----
 
     val currencySettings: Flow<CurrencySettings?> = repository.observeCurrencySettings()
@@ -172,6 +173,9 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         if (!fromRate.isFinite() || fromRate <= 0.0) return null
         return MoneyMath.multiply(amount, fromRate)
     }
+
+    fun convertCurrency(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double =
+        convert(amount, from, to, rates) ?: 0.0
 
     // ---- Monthly expense budgets ----
 
