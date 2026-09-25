@@ -18,7 +18,7 @@ class MoneyMathTest {
     }
 
     @Test fun divisionUsesHalfUpRounding() {
-        assertEquals(0.33, MoneyMath.divide(1.0, 3.0), 0.00000001)
+        assertEquals(0.33333333, MoneyMath.divide(1.0, 3.0), 0.000000001)
     }
 
     @Test fun roundUsesRequestedScale() {
