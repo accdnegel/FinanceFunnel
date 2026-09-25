@@ -866,6 +866,8 @@ class PitakaRepository(private val db: AppDatabase) {
                 }
             }
             val destinationAmount = if (destinationCode == sourceCode) amount else (secondaryAmount ?: amount)
+            val sourceSnapshot = historicalConversionSnapshot(sourceCode, amount)
+            val destinationSnapshot = historicalConversionSnapshot(destinationCode, destinationAmount)
             val entry = LedgerEntry(
                 type = LedgerType.TRANSFER,
                 amount = amount,
@@ -873,14 +875,16 @@ class PitakaRepository(private val db: AppDatabase) {
                 name = name,
                 fromPitakaId = fromPitakaId,
                 toPitakaId = toPitakaId,
-                secondaryAmount = if (destinationCurrency == sourceCurrency) null else (secondaryAmount ?: amount),
+                // Currency codes are normalized before comparison, so equivalent casing
+                // cannot accidentally create a redundant secondary amount.
+                secondaryAmount = if (destinationCode == sourceCode) null else destinationAmount,
                 secondaryCurrency = destinationCode,
                 date = date,
-                conversionRateToBaseAtTransaction = historicalConversionSnapshot(sourceCode, amount).first,
-                amountInBaseAtTransaction = historicalConversionSnapshot(sourceCode, amount).second,
-                baseCurrencyAtTransaction = historicalConversionSnapshot(sourceCode, amount).third,
-                secondaryConversionRateToBaseAtTransaction = historicalConversionSnapshot(destinationCode, destinationAmount).first,
-                secondaryAmountInBaseAtTransaction = historicalConversionSnapshot(destinationCode, destinationAmount).second
+                conversionRateToBaseAtTransaction = sourceSnapshot.first,
+                amountInBaseAtTransaction = sourceSnapshot.second,
+                baseCurrencyAtTransaction = sourceSnapshot.third,
+                secondaryConversionRateToBaseAtTransaction = destinationSnapshot.first,
+                secondaryAmountInBaseAtTransaction = destinationSnapshot.second
             )
             ledgerDao.insertEntry(entry)
             applyEffect(entry)
