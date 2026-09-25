@@ -73,7 +73,7 @@ fun RecurringRulesScreen(viewModel: PitakaViewModel, onBack: () -> Unit) {
                                 Text(rule.name, fontWeight = FontWeight.Medium)
                                 Text(
                                     "${if (rule.type == LedgerType.INCOME) "Income" else "Expense"} • " +
-                                        "$${"%,.2f".format(rule.amount)} • Day ${rule.dayOfMonth} • $pitakaName",
+                                        "${rule.currency.uppercase()} ${"%,.2f".format(rule.amount)} • Day ${rule.dayOfMonth} • $pitakaName",
                                     color = Color.Gray,
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -145,7 +145,7 @@ private fun AddRecurringForm(
                     val day = dayText.toIntOrNull()
                     val p = pitaka
                     if (name.isNotBlank() && amount != null && amount > 0 && day != null && p != null) {
-                        onSave(type, name, amount, category.ifBlank { null }, p.id, day)
+                        onSave(type, name, amount, category.ifBlank { null }, p.id, day, currency)
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
