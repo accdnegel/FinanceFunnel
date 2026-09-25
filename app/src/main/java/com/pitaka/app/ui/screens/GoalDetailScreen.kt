@@ -222,9 +222,12 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                 "contributed to it stays deducted from the Pitakas it came from — only the " +
                 "progress tracking for this goal goes away.",
             onConfirm = {
-                goal?.let { viewModel.deleteGoal(it) }
-                showDeleteConfirm = false
-                onBack()
+                goal?.let { goalToDelete ->
+                    viewModel.deleteGoal(goalToDelete, onSuccess = {
+                        showDeleteConfirm = false
+                        onBack()
+                    })
+                }
             },
             onDismiss = { showDeleteConfirm = false }
         )
