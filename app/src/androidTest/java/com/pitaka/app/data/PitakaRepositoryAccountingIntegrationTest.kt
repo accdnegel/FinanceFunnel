@@ -33,6 +33,48 @@ class PitakaRepositoryAccountingIntegrationTest {
     }
 
     @Test
+    fun expenseCannotExceedFunnelLimit() = runBlocking {
+        val pitakaId = repository.createPitaka("Wallet", 1000.0, "PHP", null)
+        val funnelId = repository.createExpenseFunnel("Food", 100.0, null, null, null)
+
+        repository.recordExpense(pitakaId, "Lunch", 100.0, "Food", funnelId)
+
+        var failed = false
+        try {
+            repository.recordExpense(pitakaId, "Dinner", 1.0, "Food", funnelId)
+        } catch (_: IllegalArgumentException) {
+            failed = true
+        }
+
+        assertEquals(true, failed)
+        assertEquals("PHP=100", db.expenseFunnelDao().get(funnelId)!!.currencyBalances)
+    }
+
+    @Test
+    fun goalContributionCannotExceedTarget() = runBlocking {
+        val pitakaId = repository.createPitaka("Savings Source", 1000.0, "PHP", null)
+        val goalId = repository.createGoal(
+            name = "Emergency",
+            type = GoalType.SAVINGS,
+            targetAmount = 100.0,
+            targetDate = LocalDate.now().plusMonths(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            colorHex = null
+        )
+
+        repository.recordGoalContribution(pitakaId, goalId, "Contribution", 100.0)
+
+        var failed = false
+        try {
+            repository.recordGoalContribution(pitakaId, goalId, "Overflow", 1.0)
+        } catch (_: IllegalArgumentException) {
+            failed = true
+        }
+
+        assertEquals(true, failed)
+        assertEquals("PHP=100", db.goalDao().getGoal(goalId)!!.currencyBalances)
+    }
+
+    @Test
     fun incomeApplyAndDeleteRestorePitakaBalance() = runBlocking {
         val pitakaId = repository.createPitaka("Income", 0.0, "PHP", null)
         repository.recordIncome(pitakaId, "Salary", 1000.0)
