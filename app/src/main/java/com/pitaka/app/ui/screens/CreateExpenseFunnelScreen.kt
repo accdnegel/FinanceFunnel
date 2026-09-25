@@ -24,7 +24,7 @@ fun CreateExpenseFunnelScreen(viewModel: PitakaViewModel,onDone:()->Unit){
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DatePickerButton("Start date",from){from=it};DatePickerButton("End date",until){until=it}}
             CardStylePicker(selected = style, solidColor = MaterialTheme.colorScheme.primary) { style = it }
             Spacer(Modifier.height(8.dp))
-            Button(onClick={val l=limit.toDoubleOrNull();if(name.isNotBlank()&&l!=null&&l>0){viewModel.createExpenseFunnel(name.trim(),l,from,until,null,style,currency);onDone()}},modifier=Modifier.fillMaxWidth()){Text("Create Funnel")}
+            Button(onClick={val l=limit.toDoubleOrNull();if(name.isNotBlank()&&l!=null&&l>0){viewModel.createExpenseFunnel(name.trim(),l,from,until,null,style,currency, onSuccess = onDone)}},modifier=Modifier.fillMaxWidth()){Text("Create Funnel")}
         }
     }
 }
