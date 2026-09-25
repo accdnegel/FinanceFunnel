@@ -115,7 +115,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /** Liquid total (all Pitakas), converted to the base/display currency. */
-    val allEntries: Flow<List<LedgerEntry>> = repository.observeAllEntries()
+    val allEntries: Flow<List<LedgerEntry>> = repository.observeAllEntries().recoverForUi(emptyList())
 
     val totalLiquid: Flow<Double> = combine(pitakas, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
@@ -238,8 +238,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     val expenseBreakdown: Flow<List<CategorySpend>> = expenseBreakdownConverted(null)
-    val expenseCategories: Flow<List<String>> = repository.observeExpenseCategories()
-    val availableMonths: Flow<List<String>> = repository.observeAvailableMonths()
+    val expenseCategories: Flow<List<String>> = repository.observeExpenseCategories().recoverForUi(emptyList())
+    val availableMonths: Flow<List<String>> = repository.observeAvailableMonths().recoverForUi(emptyList())
 
     fun expenseBreakdownForMonth(month: String): Flow<List<CategorySpend>> = expenseBreakdownConverted(month)
 
@@ -253,7 +253,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun entriesForPitaka(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForPitaka(id)
     fun entriesForGoal(id: Long): Flow<List<LedgerEntry>> = repository.observeEntriesForGoal(id)
-    val allExpenses: Flow<List<LedgerEntry>> = repository.observeAllExpenses()
+    val allExpenses: Flow<List<LedgerEntry>> = repository.observeAllExpenses().recoverForUi(emptyList())
 
     suspend fun getPitaka(id: Long): Pitaka? = repository.getPitaka(id)
     suspend fun getGoal(id: Long): Goal? = repository.getGoal(id)
