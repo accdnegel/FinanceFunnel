@@ -14,15 +14,21 @@ object CurrencyBalances {
         return amount
     }
 
-    fun parse(raw: String?): MutableMap<String, Double> = raw.orEmpty()
-        .split('|').asSequence()
-        .mapNotNull { token ->
+    fun parse(raw: String?): MutableMap<String, Double> {
+        val result = mutableMapOf<String, Double>()
+        raw.orEmpty().split('|').forEach { token ->
             val parts = token.split('=', limit = 2)
-            if (parts.size != 2) null else parts[0].trim().uppercase().takeIf { it.isNotEmpty() }?.let { code ->
-                val amount = parts[1].toDoubleOrNull() ?: return@let null
-                if (!amount.isFinite()) null else code to amount
-            }
-        }.toMap().toMutableMap()
+            if (parts.size != 2) return@forEach
+            val code = parts[0].trim().uppercase()
+            if (code.isBlank()) return@forEach
+            val normalized = normalizedCode(code)
+            val amount = parts[1].toDoubleOrNull() ?: return@forEach
+            require(amount.isFinite()) { "Stored money amount must be finite." }
+            require(normalized !in result) { "Duplicate currency balance: $normalized." }
+            result[normalized] = amount
+        }
+        return result
+    }
 
     fun encode(values: Map<String, Double>): String = values
         .filterKeys { it.isNotBlank() }
