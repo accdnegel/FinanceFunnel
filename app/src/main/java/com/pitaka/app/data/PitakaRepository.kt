@@ -679,6 +679,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(amount > 0 && amount.isFinite()) { "Income amount must be a positive finite number" }
         db.withTransaction {
             val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            require(pitaka.archivedAt == null) { "Cannot add income to an archived Pitaka." }
             val currency = pitaka.currency.uppercase()
             recordIncomeInternal(pitakaId, name, amount, date, currency)
         }
@@ -704,6 +705,7 @@ class PitakaRepository(private val db: AppDatabase) {
         }
         db.withTransaction {
             val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+            require(source.archivedAt == null) { "Cannot record an expense from an archived Pitaka." }
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
@@ -734,6 +736,7 @@ class PitakaRepository(private val db: AppDatabase) {
         pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()
     ) {
         val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+        require(source.archivedAt == null) { "Cannot record an expense from an archived Pitaka." }
         val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
         require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) {
             "Insufficient " + txCurrency + " balance in " + source.name + "."
@@ -766,6 +769,8 @@ class PitakaRepository(private val db: AppDatabase) {
         db.withTransaction {
             val source = pitakaDao.getPitaka(fromPitakaId) ?: error("Source Pitaka not found.")
             val destination = pitakaDao.getPitaka(toPitakaId) ?: error("Destination Pitaka not found.")
+            require(source.archivedAt == null) { "Cannot transfer from an archived Pitaka." }
+            require(destination.archivedAt == null) { "Cannot transfer to an archived Pitaka." }
             require(fromPitakaId != toPitakaId) { "Source and destination must be different." }
             val sourceCurrency = source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[sourceCurrency] ?: 0.0) >= amount) { "Insufficient " + sourceCurrency + " balance in " + source.name + "." }
