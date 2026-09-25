@@ -620,6 +620,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(amount > 0 && amount.isFinite()) { "Recurring amount must be a positive finite number." }
         require(dayOfMonth in 1..31) { "Recurring day must be between 1 and 31." }
         val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
+        require(pitaka.archivedAt == null) { "Cannot create a recurring rule for an archived Pitaka." }
         recurringDao.insert(
             RecurringRule(
                 type = type, name = name.trim(), amount = amount, currency = pitaka.currency.uppercase(), category = category,
@@ -713,6 +714,9 @@ class PitakaRepository(private val db: AppDatabase) {
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
             val funnel = funnelDao.get(resolvedFunnel)
             require(funnel != null) { "Expense Funnel not found." }
+            require(funnel.archivedAt == null || funnel.isSystem) {
+                "Cannot record an expense against an archived Expense Funnel."
+            }
             val appliedFunnelCurrency = funnelCurrency?.trim()?.uppercase()?.ifBlank { null } ?: txCurrency
             val appliedFunnelAmount = funnelAmount ?: amount
             val expenseDate = java.time.Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
