@@ -62,8 +62,16 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             result.onFailure { viewModelError = it }
-                            result.getOrNull()?.let { PitakaNavGraph(it) }
-                                ?: if (viewModelError == null) StartupCheckingScreen() else Unit
+                            result.getOrNull()?.let { vm ->
+                                // Compose-time failures inside the first screen are otherwise
+                                // reported as a process-level crash after the splash. Keep them
+                                // visible so the exact failing screen/component is diagnosable.
+                                try {
+                                    PitakaNavGraph(vm)
+                                } catch (t: Throwable) {
+                                    StartupErrorScreen(t)
+                                }
+                            } ?: if (viewModelError == null) StartupCheckingScreen() else Unit
                         }
                     }
                 }
