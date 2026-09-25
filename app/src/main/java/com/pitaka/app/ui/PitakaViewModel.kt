@@ -290,8 +290,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }, onSuccess)
     }
 
-    fun deleteGoal(goal: Goal) {
-        launchOperation { repository.deleteGoal(goal) }
+    fun deleteGoal(goal: Goal, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.deleteGoal(goal) }, onSuccess)
     }
 
     fun recordIncome(pitakaId: Long, name: String, amount: Double) {
@@ -332,12 +332,12 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.updateExpenseFunnel(funnel) }, onSuccess)
     }
 
-    fun deleteEntry(entry: LedgerEntry) {
-        launchOperation { repository.deleteEntry(entry) }
+    fun deleteEntry(entry: LedgerEntry, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.deleteEntry(entry) }, onSuccess)
     }
 
-    fun updateEntry(entry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = entry.pitakaId) {
-        launchOperation { repository.updateEntry(entry, newName, newAmount, newCategory, newPitakaId) }
+    fun updateEntry(entry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = entry.pitakaId, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.updateEntry(entry, newName, newAmount, newCategory, newPitakaId) }, onSuccess)
     }
     fun observeExpensesForCategory(category: String): Flow<List<LedgerEntry>> = repository.observeExpensesForCategory(category)
     fun observeExpensesForFunnel(funnelId: Long): Flow<List<LedgerEntry>> = repository.observeExpensesForFunnel(funnelId)
