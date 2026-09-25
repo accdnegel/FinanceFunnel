@@ -34,12 +34,29 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearOperationError() { _operationError.value = null }
 
-    private fun launchOperation(block: suspend () -> Unit) {
+    private fun launchOperation(block: suspend () -> Unit, onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
             runCatching { block() }
-                .onSuccess { _operationError.value = null }
+                .onSuccess {
+                    _operationError.value = null
+                    onSuccess?.invoke()
+                }
                 .onFailure { _operationError.value = it.message ?: "Unable to complete the operation." }
         }
+    }
+
+    fun recordTransfer(
+        fromPitakaId: Long,
+        toPitakaId: Long,
+        name: String,
+        amount: Double,
+        secondaryAmount: Double? = null,
+        onSuccess: (() -> Unit)? = null
+    ) {
+        launchOperation(
+            { repository.recordTransfer(fromPitakaId, toPitakaId, name, amount, secondaryAmount) },
+            onSuccess
+        )
     }
 
     private val repository = PitakaRepository(AppDatabase.getInstance(application))
@@ -285,9 +302,6 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation { repository.recordExpense(pitakaId, name, amount, category, funnelId, currency, funnelAmount, funnelCurrency, date) }
     }
 
-    fun recordTransfer(fromPitakaId: Long, toPitakaId: Long, name: String, amount: Double, secondaryAmount: Double? = null) {
-        launchOperation { repository.recordTransfer(fromPitakaId, toPitakaId, name, amount, secondaryAmount) }
-    }
 
     fun recordGoalContribution(
         sourcePitakaId: Long,
