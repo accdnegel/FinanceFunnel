@@ -442,6 +442,35 @@ class PitakaRepository(private val db: AppDatabase) {
             // Allocation amounts are part of the ledger event, not independent balances.
             // When the transaction amount changes, preserve an explicitly converted
             // funnel/goal allocation by scaling it with the same transaction ratio.
+            if (oldEntry.type == LedgerType.EXPENSE) {
+                val funnel = oldEntry.funnelId?.let { funnelDao.get(it) }
+                require(funnel != null) { "Expense Funnel not found." }
+                val allocationCurrency = (oldEntry.funnelCurrency ?: oldEntry.currency).uppercase()
+                val existingSpent = CurrencyBalances.parse(funnel.currencyBalances)[allocationCurrency] ?: 0.0
+                val oldAllocation = oldEntry.funnelAmount ?: oldEntry.amount
+                val ratio = AccountingMath.editRatio(oldEntry.amount, newAmount)
+                val newAllocation = AccountingMath.scaleAllocation(oldAllocation, ratio)
+                if (!funnel.isSystem && allocationCurrency.equals(funnel.currency, ignoreCase = true)) {
+                    require(existingSpent + newAllocation <= funnel.limit + 1e-9) {
+                        "Expense exceeds the funnel limit for " + funnel.name + "."
+                    }
+                }
+            }
+            if (oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
+                val goal = oldEntry.goalId?.let { goalDao.getGoal(it) }
+                require(goal != null) { "Goal not found." }
+                val allocationCurrency = (oldEntry.goalCurrency ?: oldEntry.currency).uppercase()
+                val existingProgress = CurrencyBalances.parse(goal.currencyBalances)[allocationCurrency] ?: 0.0
+                val oldAllocation = oldEntry.goalAmount ?: oldEntry.amount
+                val ratio = AccountingMath.editRatio(oldEntry.amount, newAmount)
+                val newAllocation = AccountingMath.scaleAllocation(oldAllocation, ratio)
+                if (allocationCurrency.equals(goal.currency, ignoreCase = true)) {
+                    require(existingProgress + newAllocation <= goal.targetAmount + 1e-9) {
+                        "Contribution exceeds the goal target for " + goal.name + "."
+                    }
+                }
+            }
+
             val updatedFunnelAmount = oldEntry.funnelAmount?.let { oldAllocation ->
                 require(oldAllocation.isFinite()) { "Existing funnel allocation is invalid." }
                 AccountingMath.scaleAllocation(oldAllocation, ratio)
@@ -666,8 +695,17 @@ class PitakaRepository(private val db: AppDatabase) {
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
             val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
-            require(funnelDao.get(resolvedFunnel) != null) { "Expense Funnel not found." }
-            recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, txCurrency, funnelAmount, funnelCurrency, date)
+            val funnel = funnelDao.get(resolvedFunnel)
+            require(funnel != null) { "Expense Funnel not found." }
+            val appliedFunnelCurrency = funnelCurrency?.trim()?.uppercase()?.ifBlank { null } ?: txCurrency
+            val appliedFunnelAmount = funnelAmount ?: amount
+            if (!funnel.isSystem && appliedFunnelCurrency.equals(funnel.currency, ignoreCase = true)) {
+                val existingSpent = CurrencyBalances.parse(funnel.currencyBalances)[funnel.currency.uppercase()] ?: 0.0
+                require(existingSpent + appliedFunnelAmount <= funnel.limit + 1e-9) {
+                    "Expense exceeds the funnel limit for " + funnel.name + "."
+                }
+            }
+            recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, txCurrency, appliedFunnelAmount, appliedFunnelCurrency, date)
         }
     }
 
