@@ -68,13 +68,7 @@ class MainActivity : ComponentActivity() {
                         viewModelError != null -> StartupErrorScreen(viewModelError!!)
                         viewModel == null -> StartupCheckingScreen()
                         else -> {
-                            // The ViewModel is created outside composition so constructor/repository
-                            // failures are caught by LaunchedEffect rather than escaping composition.
-                            try {
-                                PitakaNavGraph(requireNotNull(viewModel))
-                            } catch (error: Throwable) {
-                                StartupErrorScreen(error)
-                            }
+                            PitakaNavGraph(requireNotNull(viewModel))
                         }
                     }
                 }
