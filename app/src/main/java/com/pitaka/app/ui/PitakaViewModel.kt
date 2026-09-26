@@ -33,6 +33,15 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     private val _operationError = MutableStateFlow<String?>(null)
     val operationError: StateFlow<String?> = _operationError.asStateFlow()
 
+    // This state must be initialized before the init block starts the watcher.
+    // viewModelScope uses Dispatchers.Main.immediate, so its launch may execute
+    // synchronously while this ViewModel is still being constructed.
+    private val _currentMonthKey = MutableStateFlow(YearMonth.now().toString())
+    val currentMonthKeyFlow: StateFlow<String> = _currentMonthKey.asStateFlow()
+
+    val currentMonthKey: String
+        get() = _currentMonthKey.value
+
     fun clearOperationError() { _operationError.value = null }
 
     private fun launchOperation(block: suspend () -> Unit, onSuccess: (() -> Unit)? = null) {
@@ -198,12 +207,6 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         convert(amount, from, to, rates) ?: 0.0
 
     // ---- Monthly expense budgets ----
-
-    private val _currentMonthKey = MutableStateFlow(YearMonth.now().toString())
-    val currentMonthKeyFlow: StateFlow<String> = _currentMonthKey.asStateFlow()
-
-    val currentMonthKey: String
-        get() = _currentMonthKey.value
 
     private fun startMonthBoundaryWatcher() {
         viewModelScope.launch {
