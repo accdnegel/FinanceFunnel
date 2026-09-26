@@ -122,6 +122,10 @@ abstract class AppDatabase : RoomDatabase() {
         fun getInstance(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pitaka.db")
                 .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                // Versions 1–3 predate the current migration chain. Only those obsolete
+                // schemas may be recreated; every supported v4+ database must migrate
+                // normally so existing financial data is never silently wiped.
+                .fallbackToDestructiveMigrationFrom(1, 2, 3)
                 .build().also { INSTANCE = it }
         }
     }
