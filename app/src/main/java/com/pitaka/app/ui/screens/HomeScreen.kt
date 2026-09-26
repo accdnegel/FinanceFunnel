@@ -60,7 +60,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
 
     Scaffold(topBar={TopAppBar(title={Text("Pitaka")},actions={
         IconButton(onClick=onOpenCurrencySettings){Icon(Icons.Default.CurrencyExchange,null)}
-        IconButton(onClick={ { scope.launch { val csv=buildLedgerCsv(viewModel.getAllEntriesOnce(),pitakas,goals.associate{it.id to it.name}); exportAndShareCsv(context,csv) } } }){Icon(Icons.Default.Share,null)}
+        IconButton(onClick={scope.launch { val csv=buildLedgerCsv(viewModel.getAllEntriesOnce(),pitakas,goals.associate{it.id to it.name}); exportAndShareCsv(context,csv) }}){Icon(Icons.Default.Share,null)}
     })}) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(18.dp)){
             MonthSelector(months.ifEmpty{listOf(selectedMonth)},selectedMonth){selectedMonth=it}

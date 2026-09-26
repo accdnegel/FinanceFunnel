@@ -41,7 +41,7 @@ interface LedgerDao {
     fun observeExpenseBreakdownForMonth(month:String): Flow<List<CategorySpend>>
     @Query("SELECT MIN(TRIM(category)) FROM ledger_entries WHERE type='EXPENSE' AND category IS NOT NULL AND TRIM(category)!='' AND LOWER(TRIM(category)) = LOWER(TRIM(:category))")
     suspend fun findCanonicalExpenseCategory(category: String): String?
-    @Query("SELECT DISTINCT strftime('%Y-%m',date/1000,'unixepoch') AS month FROM ledger_entries ORDER BY month ASC")
+    @Query("SELECT DISTINCT strftime('%Y-%m',date/1000,'unixepoch') AS month FROM ledger_entries WHERE strftime('%Y-%m',date/1000,'unixepoch') IS NOT NULL ORDER BY month ASC")
     fun observeAvailableMonths(): Flow<List<String>>
     @Query("SELECT COALESCE(SUM(amount),0) FROM ledger_entries WHERE type='EXPENSE' AND strftime('%Y-%m',date/1000,'unixepoch')=:month")
     fun observeExpenseTotalForMonth(month:String): Flow<Double>

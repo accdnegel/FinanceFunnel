@@ -76,5 +76,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: pitaka-debug-apk
+          name: pitaka-debug-apk-${{ github.run_number }}-${{ github.sha }}
           path: app/build/outputs/apk/debug/*.apk
