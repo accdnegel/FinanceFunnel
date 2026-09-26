@@ -165,7 +165,13 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         current - deltaAfter
     }
 
-    private fun monthKey(date: Long): String = java.time.Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().substring(0, 7)
+    private fun monthKey(date: Long): String = runCatching {
+        java.time.Instant.ofEpochMilli(date)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+            .toString()
+            .substring(0, 7)
+    }.getOrDefault("0000-00")
 
     val hasMissingConversionRates: Flow<Boolean> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
