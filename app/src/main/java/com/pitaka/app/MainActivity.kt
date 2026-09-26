@@ -8,6 +8,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +18,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.AppDatabase
 import com.pitaka.app.navigation.PitakaNavGraph
@@ -28,6 +31,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            val app = application as PitakaApplication
+            val previousCrash = remember { app.previousCrash }
+            if (previousCrash != null) {
+                MaterialTheme {
+                    PreviousCrashScreen(previousCrash) {
+                        app.clearPreviousCrash()
+                        recreate()
+                    }
+                }
+                return@setContent
+            }
+
             PitakaTheme {
                 var showSplash by remember { mutableStateOf(savedInstanceState == null) }
                 var databaseReady by remember { mutableStateOf(false) }
@@ -72,6 +87,31 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviousCrashScreen(report: String, onRetry: () -> Unit) {
+    Surface(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Pitaka stopped unexpectedly", style = MaterialTheme.typography.headlineSmall)
+            Text("Select and copy this report before retrying.")
+            SelectionContainer(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    report,
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                Text("Retry Pitaka")
             }
         }
     }
