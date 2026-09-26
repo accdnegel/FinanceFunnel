@@ -3,6 +3,7 @@ package com.pitaka.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
                 var showSplash by remember { mutableStateOf(savedInstanceState == null) }
                 var databaseReady by remember { mutableStateOf(false) }
                 var databaseError by remember { mutableStateOf<Throwable?>(null) }
+                var viewModel by remember { mutableStateOf<PitakaViewModel?>(null) }
                 var viewModelError by remember { mutableStateOf<Throwable?>(null) }
 
                 LaunchedEffect(Unit) {
@@ -46,25 +48,33 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                LaunchedEffect(databaseReady) {
+                    if (!databaseReady || viewModel != null || viewModelError != null) return@LaunchedEffect
+                    runCatching {
+                        ViewModelProvider(this@MainActivity, PitakaViewModelFactory(application))
+                            .get(PitakaViewModel::class.java)
+                    }.onSuccess {
+                        viewModel = it
+                    }.onFailure {
+                        viewModelError = it
+                    }
+                }
+
                 Surface(Modifier.fillMaxSize()) {
                     when {
                         showSplash -> PitakaSplashScreen { showSplash = false }
                         databaseError != null -> StartupErrorScreen(databaseError!!)
                         !databaseReady -> StartupCheckingScreen()
                         viewModelError != null -> StartupErrorScreen(viewModelError!!)
+                        viewModel == null -> StartupCheckingScreen()
                         else -> {
-                            // Create the ViewModel only after the database has opened.
-                            // If repository/ViewModel initialization still fails, keep the
-                            // process alive and expose the exact exception instead of closing.
-                            val result = runCatching {
-                                androidx.lifecycle.viewmodel.compose.viewModel<PitakaViewModel>(
-                                    factory = PitakaViewModelFactory(application)
-                                )
+                            // The ViewModel is created outside composition so constructor/repository
+                            // failures are caught by LaunchedEffect rather than escaping composition.
+                            try {
+                                PitakaNavGraph(requireNotNull(viewModel))
+                            } catch (error: Throwable) {
+                                StartupErrorScreen(error)
                             }
-                            result.onFailure { viewModelError = it }
-                            result.getOrNull()?.let { vm ->
-                                PitakaNavGraph(vm)
-                            } ?: if (viewModelError == null) StartupCheckingScreen() else Unit
                         }
                     }
                 }
