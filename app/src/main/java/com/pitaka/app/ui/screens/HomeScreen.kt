@@ -95,10 +95,10 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
                 }
             }
             SectionTitle("Cash Inflow / Outflow")
-            val monthExpenses=allExpenses.filter{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(selectedMonth)}
+            val monthExpenses=allExpenses.filter{runCatching{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(selectedMonth)}.getOrDefault(false)}
             val monthIncome=income.find{it.month==selectedMonth}?.total ?: 0.0
             val monthOut=expenses.find{it.month==selectedMonth}?.total ?: 0.0
-            val monthEntries=allEntries.filter{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(selectedMonth)}
+            val monthEntries=allEntries.filter{runCatching{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(selectedMonth)}.getOrDefault(false)}
             CashFlowTable(monthIncome,monthOut,currency,monthEntries,expandedFlow){expandedFlow=!expandedFlow}
         }
     }
