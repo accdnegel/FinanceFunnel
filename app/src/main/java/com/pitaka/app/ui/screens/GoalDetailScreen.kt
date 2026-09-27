@@ -322,7 +322,12 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
             confirmEnabled = !missingContributionSource || refundPitaka != null,
             additionalContent = if (missingContributionSource) {{
                 Spacer(Modifier.height(12.dp))
-                PitakaDropdown(leafPitakas, refundPitaka, { refundPitaka = it }, "Refund destination")
+                PitakaDropdown(
+                    label = "Refund destination",
+                    pitakas = leafPitakas,
+                    selected = refundPitaka,
+                    onSelected = { refundPitaka = it }
+                )
             }} else null
         )
     }

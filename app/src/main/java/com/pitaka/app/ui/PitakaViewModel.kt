@@ -390,8 +390,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle, currency) }, onSuccess)
     }
 
-    fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
-        launchOperation({ repository.deleteExpenseFunnel(funnel) })
+    fun deleteExpenseFunnel(funnel: ExpenseFunnel, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.deleteExpenseFunnel(funnel) }, onSuccess)
     }
 
     fun archiveExpenseFunnel(funnelId: Long, onSuccess: (() -> Unit)? = null) {
