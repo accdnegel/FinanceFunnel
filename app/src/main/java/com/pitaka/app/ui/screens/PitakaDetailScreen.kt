@@ -8,12 +8,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Tune
@@ -43,11 +41,24 @@ import java.util.Date
 fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () -> Unit, onEdit: () -> Unit, onOpenChild: (Long) -> Unit) {
     var pitaka by remember { mutableStateOf<Pitaka?>(null) }
     val allEntries by viewModel.allEntries.collectAsState(initial = emptyList())
-    val allPitakas by viewModel.pitakas.collectAsState(initial = emptyList())
+    val activePitakas by viewModel.pitakas.collectAsState(initial = emptyList())
+    val allPitakas by viewModel.allPitakasIncludingArchived.collectAsState(initial = emptyList())
+    val allGoals by viewModel.goals.collectAsState(initial = emptyList())
+    val allFunnels by viewModel.expenseFunnels.collectAsState(initial = emptyList())
+    val leafPitakas = activePitakas.filter { candidate -> activePitakas.none { it.parentPitakaId == candidate.id } }
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     val descendantIds = remember(allPitakas, pitakaId) {
-        fun descendants(id: Long): Set<Long> = allPitakas.filter { it.parentPitakaId == id }.flatMap { listOf(it.id) + descendants(it.id).toList() }.toSet()
-        setOf(pitakaId) + descendants(pitakaId)
+        val found = mutableSetOf<Long>()
+        fun collect(id: Long) {
+            allPitakas.filter { it.parentPitakaId == id && found.add(it.id) }.forEach { collect(it.id) }
+        }
+        collect(pitakaId)
+        found + pitakaId
+    }
+    val childPitakas = allPitakas.filter { it.parentPitakaId == pitakaId }
+    val incomeTargets = allPitakas.filter { candidate ->
+        candidate.id in descendantIds && candidate.id != pitakaId &&
+            allPitakas.none { it.parentPitakaId == candidate.id }
     }
     val entries = allEntries.filter { e ->
         val ids = listOfNotNull(e.pitakaId, e.fromPitakaId, e.toPitakaId).toSet()
@@ -56,6 +67,9 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
 
     var name by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
+    var incomeTargetId by remember(pitakaId) { mutableLongStateOf(pitakaId) }
+    var incomeTargetOpen by remember { mutableStateOf(false) }
+    var validationError by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAdjustDialog by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<LedgerEntry?>(null) }
@@ -63,9 +77,15 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
     LaunchedEffect(pitakaId, entries) {
         pitaka = viewModel.getPitaka(pitakaId)
     }
+    LaunchedEffect(incomeTargets) {
+        if (incomeTargets.isNotEmpty() && incomeTargets.none { it.id == incomeTargetId }) {
+            incomeTargetId = incomeTargets.first().id
+        }
+    }
 
     val accentColor = parseHexColor(pitaka?.colorHex) ?: Color(0xFF0278CF)
-    val currency = pitaka?.currency ?: "PHP"
+    val incomeTarget = allPitakas.find { it.id == incomeTargetId } ?: pitaka
+    val currency = incomeTarget?.currency ?: pitaka?.currency ?: "PHP"
 
     Scaffold(
         topBar = {
@@ -78,6 +98,11 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                     }
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Pitaka")
+                    }
+                    if (pitaka?.archivedAt == null) IconButton(onClick = { viewModel.archivePitaka(pitakaId, onBack) }) {
+                        Icon(Icons.Default.Archive, contentDescription = "Archive Pitaka")
+                    } else IconButton(onClick = { viewModel.restorePitaka(pitakaId) }) {
+                        Icon(Icons.Default.Unarchive, contentDescription = "Restore Pitaka")
                     }
                     IconButton(onClick = { showDeleteConfirm = true }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete Pitaka")
@@ -96,7 +121,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                         .padding(16.dp)
                 ) {
                     Text(
-                        CurrencyBalances.parse(p.currencyBalances).displayLines(),
+                        viewModel.effectivePitakaBalances(p.id, allPitakas).displayLines(),
                         style = MaterialTheme.typography.headlineMedium,
                         color = accentColor,
                         fontWeight = FontWeight.Bold
@@ -105,8 +130,6 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                 }
             }
 
-            val childPitakas = allPitakas.filter { it.parentPitakaId == pitakaId }
-
             if (childPitakas.isNotEmpty()) {
                 Text("Sub-Pitakas", fontWeight = FontWeight.Bold)
                 Text(
@@ -114,38 +137,17 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column {
                     childPitakas.forEach { child ->
                         val childColor = parseHexColor(child.colorHex) ?: accentColor
-                        com.pitaka.app.ui.components.BatikCardSurface(
-                            child.cardStyle,
-                            childColor,
-                            Modifier
-                                .fillMaxWidth()
-                                .height(112.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .clickable { onOpenChild(child.id) }
-                        ) {
-                            Column(Modifier.fillMaxSize().padding(14.dp)) {
-                                Text(
-                                    "SUB-PITAKA",
-                                    color = Color.White.copy(alpha = .78f),
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                Text(
-                                    child.name,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Text(
-                                    CurrencyBalances.parse(child.currencyBalances).displayLines(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
+                        ListItem(
+                            headlineContent = { Text(child.name, fontWeight = FontWeight.Bold) },
+                            supportingContent = { Text(viewModel.effectivePitakaBalances(child.id, allPitakas).displayLines()) },
+                            leadingContent = { Box(Modifier.width(6.dp).height(42.dp).background(childColor)) },
+                            trailingContent = { Text("Open") },
+                            modifier = Modifier.fillMaxWidth().clickable { onOpenChild(child.id) }
+                        )
+                        HorizontalDivider()
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -154,6 +156,26 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
             }
 
             Text("Record Income", fontWeight = FontWeight.Bold)
+            if (incomeTargets.isNotEmpty()) {
+                ExposedDropdownMenuBox(expanded = incomeTargetOpen, onExpandedChange = { incomeTargetOpen = !incomeTargetOpen }) {
+                    OutlinedTextField(
+                        value = incomeTarget?.name ?: "Select sub-Pitaka",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Income destination") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(incomeTargetOpen) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = incomeTargetOpen, onDismissRequest = { incomeTargetOpen = false }) {
+                        incomeTargets.forEach { target ->
+                            DropdownMenuItem(
+                                text = { Text(target.name) },
+                                onClick = { incomeTargetId = target.id; incomeTargetOpen = false }
+                            )
+                        }
+                    }
+                }
+            }
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -169,16 +191,23 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
             Button(
                 onClick = {
                     val amount = amountText.toDoubleOrNull()
-                    if (name.isNotBlank() && amount != null && amount > 0) {
-                        viewModel.recordIncome(pitakaId, name, amount)
-                        name = ""
-                        amountText = ""
+                    when {
+                        name.isBlank() -> validationError = "Enter an income source."
+                        amount == null || amount <= 0 -> validationError = "Enter a valid amount greater than zero."
+                        incomeTarget == null -> validationError = "Select a destination Pitaka."
+                        else -> {
+                            validationError = null
+                            viewModel.recordIncome(incomeTarget.id, name, amount)
+                            name = ""
+                            amountText = ""
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
             ) {
                 Text("Add Income")
             }
+            validationError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("History", fontWeight = FontWeight.Bold)
@@ -208,8 +237,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
     if (showDeleteConfirm) {
         ConfirmDeleteDialog(
             title = "Delete this Pitaka?",
-            message = "This permanently removes \"${pitaka?.name}\" and every income, expense, " +
-                "transfer, and contribution logged against it. This can't be undone.",
+            message = "This permanently removes \"${pitaka?.name}\". Children become root Pitakas; a leaf's records and every linked accounting effect are reversed. Export a backup first if needed.",
             onConfirm = {
                 pitaka?.let { viewModel.deletePitaka(it) }
                 showDeleteConfirm = false
@@ -233,8 +261,11 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
     editingEntry?.let { entry ->
         EditEntryDialog(
             entry = entry,
-            onSave = { newName, newAmount, newCategory ->
-                viewModel.updateEntry(entry, newName, newAmount, newCategory)
+            pitakas = leafPitakas,
+            goals = allGoals,
+            funnels = allFunnels,
+            onSave = { replacement ->
+                viewModel.replaceEntry(entry, replacement)
                 editingEntry = null
             },
             onDismiss = { editingEntry = null }
@@ -252,7 +283,7 @@ private fun LedgerRow(
 ) {
     var masked by remember { mutableStateOf(false) }
     val (label, signedAmount, color) = describeEntry(entry, pitakaId, currency)
-    val editable = entry.type != LedgerType.TRANSFER
+    val editable = entry.type != LedgerType.OPENING_BALANCE
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -276,8 +307,10 @@ private fun LedgerRow(
                     Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete")
+            if (editable) {
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete")
+                }
             }
         }
     }
@@ -286,9 +319,12 @@ private fun LedgerRow(
 private fun describeEntry(entry: LedgerEntry, pitakaId: Long, currency: String): Triple<String, String, Color> {
     fun fmt(amount: Double) = "$currency ${"%,.2f".format(amount)}"
     return when (entry.type) {
+        LedgerType.OPENING_BALANCE -> Triple("Opening balance", "+${fmt(entry.amount)}", Color(0xFF1E8E5A))
         LedgerType.INCOME -> Triple("Income", "+${fmt(entry.amount)}", Color(0xFF1E8E5A))
         LedgerType.EXPENSE -> Triple(entry.category ?: "Expense", "-${fmt(entry.amount)}", Color(0xFFC62800))
         LedgerType.GOAL_CONTRIBUTION -> Triple("Goal contribution", "-${fmt(entry.amount)}", Color(0xFFC62800))
+        LedgerType.GOAL_WITHDRAWAL -> Triple("Goal withdrawal", "+${fmt(entry.secondaryAmount ?: entry.amount)}", Color(0xFF1E8E5A))
+        LedgerType.GOAL_EXPENSE -> Triple(entry.category ?: "Goal expense", "-${fmt(entry.amount)}", Color(0xFFC62800))
         LedgerType.ADJUSTMENT -> {
             val positive = entry.amount >= 0
             Triple("Manual adjustment", "${if (positive) "+" else ""}${fmt(entry.amount)}", if (positive) Color(0xFF1E8E5A) else Color(0xFFC62800))

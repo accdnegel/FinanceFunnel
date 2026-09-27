@@ -9,12 +9,14 @@ data class GoalWithProgress(
     val type: GoalType,
     val targetAmount: Double,
     val currency: String,
-    val targetDate: Long,
+    val targetBalances: String,
+    val targetDate: Long?,
     val colorHex: String?,
     val cardStyle: String,
     val createdAt: Long,
     val progress: Double,
-    val currencyBalances: String
+    val currencyBalances: String,
+    val archivedAt: Long?
 )
 
 @Dao
@@ -35,12 +37,15 @@ interface GoalDao {
     suspend fun getGoal(id: Long): Goal?
 
     @Query("""
-        SELECT g.id, g.name, g.type, g.targetAmount, g.currency, g.targetDate, g.currencyBalances, g.colorHex, g.cardStyle, g.createdAt,
+        SELECT g.id, g.name, g.type, g.targetAmount, g.currency, g.targetBalances, g.targetDate, g.currencyBalances, g.colorHex, g.cardStyle, g.createdAt, g.archivedAt,
                COALESCE((
-                   SELECT SUM(COALESCE(l.goalAmount, l.amount))
+                                     SELECT SUM(CASE
+                                             WHEN l.type = 'GOAL_CONTRIBUTION' THEN COALESCE(l.goalAmount, l.amount)
+                                             WHEN l.type IN ('GOAL_WITHDRAWAL', 'GOAL_EXPENSE') THEN -COALESCE(l.goalAmount, l.amount)
+                                             ELSE 0 END)
                    FROM ledger_entries l
                    WHERE l.goalId = g.id
-                     AND l.type = 'GOAL_CONTRIBUTION'
+                                         AND l.type IN ('GOAL_CONTRIBUTION', 'GOAL_WITHDRAWAL', 'GOAL_EXPENSE')
                      AND COALESCE(l.goalCurrency, l.currency) = g.currency
                ), 0) AS progress
         FROM goals g
@@ -50,12 +55,35 @@ interface GoalDao {
     fun observeGoalsWithProgress(): Flow<List<GoalWithProgress>>
 
     @Query("""
-        SELECT COALESCE(SUM(COALESCE(l.goalAmount, l.amount)), 0)
+        SELECT g.id, g.name, g.type, g.targetAmount, g.currency, g.targetBalances, g.targetDate, g.currencyBalances, g.colorHex, g.cardStyle, g.createdAt, g.archivedAt,
+               COALESCE((
+                   SELECT SUM(CASE
+                       WHEN l.type = 'GOAL_CONTRIBUTION' THEN COALESCE(l.goalAmount, l.amount)
+                       WHEN l.type IN ('GOAL_WITHDRAWAL', 'GOAL_EXPENSE') THEN -COALESCE(l.goalAmount, l.amount)
+                       ELSE 0 END)
+                   FROM ledger_entries l
+                   WHERE l.goalId = g.id
+                     AND l.type IN ('GOAL_CONTRIBUTION', 'GOAL_WITHDRAWAL', 'GOAL_EXPENSE')
+                     AND COALESCE(l.goalCurrency, l.currency) = g.currency
+               ), 0) AS progress
+        FROM goals g
+        ORDER BY g.createdAt DESC
+    """)
+    fun observeAllGoalsWithProgress(): Flow<List<GoalWithProgress>>
+
+    @Query("""
+        SELECT COALESCE(SUM(CASE
+            WHEN l.type = 'GOAL_CONTRIBUTION' THEN COALESCE(l.goalAmount, l.amount)
+            WHEN l.type IN ('GOAL_WITHDRAWAL', 'GOAL_EXPENSE') THEN -COALESCE(l.goalAmount, l.amount)
+            ELSE 0 END), 0)
         FROM ledger_entries l
         JOIN goals g ON g.id = l.goalId
-        WHERE l.type = 'GOAL_CONTRIBUTION'
+        WHERE l.type IN ('GOAL_CONTRIBUTION', 'GOAL_WITHDRAWAL', 'GOAL_EXPENSE')
           AND g.type = :type
           AND COALESCE(l.goalCurrency, l.currency) = g.currency
     """)
     fun observeTotalProgressForType(type: GoalType): Flow<Double>
+
+    @Query("SELECT COUNT(*) FROM goals WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND id != :excludeId")
+    suspend fun countByNormalizedName(name: String, excludeId: Long = 0): Int
 }

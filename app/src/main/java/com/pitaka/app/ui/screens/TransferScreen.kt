@@ -9,32 +9,43 @@ import com.pitaka.app.data.ExchangeRate
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.PitakaDropdown
+import com.pitaka.app.ui.components.CurrencyDropdown
 import com.pitaka.app.data.CurrencyRules
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
     val pitakas by viewModel.pitakas.collectAsState(initial = emptyList())
+    val leafPitakas = pitakas.filter { candidate -> pitakas.none { it.parentPitakaId == candidate.id } }
     val rates by viewModel.exchangeRates.collectAsState(initial = emptyList())
     var fromPitaka by remember { mutableStateOf<Pitaka?>(null) }
     var toPitaka by remember { mutableStateOf<Pitaka?>(null) }
     var name by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
+    var destinationAmountText by remember { mutableStateOf("") }
+    var sourceCurrency by remember { mutableStateOf("PHP") }
+    var destinationCurrency by remember { mutableStateOf("PHP") }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(pitakas) {
-        if (fromPitaka == null && pitakas.isNotEmpty()) fromPitaka = pitakas.first()
-        if (toPitaka == null && pitakas.size > 1) toPitaka = pitakas[1]
+    LaunchedEffect(leafPitakas) {
+        if (fromPitaka == null && leafPitakas.isNotEmpty()) {
+            fromPitaka = leafPitakas.first()
+            sourceCurrency = leafPitakas.first().currency
+        }
+        if (toPitaka == null && leafPitakas.size > 1) {
+            toPitaka = leafPitakas[1]
+            destinationCurrency = leafPitakas[1].currency
+        }
     }
 
     val amount = amountText.toDoubleOrNull()
-    val crossCurrency = fromPitaka != null && toPitaka != null && fromPitaka?.currency != toPitaka?.currency
+    val crossCurrency = sourceCurrency != destinationCurrency
     val conversionError = if (crossCurrency && amount != null) {
-        try { CurrencyRules.convert(amount, fromPitaka!!.currency, toPitaka!!.currency, rates); null }
+        try { CurrencyRules.convert(amount, sourceCurrency, destinationCurrency, rates); null }
         catch (e: IllegalArgumentException) { e.message ?: "Configure exchange rates first." }
     } else null
     val convertedAmount = if (crossCurrency && amount != null && conversionError == null) {
-        CurrencyRules.convert(amount, fromPitaka!!.currency, toPitaka!!.currency, rates)
+        CurrencyRules.convert(amount, sourceCurrency, destinationCurrency, rates)
     } else if (!crossCurrency) amount else null
 
     Scaffold(topBar = { TopAppBar(title = { Text("Transfer Between Pitakas") }) }) { padding ->
@@ -42,11 +53,13 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (pitakas.size < 2) {
+            if (leafPitakas.size < 2) {
                 Text("You need at least two Pitakas to transfer between them.")
             } else {
-                PitakaDropdown(label = "From", pitakas = pitakas, selected = fromPitaka, onSelected = { fromPitaka = it })
-                PitakaDropdown(label = "To", pitakas = pitakas, selected = toPitaka, onSelected = { toPitaka = it })
+                PitakaDropdown(label = "From", pitakas = leafPitakas, selected = fromPitaka, onSelected = { fromPitaka = it; sourceCurrency = it.currency })
+                CurrencyDropdown(sourceCurrency, onSelected = { sourceCurrency = it })
+                PitakaDropdown(label = "To", pitakas = leafPitakas, selected = toPitaka, onSelected = { toPitaka = it; destinationCurrency = it.currency })
+                CurrencyDropdown(destinationCurrency, onSelected = { destinationCurrency = it })
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -56,7 +69,7 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("Amount (${fromPitaka?.currency ?: ""})") },
+                    label = { Text("Source amount ($sourceCurrency)") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (crossCurrency && conversionError != null) {
@@ -64,9 +77,15 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
                 }
                 if (crossCurrency && convertedAmount != null) {
                     Text(
-                        "≈ ${toPitaka?.currency} ${"%,.2f".format(convertedAmount)} will be added to ${toPitaka?.name}, " +
-                            "based on your saved exchange rates.",
+                        "Suggested: $destinationCurrency ${"%,.6f".format(convertedAmount)} based on your saved rates.",
                         style = MaterialTheme.typography.bodySmall
+                    )
+                    OutlinedTextField(
+                        value = destinationAmountText,
+                        onValueChange = { destinationAmountText = it },
+                        label = { Text("Destination amount ($destinationCurrency)") },
+                        supportingText = { Text("Leave blank to use the suggested amount") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -80,15 +99,19 @@ fun TransferScreen(viewModel: PitakaViewModel, onDone: () -> Unit) {
                             fromPitaka?.id == toPitaka?.id -> error = "Pick two different Pitakas."
                             amount == null || amount <= 0 || !amount.isFinite() -> error = "Enter a valid amount."
                             crossCurrency && convertedAmount == null -> error = conversionError ?: "Configure exchange rates first."
+                            crossCurrency && destinationAmountText.isNotBlank() && (destinationAmountText.toDoubleOrNull()?.let { it > 0 && it.isFinite() } != true) -> error = "Enter a valid destination amount."
                             else -> {
+                                val destinationAmount = if (crossCurrency) destinationAmountText.toDoubleOrNull() ?: convertedAmount else null
                                 viewModel.recordTransfer(
                                     fromPitakaId = fromPitaka!!.id,
                                     toPitakaId = toPitaka!!.id,
                                     name = name.ifBlank { "Transfer" },
                                     amount = amount,
-                                    secondaryAmount = convertedAmount
+                                    secondaryAmount = destinationAmount,
+                                    sourceCurrency = sourceCurrency,
+                                    destinationCurrency = destinationCurrency,
+                                    onSuccess = onDone
                                 )
-                                onDone()
                             }
                         }
                     },

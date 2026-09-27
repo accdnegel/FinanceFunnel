@@ -10,6 +10,7 @@ interface PitakaDao {
     @Delete suspend fun deletePitaka(pitaka: Pitaka)
     @Query("SELECT * FROM pitakas WHERE id = :id") suspend fun getPitaka(id: Long): Pitaka?
     @Query("SELECT * FROM pitakas WHERE archivedAt IS NULL ORDER BY createdAt DESC") fun observePitakas(): Flow<List<Pitaka>>
+    @Query("SELECT * FROM pitakas ORDER BY createdAt DESC") fun observeAllPitakas(): Flow<List<Pitaka>>
     @Query("SELECT * FROM pitakas WHERE parentPitakaId = :parentId AND archivedAt IS NULL ORDER BY createdAt DESC")
     fun observeChildren(parentId: Long): Flow<List<Pitaka>>
     @Query("SELECT * FROM pitakas WHERE parentPitakaId IS NULL AND archivedAt IS NULL ORDER BY createdAt DESC")
@@ -18,4 +19,7 @@ interface PitakaDao {
     suspend fun countChildren(parentId: Long): Int
     @Query("UPDATE pitakas SET parentPitakaId = NULL WHERE parentPitakaId = :parentId")
     suspend fun detachChildren(parentId: Long)
+
+    @Query("SELECT COUNT(*) FROM pitakas WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND id != :excludeId")
+    suspend fun countByNormalizedName(name: String, excludeId: Long = 0): Int
 }

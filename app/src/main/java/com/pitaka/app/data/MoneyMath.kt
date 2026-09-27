@@ -6,12 +6,12 @@ import java.math.RoundingMode
 /**
  * Decimal-safe helpers for monetary calculations.
  *
- * Persistence remains Double for backward compatibility in schema v11.
+ * Persistence remains Double for backward compatibility in schema v12.
  * New accounting arithmetic should use these helpers at boundaries where
  * decimal rounding matters, then convert back to Double only at the DAO boundary.
  */
 object MoneyMath {
-    private const val SCALE = 8
+    private const val SCALE = 6
 
     fun add(a: Double, b: Double): Double =
         decimal(a).add(decimal(b)).toDoubleChecked()

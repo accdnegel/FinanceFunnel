@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -24,11 +25,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.pitaka.app.data.LedgerEntry
-import com.pitaka.app.data.LedgerType
+import com.pitaka.app.data.*
 import com.pitaka.app.data.commonCurrencies
 import com.pitaka.app.ui.theme.batikColorPalette
 import com.pitaka.app.ui.theme.parseHexColor
+import com.pitaka.app.util.DatabaseBackup
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -137,8 +139,9 @@ fun ColorSwatchPicker(selected: String?, onSelected: (String?) -> Unit) {
 }
 
 @Composable
-fun DatePickerButton(label: String, selectedDate: Long?, onDatePicked: (Long) -> Unit) {
+fun DatePickerButton(label: String, selectedDate: Long?, onDatePicked: (Long) -> Unit, onClear: (() -> Unit)? = null) {
     val context = LocalContext.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
     OutlinedButton(onClick = {
         val cal = Calendar.getInstance()
         DatePickerDialog(
@@ -155,6 +158,10 @@ fun DatePickerButton(label: String, selectedDate: Long?, onDatePicked: (Long) ->
     }) {
         Text(selectedDate?.let { dateFormat.format(Date(it)) } ?: label)
     }
+    if (selectedDate != null && onClear != null) {
+        IconButton(onClick = onClear) { Icon(Icons.Default.Close, contentDescription = "Clear date") }
+    }
+    }
 }
 
 @Composable
@@ -162,16 +169,26 @@ fun ConfirmDeleteDialog(
     title: String,
     message: String,
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    confirmEnabled: Boolean = true,
+    additionalContent: (@Composable () -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var backupError by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { Text(message) },
+        text = { Column { Text(message); additionalContent?.invoke(); backupError?.let { Text(it, color = MaterialTheme.colorScheme.error) } } },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            TextButton(onClick = onConfirm, enabled = confirmEnabled) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = {
+            Row {
+                TextButton(onClick = { scope.launch { runCatching { DatabaseBackup.create(context) }.onSuccess { DatabaseBackup.share(context, it) }.onFailure { backupError = it.message } } }) { Text("Export backup") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
     )
 }
 
@@ -214,26 +231,68 @@ fun ExpenseCategoryField(
     }
 }
 
-/** Edits name/amount/category (category only shown for EXPENSE entries) in place. */
+/** Edits every mutable field while keeping the transaction type immutable. */
 @Composable
 fun EditEntryDialog(
     entry: LedgerEntry,
-    onSave: (name: String, amount: Double, category: String?) -> Unit,
+    pitakas: List<Pitaka>,
+    goals: List<GoalWithProgress>,
+    funnels: List<ExpenseFunnel>,
+    onSave: (LedgerEntry) -> Unit,
     onDismiss: () -> Unit
 ) {
     var name by remember { mutableStateOf(entry.name) }
     var amountText by remember { mutableStateOf(entry.amount.let { kotlin.math.abs(it) }.toString()) }
     var category by remember { mutableStateOf(entry.category ?: "") }
+    var currency by remember { mutableStateOf(entry.currency) }
+    var date by remember { mutableStateOf<Long?>(entry.date) }
+    var pitaka by remember { mutableStateOf(pitakas.find { it.id == entry.pitakaId }) }
+    var fromPitaka by remember { mutableStateOf(pitakas.find { it.id == entry.fromPitakaId }) }
+    var toPitaka by remember { mutableStateOf(pitakas.find { it.id == entry.toPitakaId }) }
+    var goal by remember { mutableStateOf(goals.find { it.id == entry.goalId }) }
+    var funnel by remember { mutableStateOf(funnels.find { it.id == entry.funnelId }) }
+    var secondaryAmount by remember { mutableStateOf((entry.secondaryAmount ?: entry.amount).toString()) }
+    var secondaryCurrency by remember { mutableStateOf(entry.secondaryCurrency ?: entry.currency) }
+    var allocationAmount by remember { mutableStateOf((entry.goalAmount ?: entry.funnelAmount ?: entry.amount).toString()) }
+    var allocationCurrency by remember { mutableStateOf(entry.goalCurrency ?: entry.funnelCurrency ?: entry.currency) }
+    val scroll = rememberScrollState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Entry") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") })
                 OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("Amount") })
-                if (entry.type == LedgerType.EXPENSE) {
+                OutlinedTextField(value = currency, onValueChange = { currency = it.uppercase().take(3) }, label = { Text("Currency") })
+                DatePickerButton("Transaction date", date, { date = it })
+                if (entry.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE)) {
                     OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") })
+                }
+                when (entry.type) {
+                    LedgerType.INCOME, LedgerType.EXPENSE, LedgerType.GOAL_CONTRIBUTION, LedgerType.ADJUSTMENT, LedgerType.GOAL_WITHDRAWAL ->
+                        PitakaDropdown(if (entry.type == LedgerType.GOAL_WITHDRAWAL) "Destination Pitaka" else "Pitaka", pitakas, pitaka) { pitaka = it }
+                    LedgerType.TRANSFER -> {
+                        PitakaDropdown("Source Pitaka", pitakas, fromPitaka) { fromPitaka = it }
+                        PitakaDropdown("Destination Pitaka", pitakas, toPitaka) { toPitaka = it }
+                    }
+                    else -> Unit
+                }
+                if (entry.type in setOf(LedgerType.GOAL_CONTRIBUTION, LedgerType.GOAL_WITHDRAWAL, LedgerType.GOAL_EXPENSE)) {
+                    EntityDropdown("Goal", goals.map { it.id to it.name }, goal?.id) { id -> goal = goals.find { it.id == id } }
+                    OutlinedTextField(allocationAmount, { allocationAmount = it }, label = { Text("Goal amount") })
+                    OutlinedTextField(allocationCurrency, { allocationCurrency = it.uppercase().take(3) }, label = { Text("Goal currency") })
+                }
+                if (entry.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE)) {
+                    EntityDropdown("Expense Funnel", funnels.map { it.id to it.name }, funnel?.id) { id -> funnel = funnels.find { it.id == id } }
+                    if (entry.type == LedgerType.EXPENSE) {
+                        OutlinedTextField(allocationAmount, { allocationAmount = it }, label = { Text("Funnel amount") })
+                        OutlinedTextField(allocationCurrency, { allocationCurrency = it.uppercase().take(3) }, label = { Text("Funnel currency") })
+                    }
+                }
+                if (entry.type in setOf(LedgerType.TRANSFER, LedgerType.GOAL_WITHDRAWAL)) {
+                    OutlinedTextField(secondaryAmount, { secondaryAmount = it }, label = { Text("Destination amount") })
+                    OutlinedTextField(secondaryCurrency, { secondaryCurrency = it.uppercase().take(3) }, label = { Text("Destination currency") })
                 }
             }
         },
@@ -243,11 +302,49 @@ fun EditEntryDialog(
                 val signedAmount = if (entry.type == LedgerType.ADJUSTMENT) {
                     if (entry.amount < 0) -amount else amount
                 } else amount
-                onSave(name, signedAmount, category.takeIf { entry.type == LedgerType.EXPENSE })
+                onSave(entry.copy(
+                    name = name,
+                    amount = signedAmount,
+                    currency = currency,
+                    category = category.takeIf { entry.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE) },
+                    pitakaId = pitaka?.id ?: entry.pitakaId,
+                    fromPitakaId = fromPitaka?.id ?: entry.fromPitakaId,
+                    toPitakaId = toPitaka?.id ?: entry.toPitakaId,
+                    goalId = goal?.id ?: entry.goalId,
+                    funnelId = funnel?.id ?: entry.funnelId,
+                    goalAmount = allocationAmount.toDoubleOrNull().takeIf { entry.type in setOf(LedgerType.GOAL_CONTRIBUTION, LedgerType.GOAL_WITHDRAWAL, LedgerType.GOAL_EXPENSE) } ?: entry.goalAmount,
+                    goalCurrency = allocationCurrency.takeIf { entry.type in setOf(LedgerType.GOAL_CONTRIBUTION, LedgerType.GOAL_WITHDRAWAL, LedgerType.GOAL_EXPENSE) } ?: entry.goalCurrency,
+                    funnelAmount = allocationAmount.toDoubleOrNull().takeIf { entry.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE) } ?: entry.funnelAmount,
+                    funnelCurrency = allocationCurrency.takeIf { entry.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE) } ?: entry.funnelCurrency,
+                    secondaryAmount = secondaryAmount.toDoubleOrNull().takeIf { entry.type in setOf(LedgerType.TRANSFER, LedgerType.GOAL_WITHDRAWAL) } ?: entry.secondaryAmount,
+                    secondaryCurrency = secondaryCurrency.takeIf { entry.type in setOf(LedgerType.TRANSFER, LedgerType.GOAL_WITHDRAWAL) } ?: entry.secondaryCurrency,
+                    date = date ?: entry.date
+                ))
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EntityDropdown(label: String, items: List<Pair<Long, String>>, selectedId: Long?, onSelected: (Long) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = !open }) {
+        OutlinedTextField(
+            value = items.find { it.first == selectedId }?.second ?: "Select $label",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            items.forEach { (id, name) ->
+                DropdownMenuItem(text = { Text(name) }, onClick = { onSelected(id); open = false })
+            }
+        }
+    }
 }
 
 /** Warns before letting the user override a Pitaka's balance directly, bypassing the logs. */
@@ -292,6 +389,7 @@ fun AdjustBalanceDialog(
 fun CurrencyDropdown(selected: String, onSelected: (String) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     var customText by remember { mutableStateOf(selected) }
+    LaunchedEffect(selected) { customText = selected }
 
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
         OutlinedTextField(

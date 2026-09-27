@@ -4,10 +4,13 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 enum class LedgerType {
+    OPENING_BALANCE,
     INCOME,
     EXPENSE,
     TRANSFER,
     GOAL_CONTRIBUTION,
+    GOAL_WITHDRAWAL,
+    GOAL_EXPENSE,
     ADJUSTMENT
 }
 

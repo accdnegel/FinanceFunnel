@@ -18,7 +18,11 @@ class MoneyMathTest {
     }
 
     @Test fun divisionUsesHalfUpRounding() {
-        assertEquals(0.33333333, MoneyMath.divide(1.0, 3.0), 0.000000001)
+        assertEquals(0.333333, MoneyMath.divide(1.0, 3.0), 0.0000001)
+    }
+
+    @Test fun multiplicationNeverPersistsMoreThanSixDecimals() {
+        assertEquals(0.152416, MoneyMath.multiply(0.1234567, 1.234567), 0.0000001)
     }
 
     @Test fun roundUsesRequestedScale() {

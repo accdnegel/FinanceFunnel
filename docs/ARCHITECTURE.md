@@ -11,12 +11,12 @@ Pitaka is an offline-first personal finance tracker. The application models mone
 
 The application also provides:
 - monthly expense limits;
-- recurring income/expense rules;
 - exchange-rate settings;
 - multi-currency balances;
 - transaction masking;
 - Batik/solid card designs;
 - CSV export;
+- database backup and restore;
 - monthly and category-based statistics.
 
 ## 2. Application architecture
@@ -38,7 +38,6 @@ PitakaRepository
       +--> ExpenseFunnelDao
       +--> CurrencyDao
       +--> MonthlyBudgetDao
-      +--> RecurringRuleDao
       |
       v
 Room / SQLite
@@ -83,6 +82,7 @@ A Goal represents either:
 Important fields:
 - `targetAmount`
 - `currency`
+- `targetBalances`
 - `currencyBalances`
 - `targetDate`
 
@@ -100,7 +100,7 @@ Important fields:
 - `isSystem`
 - `cardStyle`
 
-The system provides an `Unclassified Expense` funnel.
+The system provides a `General Expenses` funnel.
 
 ### LedgerEntry
 
@@ -112,6 +112,9 @@ Ledger entries represent financial events:
 | EXPENSE | Money leaves a Pitaka | Pitaka - |
 | TRANSFER | Money moves between Pitakas | Source -, destination + |
 | GOAL_CONTRIBUTION | Money moves from Pitaka to Goal | Pitaka -, Goal + |
+| GOAL_WITHDRAWAL | Money moves from Goal to Pitaka | Goal -, Pitaka + |
+| GOAL_EXPENSE | Money leaves a Goal and is recorded as spending | Goal -, Funnel + |
+| OPENING_BALANCE | Initial funds are recorded when a Pitaka is created | Pitaka + |
 | ADJUSTMENT | Manual reconciliation | Pitaka +/- |
 
 The ledger is intended to be the audit trail for financial changes.
@@ -210,7 +213,7 @@ When an expense is recorded:
 
 1. A source Pitaka is selected.
 2. An expense category is normalized.
-3. A funnel is selected or the system Unclassified funnel is used.
+3. A funnel is selected or the system General Expenses funnel is used.
 4. The transaction is stored with transaction and funnel currency/amount information.
 5. The Pitaka balance is reduced.
 6. The funnel's applied amount is increased.
@@ -245,7 +248,7 @@ Spent: PHP 3,500
 Remaining: PHP 6,500
 ```
 
-The system can also assign expenses without a user funnel to Unclassified Expense.
+The system assigns expenses without a user funnel to General Expenses.
 
 ## 9. Goals
 
@@ -313,29 +316,7 @@ March: no row
 
 February and March therefore inherit January's limit until a later explicit budget is created.
 
-## 13. Recurring transactions
-
-Recurring rules support monthly income and expense transactions.
-
-A rule contains:
-- type;
-- name;
-- amount;
-- category;
-- Pitaka;
-- day of month;
-- active state;
-- last applied month.
-
-There is no background scheduler.
-
-Instead, the application checks rules when it opens.
-
-If today is on or after the configured day and the rule has not been applied in the current month, the transaction is posted.
-
-This provides offline catch-up behavior.
-
-## 14. Transaction editing and deletion
+## 13. Transaction editing and deletion
 
 Ledger entries can be deleted.
 
@@ -349,7 +330,7 @@ reverseEffect()
 delete ledger row
 ```
 
-When editing, the implementation attempts:
+When editing, the implementation performs this atomically:
 
 ```
 reverse old effect
@@ -361,9 +342,9 @@ apply new effect
 
 This design is important because balances are derived from ledger activity.
 
-However, the current implementation has known defects around stale funnel/goal allocation fields and deletion of linked entities. See `docs/CODEBASE_AUDIT.md`.
+Linked Pitaka, Goal, Funnel, currency, conversion snapshot, and allocation fields are validated as one complete replacement event.
 
-## 15. Manual balance adjustment
+## 14. Manual balance adjustment
 
 A Pitaka can be reconciled against a real-world balance.
 
@@ -379,9 +360,9 @@ Difference:       +PHP 150
 
 An adjustment of +PHP 150 is recorded.
 
-Multi-currency adjustment behavior requires hardening before it should be considered fully safe.
+Adjustments are recorded against an explicit currency balance.
 
-## 16. Data persistence and offline behavior
+## 15. Data persistence and offline behavior
 
 The database is local Room/SQLite storage.
 
@@ -391,14 +372,13 @@ The application does not require a network connection for:
 - managing Pitakas;
 - managing goals;
 - managing funnels;
-- recurring catch-up;
 - configured currency conversions.
 
 Exchange rates are manually configured and stored locally.
 
-## 17. Database migrations
+## 16. Database migrations
 
-The current database version is 6.
+The current database version is 12.
 
 Migration 4 → 5 introduced:
 - Pitaka hierarchy;
@@ -411,9 +391,11 @@ Migration 5 → 6 introduced:
 - goal amount/currency fields;
 - historical backfills for existing expense and contribution rows.
 
+Migrations 6 → 11 introduced transfer currencies, archival timestamps, and historical base-currency snapshots. Migration 11 → 12 adds multi-currency Goal targets, makes Goal dates optional, renames the system Funnel to General Expenses, and removes recurring rules.
+
 Future schema changes must have explicit migrations so existing financial records survive application updates.
 
-## 18. Visual system
+## 17. Visual system
 
 Pitakas and Goals support:
 - solid-color cards;
@@ -423,7 +405,7 @@ Pitakas and Goals support:
 
 The card style is stored as an identifier, allowing UI rendering to remain separate from financial data.
 
-## 19. Navigation
+## 18. Navigation
 
 The application contains screens for:
 - Home;
@@ -436,20 +418,19 @@ The application contains screens for:
 - expense funnels;
 - funnel details;
 - transfers;
-- recurring rules;
 - currency settings;
 - monthly budget history;
 - creation/edit dialogs.
 
 Navigation is defined centrally in the navigation graph.
 
-## 20. Security/privacy model
+## 19. Security/privacy model
 
 The application is designed primarily as a local finance tracker. Financial records are stored in the application's local database.
 
 The amount-masking controls hide displayed values in the UI; masking is a presentation feature, not encryption of the stored database.
 
-## 21. Important accounting invariant
+## 20. Important accounting invariant
 
 The intended invariant is:
 
@@ -466,21 +447,16 @@ should return every affected balance to its previous state.
 
 This invariant should become the central automated test principle for future development.
 
-## 22. Development priorities
+## 21. Development priorities
 
-Before adding major new features, the recommended order is:
+Recommended follow-up engineering work:
 
-1. Fix destructive Pitaka/Funnel/Goal deletion behavior.
-2. Make ledger edits update every affected derived balance.
-3. Make every transaction explicitly currency-aware.
-4. Replace floating-point monetary storage.
-5. Add accounting regression tests.
-6. Harden Room migrations.
-7. Extract the accounting engine from the repository.
-8. Improve UI error/result handling.
-9. Update documentation whenever financial behavior changes.
+1. Add Room integration coverage for migrations and atomic accounting mutations.
+2. Replace floating-point monetary storage with a fixed-precision representation.
+3. Extract the accounting engine from the repository as its rules continue to grow.
+4. Keep product and architecture documentation synchronized with financial behavior.
 
-## 23. Repository map
+## 22. Repository map
 
 ```
 app/src/main/java/com/pitaka/app/
@@ -488,7 +464,6 @@ app/src/main/java/com/pitaka/app/
 ├── data/
 │   ├── AppDatabase.kt
 │   ├── Pitaka.kt
-│   ├── PitakaHierarchy.kt
 │   ├── PitakaRepository.kt
 │   ├── PitakaDao.kt
 │   ├── LedgerEntry.kt
@@ -502,8 +477,6 @@ app/src/main/java/com/pitaka/app/
 │   ├── CurrencyDao.kt
 │   ├── MonthlyBudget.kt
 │   ├── MonthlyBudgetDao.kt
-│   ├── RecurringRule.kt
-│   ├── RecurringRuleDao.kt
 │   └── Converters.kt
 ├── navigation/
 │   └── NavGraph.kt
@@ -514,5 +487,6 @@ app/src/main/java/com/pitaka/app/
 │   └── theme/
 └── util/
     ├── CsvExport.kt
+      ├── DatabaseBackup.kt
     └── StringSimilarity.kt
 ```

@@ -46,9 +46,9 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun launchOperation(block: suspend () -> Unit, onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
+            _operationError.value = null
             runCatching { block() }
                 .onSuccess {
-                    _operationError.value = null
                     onSuccess?.invoke()
                 }
                 .onFailure { _operationError.value = it.message ?: "Unable to complete the operation." }
@@ -61,10 +61,12 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         name: String,
         amount: Double,
         secondaryAmount: Double? = null,
+        sourceCurrency: String? = null,
+        destinationCurrency: String? = null,
         onSuccess: (() -> Unit)? = null
     ) {
         launchOperation(
-            { repository.recordTransfer(fromPitakaId, toPitakaId, name, amount, secondaryAmount) },
+            { repository.recordTransfer(fromPitakaId, toPitakaId, name, amount, secondaryAmount, sourceCurrency = sourceCurrency, destinationCurrency = destinationCurrency) },
             onSuccess
         )
     }
@@ -72,8 +74,6 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     private val repository = PitakaRepository(AppDatabase.getInstance(application))
 
     init {
-        // Catch up on any recurring income/expenses due since the app was last opened.
-        launchOperation({ repository.applyDueRecurringRules() })
         startMonthBoundaryWatcher()
     }
 
@@ -82,6 +82,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     private fun <T> Flow<T>.recoverForUi(fallback: T): Flow<T> = catch { emit(fallback) }
 
     val pitakas: Flow<List<Pitaka>> = repository.observePitakas().recoverForUi(emptyList())
+    val allPitakasIncludingArchived: Flow<List<Pitaka>> = repository.observeAllPitakas().recoverForUi(emptyList())
     val rootPitakas: Flow<List<Pitaka>> = repository.observeRootPitakas().recoverForUi(emptyList())
     fun childrenOfPitaka(id: Long): Flow<List<Pitaka>> = repository.observeChildren(id)
 
@@ -95,12 +96,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
             if (id in visiting) return emptyMap()
             val node = byId[id] ?: return emptyMap()
             val children = byParent[id].orEmpty()
-            if (children.isEmpty()) {
-                return CurrencyBalances.parse(node.currencyBalances)
-            }
-
             val nextVisiting = visiting + id
-            val result = mutableMapOf<String, Double>()
+            // Usually a parent is a zero-balance container, but legacy data and
+            // direct transactions may leave money on it. Include both the node's
+            // own balance and every descendant so totals can never disappear.
+            val result = CurrencyBalances.parse(node.currencyBalances).toMutableMap()
             children.forEach { child ->
                 collect(child.id, nextVisiting).forEach { (code, amount) ->
                     result[code] = (result[code] ?: 0.0) + amount
@@ -113,7 +113,9 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     val goals: Flow<List<GoalWithProgress>> = repository.observeGoals().recoverForUi(emptyList())
+    val allGoalsIncludingArchived: Flow<List<GoalWithProgress>> = repository.observeAllGoals().recoverForUi(emptyList())
     val expenseFunnels: Flow<List<ExpenseFunnel>> = repository.observeExpenseFunnels().recoverForUi(emptyList())
+    val allExpenseFunnelsIncludingArchived: Flow<List<ExpenseFunnel>> = repository.observeAllExpenseFunnels().recoverForUi(emptyList())
 
     val financialEntries: Flow<List<LedgerEntry>> = repository.observeFinancialEntries().recoverForUi(emptyList())
 
@@ -137,7 +139,7 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     /** Liquid total (all Pitakas), converted to the base/display currency. */
     val allEntries: Flow<List<LedgerEntry>> = repository.observeAllEntries().recoverForUi(emptyList())
 
-    val totalLiquid: Flow<Double> = combine(pitakas, exchangeRates, currencySettings) { list, rates, settings ->
+    val totalLiquid: Flow<Double> = combine(allPitakasIncludingArchived, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         list.filter { it.parentPitakaId == null }.sumOf { root ->
             effectivePitakaBalances(root.id, list).entries.mapNotNull { (code, amount) ->
@@ -146,11 +148,11 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    val totalSavingsProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
+    val totalSavingsProgress: Flow<Double> = combine(allGoalsIncludingArchived, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         list.filter { it.type == GoalType.SAVINGS }.sumOf { CurrencyBalances.parse(it.currencyBalances).entries.mapNotNull { (code, amount) -> convert(amount, code, base, rates) }.sum() }
     }
-    val totalInvestmentProgress: Flow<Double> = combine(goals, exchangeRates, currencySettings) { list, rates, settings ->
+    val totalInvestmentProgress: Flow<Double> = combine(allGoalsIncludingArchived, exchangeRates, currencySettings) { list, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         list.filter { it.type == GoalType.INVESTMENT }.sumOf { CurrencyBalances.parse(it.currencyBalances).entries.mapNotNull { (code, amount) -> convert(amount, code, base, rates) }.sum() }
     }
@@ -163,12 +165,13 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
             YearMonth.parse(month).plusMonths(1).atDay(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
         } catch (_: Exception) { Long.MAX_VALUE }
         val deltaAfter = entries.filter { it.date >= cutoff }.sumOf { entry ->
-            val converted = convert(kotlin.math.abs(entry.amount), entry.currency, base, rates) ?: 0.0
+            val converted = historicalOrCurrentValue(entry, base, rates) ?: 0.0
             when (entry.type) {
                 LedgerType.INCOME -> converted
-                LedgerType.EXPENSE -> -converted
+                LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE -> -converted
+                LedgerType.OPENING_BALANCE -> converted
                 LedgerType.ADJUSTMENT -> if (entry.amount >= 0) converted else -converted
-                else -> 0.0
+                LedgerType.TRANSFER, LedgerType.GOAL_CONTRIBUTION, LedgerType.GOAL_WITHDRAWAL -> 0.0
             }
         }
         current - deltaAfter
@@ -203,6 +206,14 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         return MoneyMath.multiply(amount, fromRate)
     }
 
+    private fun historicalOrCurrentValue(entry: LedgerEntry, base: String, rates: List<ExchangeRate>): Double? {
+        val snapshot = entry.amountInBaseAtTransaction
+        if (snapshot != null && snapshot.isFinite() && entry.baseCurrencyAtTransaction.equals(base, true)) {
+            return kotlin.math.abs(snapshot)
+        }
+        return convert(kotlin.math.abs(entry.amount), entry.currency, base, rates)
+    }
+
     fun convertCurrency(amount: Double, from: String, to: String, rates: List<ExchangeRate>): Double =
         convert(amount, from, to, rates) ?: 0.0
 
@@ -219,12 +230,13 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     val currentMonthBudget: Flow<MonthlyBudget?> =
         currentMonthKeyFlow.flatMapLatest { month -> repository.observeEffectiveBudget(month) }
+    fun budgetForMonth(month: String): Flow<MonthlyBudget?> = repository.observeEffectiveBudget(month)
     val allBudgets: Flow<List<MonthlyBudget>> = repository.observeAllBudgets()
 
     val currentMonthExpenseTotal: Flow<Double> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        entries.asSequence().filter { it.type == LedgerType.EXPENSE && monthKey(it.date) == YearMonth.now().toString() }
-            .mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()
+        entries.asSequence().filter { it.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE) && monthKey(it.date) == YearMonth.now().toString() }
+            .mapNotNull { historicalOrCurrentValue(it, base, rates) }.sum()
     }
 
     suspend fun getExactBudgetForMonth(month: String): MonthlyBudget? = repository.getExactBudgetForMonth(month)
@@ -237,13 +249,13 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     val monthlyExpenses: Flow<List<MonthlyAmount>> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        entries.filter { it.type == LedgerType.EXPENSE }.groupBy { monthKey(it.date) }.toSortedMap()
-            .map { (month, rows) -> MonthlyAmount(month, rows.mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()) }
+        entries.filter { it.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE) }.groupBy { monthKey(it.date) }.toSortedMap()
+            .map { (month, rows) -> MonthlyAmount(month, rows.mapNotNull { historicalOrCurrentValue(it, base, rates) }.sum()) }
     }
     val monthlyIncome: Flow<List<MonthlyAmount>> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
         entries.filter { it.type == LedgerType.INCOME }.groupBy { monthKey(it.date) }.toSortedMap()
-            .map { (month, rows) -> MonthlyAmount(month, rows.mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()) }
+            .map { (month, rows) -> MonthlyAmount(month, rows.mapNotNull { historicalOrCurrentValue(it, base, rates) }.sum()) }
     }
 
     val monthlyNetChange: Flow<List<MonthlyNetChange>> = combine(
@@ -265,9 +277,23 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun expenseBreakdownConverted(month: String?): Flow<List<CategorySpend>> = combine(allEntries, exchangeRates, currencySettings) { entries, rates, settings ->
         val base = settings?.baseCurrency ?: "PHP"
-        entries.asSequence().filter { it.type == LedgerType.EXPENSE && (month == null || monthKey(it.date) == month) }
-            .groupBy { it.category?.trim().takeUnless { x -> x.isNullOrEmpty() } ?: "Uncategorized Expense" }
-            .map { (category, rows) -> CategorySpend(category, rows.mapNotNull { convert(it.amount, it.currency, base, rates) }.sum()) }
+        entries.asSequence().filter { it.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE) && (month == null || monthKey(it.date) == month) }
+            .groupBy { it.category?.trim().takeUnless { x -> x.isNullOrEmpty() } ?: "Uncategorized" }
+            .map { (category, rows) -> CategorySpend(category, rows.mapNotNull { historicalOrCurrentValue(it, base, rates) }.sum()) }
+            .sortedByDescending { it.total }
+    }
+
+    fun funnelBreakdownForMonth(month: String): Flow<List<CategorySpend>> = combine(
+        allEntries, allExpenseFunnelsIncludingArchived, exchangeRates, currencySettings
+    ) { entries, funnels, rates, settings ->
+        val base = settings?.baseCurrency ?: "PHP"
+        val names = funnels.associate { it.id to it.name }
+        entries.asSequence()
+            .filter { it.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE) && monthKey(it.date) == month }
+            .groupBy { names[it.funnelId] ?: "General Expenses" }
+            .map { (name, rows) ->
+                CategorySpend(name, rows.mapNotNull { historicalOrCurrentValue(it, base, rates) }.sum())
+            }
             .sortedByDescending { it.total }
     }
 
@@ -278,22 +304,6 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     suspend fun getPitaka(id: Long): Pitaka? = repository.getPitaka(id)
     suspend fun getGoal(id: Long): Goal? = repository.getGoal(id)
     suspend fun getAllEntriesOnce(): List<LedgerEntry> = repository.getAllEntriesOnce()
-
-    // ---- Recurring rules ----
-
-    val recurringRules: Flow<List<RecurringRule>> = repository.observeRecurringRules()
-
-    fun createRecurringRule(type: LedgerType, name: String, amount: Double, category: String?, pitakaId: Long, dayOfMonth: Int, currency: String? = null) {
-        launchOperation({ repository.createRecurringRule(type, name, amount, category, pitakaId, dayOfMonth, currency) })
-    }
-
-    fun setRecurringRuleActive(rule: RecurringRule, active: Boolean) {
-        launchOperation({ repository.setRecurringRuleActive(rule, active) })
-    }
-
-    fun deleteRecurringRule(rule: RecurringRule) {
-        launchOperation({ repository.deleteRecurringRule(rule) })
-    }
 
     // ---- Actions ----
 
@@ -311,6 +321,9 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
     fun archivePitaka(pitakaId: Long, onSuccess: (() -> Unit)? = null) {
         launchOperation({ repository.archivePitaka(pitakaId) }, onSuccess)
     }
+    fun restorePitaka(pitakaId: Long, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.restorePitaka(pitakaId) }, onSuccess)
+    }
 
     fun deletePitaka(pitaka: Pitaka, onSuccess: (() -> Unit)? = null) {
         launchOperation({ repository.deletePitakaCascade(pitaka) }, onSuccess)
@@ -320,24 +333,27 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.adjustPitakaBalanceManually(pitakaId, newBalance, note, currency) })
     }
 
-    fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP", onSuccess: (() -> Unit)? = null) {
-        launchOperation({ repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }, onSuccess)
+    fun createGoal(name: String, type: GoalType, targetAmount: Double, targetDate: Long?, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP", targets: Map<String, Double> = mapOf(currency to targetAmount), onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.createGoal(name, type, targetAmount, targetDate, colorHex, cardStyle, currency, targets) }, onSuccess)
     }
 
-    fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long, colorHex: String?, cardStyle: String = "solid", currency: String? = null, onSuccess: (() -> Unit)? = null) {
-        launchOperation({ repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle, currency) }, onSuccess)
+    fun updateGoal(goalId: Long, name: String, type: GoalType, targetAmount: Double, targetDate: Long?, colorHex: String?, cardStyle: String = "solid", currency: String? = null, targets: Map<String, Double>? = null, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.updateGoal(goalId, name, type, targetAmount, targetDate, colorHex, cardStyle, currency, targets) }, onSuccess)
     }
 
     fun archiveGoal(goalId: Long, onSuccess: (() -> Unit)? = null) {
         launchOperation({ repository.archiveGoal(goalId) }, onSuccess)
     }
-
-    fun deleteGoal(goal: Goal, onSuccess: (() -> Unit)? = null) {
-        launchOperation({ repository.deleteGoal(goal) }, onSuccess)
+    fun restoreGoal(goalId: Long, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.restoreGoal(goalId) }, onSuccess)
     }
 
-    fun recordIncome(pitakaId: Long, name: String, amount: Double) {
-        launchOperation({ repository.recordIncome(pitakaId, name, amount) })
+    fun deleteGoal(goal: Goal, refundPitakaId: Long? = null, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.deleteGoal(goal, refundPitakaId) }, onSuccess)
+    }
+
+    fun recordIncome(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis(), currency: String? = null, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.recordIncome(pitakaId, name, amount, date, currency) }, onSuccess)
     }
 
     fun recordExpense(pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis(), onSuccess: (() -> Unit)? = null) {
@@ -362,12 +378,28 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
+    fun withdrawFromGoal(goalId: Long, destinationPitakaId: Long, name: String, goalAmount: Double, goalCurrency: String, destinationAmount: Double = goalAmount, destinationCurrency: String = goalCurrency, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.withdrawFromGoal(goalId, destinationPitakaId, name, goalAmount, goalCurrency, destinationAmount, destinationCurrency) }, onSuccess)
+    }
+
+    fun spendFromGoal(goalId: Long, name: String, amount: Double, currency: String, category: String?, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.spendFromGoal(goalId, name, amount, currency, category) }, onSuccess)
+    }
+
     fun createExpenseFunnel(name: String, limit: Double, validFrom: Long?, validUntil: Long?, colorHex: String?, cardStyle: String = "solid", currency: String = "PHP", onSuccess: (() -> Unit)? = null) {
         launchOperation({ repository.createExpenseFunnel(name, limit, validFrom, validUntil, colorHex, cardStyle, currency) }, onSuccess)
     }
 
     fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
         launchOperation({ repository.deleteExpenseFunnel(funnel) })
+    }
+
+    fun archiveExpenseFunnel(funnelId: Long, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.archiveExpenseFunnel(funnelId) }, onSuccess)
+    }
+
+    fun restoreExpenseFunnel(funnelId: Long, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.restoreExpenseFunnel(funnelId) }, onSuccess)
     }
 
     fun updateExpenseFunnel(funnel: ExpenseFunnel, onSuccess: (() -> Unit)? = null) {
@@ -378,8 +410,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.deleteEntry(entry) }, onSuccess)
     }
 
-    fun updateEntry(entry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = entry.pitakaId, onSuccess: (() -> Unit)? = null) {
-        launchOperation({ repository.updateEntry(entry, newName, newAmount, newCategory, newPitakaId) }, onSuccess)
+    fun replaceEntry(entry: LedgerEntry, replacement: LedgerEntry, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.replaceEntry(entry, replacement) }, onSuccess)
     }
     fun observeExpensesForCategory(category: String): Flow<List<LedgerEntry>> = repository.observeExpensesForCategory(category)
     fun observeExpensesForFunnel(funnelId: Long): Flow<List<LedgerEntry>> = repository.observeExpensesForFunnel(funnelId)

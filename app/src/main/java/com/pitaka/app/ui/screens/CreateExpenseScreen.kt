@@ -17,32 +17,34 @@ import java.util.Calendar
 @Composable
 fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
     val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
+    val leafPitakas = pitakas.filter { candidate -> pitakas.none { it.parentPitakaId == candidate.id } }
     val funnels by viewModel.expenseFunnels.collectAsState(initial=emptyList())
     val categories by viewModel.expenseCategories.collectAsState(initial=emptyList())
     val rates by viewModel.exchangeRates.collectAsState(initial=emptyList())
     var selectedPitaka by remember{mutableStateOf<Pitaka?>(null)}
     var selectedFunnel by remember{mutableStateOf<ExpenseFunnel?>(null)}
     var name by remember{mutableStateOf("")}; var amount by remember{mutableStateOf("")}; var category by remember{mutableStateOf("")}
-    var date by remember{mutableStateOf<Long?>(System.currentTimeMillis())};var currency by remember{mutableStateOf("PHP")};var mismatch by remember{mutableStateOf(false)};var mismatchError by remember{mutableStateOf<String?>(null)}
-    LaunchedEffect(pitakas){if(selectedPitaka==null)selectedPitaka=pitakas.firstOrNull()}
+    var date by remember{mutableStateOf<Long?>(System.currentTimeMillis())};var currency by remember{mutableStateOf("PHP")};var mismatch by remember{mutableStateOf(false)};var mismatchError by remember{mutableStateOf<String?>(null)};var validationError by remember{mutableStateOf<String?>(null)}
+    LaunchedEffect(leafPitakas){if(selectedPitaka==null){selectedPitaka=leafPitakas.firstOrNull();selectedPitaka?.let{currency=it.currency}}}
     Scaffold(topBar={TopAppBar(title={Text("New Expense")},navigationIcon={TextButton(onClick=onDone){Text("Back")}})}){padding->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-            if(pitakas.isNotEmpty()) CreateExpensePitakaDropdown(label="Charge to",pitakas=pitakas,selected=selectedPitaka,onSelected={selectedPitaka=it}) else Text("Create a Pitaka first.")
+            if(leafPitakas.isNotEmpty()) CreateExpensePitakaDropdown(label="Charge to",pitakas=leafPitakas,selected=selectedPitaka,onSelected={selectedPitaka=it;currency=it.currency}) else Text("Create a leaf Pitaka first.")
             FunnelDropdown(funnels,selectedFunnel){selectedFunnel=it}
             OutlinedTextField(name,{name=it},label={Text("Expense name")},modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(amount,{amount=it},label={Text("Amount (PHP by default)")},modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(amount,{amount=it},label={Text("Amount ($currency)")},modifier=Modifier.fillMaxWidth())
             ExpenseCategoryField(category,categories){category=it}
             CurrencyDropdown(currency, onSelected={currency=it})
             DatePickerButton("Transaction date",date){date=it}
             Spacer(Modifier.weight(1f))
-            Button(onClick={val a=amount.toDoubleOrNull();if(name.isNotBlank()&&a!=null&&a>0&&selectedPitaka!=null){if(selectedFunnel!=null&&!currency.equals(selectedFunnel!!.currency,true)){mismatchError=null;mismatch=true} else {viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,null,null,date?:System.currentTimeMillis());onDone()}}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
+            validationError?.let{Text(it,color=MaterialTheme.colorScheme.error)}
+            Button(onClick={val a=amount.toDoubleOrNull();when{selectedPitaka==null->validationError="Select a Pitaka.";name.isBlank()->validationError="Enter an expense name.";a==null||a<=0->validationError="Enter a valid amount greater than zero.";else->{validationError=null;if(selectedFunnel!=null&&!currency.equals(selectedFunnel!!.currency,true)){mismatchError=null;mismatch=true}else viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel?.id,currency,null,null,date?:System.currentTimeMillis(),onSuccess=onDone)}}},modifier=Modifier.fillMaxWidth()){Text("Save Expense")}
             if(mismatch&&selectedFunnel!=null) AlertDialog(
                 onDismissRequest={mismatch=false},
                 title={Text("Currency mismatch")},
                 text={Text(mismatchError ?: "The expense is ${currency}, while this funnel uses ${selectedFunnel!!.currency}. Choose how to apply it.")},
                 confirmButton={Row{
-                    TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;try { val converted=viewModel.convertCurrency(a,currency,selectedFunnel!!.currency,rates);viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,converted,selectedFunnel!!.currency,date?:System.currentTimeMillis());mismatch=false;onDone() } catch(e: IllegalArgumentException){ mismatchError=e.message ?: "Configure exchange rates first." }}){Text("Convert")}
-                    TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;try { viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,a,currency,date?:System.currentTimeMillis());mismatch=false;onDone() } catch(e: IllegalArgumentException){ mismatchError=e.message ?: "The expense cannot be recorded." }}){Text("Separate")}
+                    TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;try { val converted=viewModel.convertCurrency(a,currency,selectedFunnel!!.currency,rates);viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,converted,selectedFunnel!!.currency,date?:System.currentTimeMillis(),onSuccess=onDone);mismatch=false } catch(e: IllegalArgumentException){ mismatchError=e.message ?: "Configure exchange rates first." }}){Text("Convert")}
+                    TextButton(onClick={val a=amount.toDoubleOrNull()?:0.0;viewModel.recordExpense(selectedPitaka!!.id,name,a,category,selectedFunnel!!.id,currency,a,currency,date?:System.currentTimeMillis(),onSuccess=onDone);mismatch=false}){Text("Separate")}
                 }},
                 dismissButton={TextButton(onClick={mismatch=false}){Text("Cancel")}}
             )
@@ -53,8 +55,8 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
 @Composable private fun FunnelDropdown(funnels:List<ExpenseFunnel>,selected:ExpenseFunnel?,onSelected:(ExpenseFunnel?)->Unit){
     var open by remember{mutableStateOf(false)}
     ExposedDropdownMenuBox(open,{open=!open}){
-        OutlinedTextField(value=selected?.name?:"Unclassified Expense",onValueChange={},readOnly=true,label={Text("Expense funnel")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
-        ExposedDropdownMenu(open,{open=false}){DropdownMenuItem(text={Text("Unclassified Expense")},onClick={onSelected(null);open=false});funnels.filter{!it.isSystem}.forEach{f->DropdownMenuItem(text={Text(f.name)},onClick={onSelected(f);open=false})}}
+        OutlinedTextField(value=selected?.name?:"General Expenses",onValueChange={},readOnly=true,label={Text("Expense funnel")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
+        ExposedDropdownMenu(open,{open=false}){DropdownMenuItem(text={Text("General Expenses")},onClick={onSelected(null);open=false});funnels.filter{!it.isSystem}.forEach{f->DropdownMenuItem(text={Text(f.name)},onClick={onSelected(f);open=false})}}
     }
 }
 @OptIn(ExperimentalMaterial3Api::class)

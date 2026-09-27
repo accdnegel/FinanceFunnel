@@ -1,25 +1,19 @@
-@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-
 package com.pitaka.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.VerticalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
-import com.pitaka.app.data.Pitaka
-import com.pitaka.app.data.CurrencyBalances
 import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
-import com.pitaka.app.ui.components.BatikCardSurface
 import com.pitaka.app.ui.theme.parseHexColor
 
 /**
@@ -36,7 +30,6 @@ fun PitakasScreen(
     viewModel: PitakaViewModel,
     onAddPitaka: () -> Unit,
     onTransfer: () -> Unit,
-    onRecurring: () -> Unit,
     onOpenPitaka: (Long) -> Unit
 ) {
     val pitakas by viewModel.pitakas.collectAsState(initial = emptyList())
@@ -47,7 +40,6 @@ fun PitakasScreen(
             TopAppBar(
                 title = { Text("Pitakas") },
                 actions = {
-                    IconButton(onClick = onRecurring) { Icon(Icons.Default.Repeat, "Recurring") }
                     IconButton(onClick = onTransfer) { Icon(Icons.Default.SwapHoriz, "Transfer") }
                 }
             )
@@ -58,57 +50,29 @@ fun PitakasScreen(
                 Text("No Pitakas yet. Tap + to add your first fund source.")
             }
         } else {
-            val pager = rememberPagerState(pageCount = { roots.size })
-            VerticalPager(
-                state = pager,
-                contentPadding = PaddingValues(vertical = 28.dp),
-                pageSpacing = 14.dp,
+            LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding)
-            ) { page ->
-                PitakaBatikCard(
-                    p = roots[page],
-                    onOpen = onOpenPitaka
-                )
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(vertical = 12.dp)
+            ) {
+                items(roots, key = { it.id }) { pitaka ->
+                    val childCount = pitakas.count { it.parentPitakaId == pitaka.id }
+                    val accent = parseHexColor(pitaka.colorHex) ?: MaterialTheme.colorScheme.primary
+                    ListItem(
+                        headlineContent = { Text(pitaka.name, fontWeight = FontWeight.Bold) },
+                        supportingContent = {
+                            Column {
+                                Text(viewModel.effectivePitakaBalances(pitaka.id, pitakas).displayLines())
+                                if (childCount > 0) Text("$childCount sub-Pitaka${if (childCount == 1) "" else "s"}")
+                            }
+                        },
+                        leadingContent = { Box(Modifier.width(6.dp).height(48.dp).background(accent)) },
+                        trailingContent = { Text("Open") },
+                        modifier = Modifier.fillMaxWidth().clickable { onOpenPitaka(pitaka.id) }
+                    )
+                    HorizontalDivider()
+                }
             }
-        }
-    }
-}
-
-@Composable
-private fun PitakaBatikCard(
-    p: Pitaka,
-    onOpen: (Long) -> Unit,
-    compact: Boolean = false
-) {
-    val base = parseHexColor(p.colorHex) ?: Color(0xFF0278CF)
-
-    BatikCardSurface(
-        p.cardStyle,
-        base,
-        Modifier
-            .fillMaxWidth()
-            .height(if (compact) 125.dp else 170.dp)
-            .clickable { onOpen(p.id) }
-    ) {
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Text(
-                "PITAKA",
-                color = Color.White.copy(alpha = .8f),
-                style = MaterialTheme.typography.labelSmall
-            )
-            Text(
-                p.name,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                style = if (compact) MaterialTheme.typography.titleMedium
-                else MaterialTheme.typography.headlineSmall
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                CurrencyBalances.parse(p.currencyBalances).displayLines(),
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
         }
     }
 }

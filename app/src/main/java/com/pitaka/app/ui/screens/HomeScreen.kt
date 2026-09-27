@@ -10,6 +10,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +26,9 @@ import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.util.buildLedgerCsv
 import com.pitaka.app.util.exportAndShareCsv
+import com.pitaka.app.util.DatabaseBackup
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -36,9 +41,9 @@ private fun monthLabel(key:String)=try { YearMonth.parse(key).month.getDisplayNa
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, onOpenCategory: (String) -> Unit = {}, onOpenPitaka: (Long) -> Unit = {}) {
-    val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
-    val rootPitakas by viewModel.rootPitakas.collectAsState(initial=emptyList())
-    val goals by viewModel.goals.collectAsState(initial=emptyList())
+    val pitakas by viewModel.allPitakasIncludingArchived.collectAsState(initial=emptyList())
+    val rootPitakas = pitakas.filter { it.parentPitakaId == null }
+    val goals by viewModel.allGoalsIncludingArchived.collectAsState(initial=emptyList())
     val settings by viewModel.currencySettings.collectAsState(initial=null)
     val liquid by viewModel.totalLiquid.collectAsState(initial=0.0)
     val savings by viewModel.totalSavingsProgress.collectAsState(initial=0.0)
@@ -53,16 +58,29 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
     var expandedNet by remember { mutableStateOf<String?>(null) }
     var expandedFlow by remember { mutableStateOf(false) }
     val breakdown by viewModel.expenseBreakdownForMonth(selectedMonth).collectAsState(initial=emptyList())
+    val funnelBreakdown by viewModel.funnelBreakdownForMonth(selectedMonth).collectAsState(initial=emptyList())
+    val selectedBudget by viewModel.budgetForMonth(selectedMonth).collectAsState(initial=null)
     val selectedNetWorth by viewModel.netWorthForMonth(selectedMonth).collectAsState(initial=netWorth)
     val scope=rememberCoroutineScope()
     val context=androidx.compose.ui.platform.LocalContext.current
+    var backupError by remember { mutableStateOf<String?>(null) }
+    val restoreLauncher=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->uri?.let{scope.launch{runCatching{DatabaseBackup.restore(context,it)}.onSuccess{
+        context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { launchIntent ->
+            launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            context.startActivity(launchIntent)
+        }
+        (context as? android.app.Activity)?.finish()
+    }.onFailure{e->backupError=e.message}}}}
     val currency=settings?.baseCurrency ?: "PHP"
 
     Scaffold(topBar={TopAppBar(title={Text("Pitaka")},actions={
         IconButton(onClick=onOpenCurrencySettings){Icon(Icons.Default.CurrencyExchange,null)}
         IconButton(onClick={scope.launch { val csv=buildLedgerCsv(viewModel.getAllEntriesOnce(),pitakas,goals.associate{it.id to it.name}); exportAndShareCsv(context,csv) }}){Icon(Icons.Default.Share,null)}
+        IconButton(onClick={scope.launch{runCatching{DatabaseBackup.create(context)}.onSuccess{DatabaseBackup.share(context,it)}.onFailure{e->backupError=e.message}}}){Icon(Icons.Default.Download,"Export backup")}
+        IconButton(onClick={restoreLauncher.launch(arrayOf("application/vnd.sqlite3","application/octet-stream"))}){Icon(Icons.Default.Upload,"Restore backup")}
     })}) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(18.dp)){
+            backupError?.let { Text(it, color=MaterialTheme.colorScheme.error) }
             MonthSelector(months.ifEmpty{listOf(selectedMonth)},selectedMonth){selectedMonth=it}
             SectionTitle("Total Net Worth")
             Card(shape=RoundedCornerShape(20.dp)){
@@ -94,6 +112,18 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
                     }
                 }
             }
+            SectionTitle("Monthly Expense Limit")
+            val selectedSpent=expenses.find{it.month==selectedMonth}?.total ?: 0.0
+            selectedBudget?.let { budget ->
+                val remaining=budget.limit-selectedSpent
+                Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){
+                    Text("Spent $currency ${"%,.2f".format(selectedSpent)} of ${"%,.2f".format(budget.limit)}")
+                    Text(if(remaining>=0) "$currency ${"%,.2f".format(remaining)} remaining" else "$currency ${"%,.2f".format(-remaining)} over budget",color=if(remaining>=0)Color(0xFF1E8E5A) else Color(0xFFD64545),fontWeight=FontWeight.Bold)
+                }}
+            } ?: Text("No monthly limit configured.",color=Color.Gray)
+            SectionTitle("Spending by Expense Funnel")
+            if(funnelBreakdown.isEmpty()) Text("No funnel spending for ${monthLabel(selectedMonth)}.",color=Color.Gray)
+            else { CategoryPie(funnelBreakdown); funnelBreakdown.forEachIndexed{i,item->Row(Modifier.fillMaxWidth().padding(vertical=6.dp)){Box(Modifier.size(10.dp).background(chartColors[i%chartColors.size],RoundedCornerShape(5.dp)));Spacer(Modifier.width(10.dp));Text(item.name,Modifier.weight(1f));Text("$currency ${"%,.2f".format(item.total)}")}} }
             SectionTitle("Cash Inflow / Outflow")
             val monthExpenses=allExpenses.filter{runCatching{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(selectedMonth)}.getOrDefault(false)}
             val monthIncome=income.find{it.month==selectedMonth}?.total ?: 0.0
@@ -134,7 +164,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
 }
 @Composable private fun CashFlowTable(inflow:Double,outflow:Double,currency:String,entries:List<com.pitaka.app.data.LedgerEntry>,expanded:Boolean,onClick:()->Unit){
     val inflowItems=entries.filter{it.type==com.pitaka.app.data.LedgerType.INCOME}.sortedByDescending{it.amount}
-    val outflowItems=entries.filter{it.type==com.pitaka.app.data.LedgerType.EXPENSE}.sortedByDescending{it.amount}
+    val outflowItems=entries.filter{it.type in setOf(com.pitaka.app.data.LedgerType.EXPENSE,com.pitaka.app.data.LedgerType.GOAL_EXPENSE)}.sortedByDescending{it.amount}
     Card(shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().clickable(onClick=onClick)){Column(Modifier.padding(14.dp)){
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
             FlowColumn("Cash Inflow",inflow,inflowItems,currency,Color(0xFF1E8E5A),expanded,Modifier.weight(1f))

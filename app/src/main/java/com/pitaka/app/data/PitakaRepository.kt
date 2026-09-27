@@ -4,8 +4,6 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import java.time.LocalDate
-import java.time.YearMonth
 
 class PitakaRepository(private val db: AppDatabase) {
 
@@ -14,16 +12,25 @@ class PitakaRepository(private val db: AppDatabase) {
     private val ledgerDao = db.ledgerDao()
     private val budgetDao = db.monthlyBudgetDao()
     private val currencyDao = db.currencyDao()
-    private val recurringDao = db.recurringRuleDao()
     private val funnelDao = db.expenseFunnelDao()
 
     // ---- Pitakas ----
 
     fun observePitakas(): Flow<List<Pitaka>> = pitakaDao.observePitakas()
+    fun observeAllPitakas(): Flow<List<Pitaka>> = pitakaDao.observeAllPitakas()
     fun observeRootPitakas(): Flow<List<Pitaka>> = pitakaDao.observeRootPitakas()
     fun observeChildren(parentId: Long): Flow<List<Pitaka>> = pitakaDao.observeChildren(parentId)
 
     suspend fun getPitaka(id: Long): Pitaka? = pitakaDao.getPitaka(id)
+
+    private suspend fun requireTransactionLeaf(pitakaId: Long, role: String = "Pitaka"): Pitaka {
+        val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("$role not found.")
+        require(pitaka.archivedAt == null) { "$role is archived." }
+        require(pitakaDao.countChildren(pitakaId) == 0) {
+            "$role is a parent container. Select one of its sub-Pitakas instead."
+        }
+        return pitaka
+    }
 
     suspend fun addSubPitaka(parentId: Long, name: String, startingBalance: Double, currency: String, colorHex: String?, cardStyle: String = "solid"): Long =
         createPitaka(name, startingBalance, currency, colorHex, parentId, cardStyle)
@@ -35,6 +42,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
 
         return db.withTransaction {
+            require(pitakaDao.countByNormalizedName(name) == 0) { "A Pitaka with this name already exists." }
             val parent = parentPitakaId?.let { pitakaDao.getPitaka(it) }
             require(parentPitakaId == null || parent != null) { "Parent Pitaka not found." }
 
@@ -43,14 +51,13 @@ class PitakaRepository(private val db: AppDatabase) {
             // starting amount. The parent becomes a pure container.
             if (parent != null) {
                 require(parent.archivedAt == null) { "Cannot create a child Pitaka under an archived parent." }
+                require(parent.parentPitakaId == null) { "A sub-Pitaka cannot contain another sub-Pitaka." }
             }
             if (parent != null && pitakaDao.countChildren(parent.id) == 0) {
                 val inherited = CurrencyBalances.parse(parent.currencyBalances)
                 if (inherited.isEmpty() && parent.currentAmount != 0.0) {
                     inherited[parent.currency.uppercase()] = parent.currentAmount
                 }
-                inherited[code] = (inherited[code] ?: 0.0) + startingBalance
-
                 val childId = pitakaDao.insertPitaka(
                     Pitaka(
                         name = name,
@@ -62,6 +69,7 @@ class PitakaRepository(private val db: AppDatabase) {
                         cardStyle = cardStyle
                     )
                 )
+                ledgerDao.reassignPitakaReferences(parent.id, childId)
                 pitakaDao.updatePitaka(
                     parent.copy(
                         currentAmount = 0.0,
@@ -69,21 +77,37 @@ class PitakaRepository(private val db: AppDatabase) {
                         lastUpdated = System.currentTimeMillis()
                     )
                 )
+                recordOpeningBalance(childId, startingBalance, code)
                 childId
             } else {
-                pitakaDao.insertPitaka(
+                val pitakaId = pitakaDao.insertPitaka(
                     Pitaka(
                         name = name,
-                        currentAmount = startingBalance,
+                        currentAmount = 0.0,
                         currency = code,
-                        currencyBalances = CurrencyBalances.encode(mapOf(code to startingBalance)),
+                        currencyBalances = CurrencyBalances.encode(mapOf(code to 0.0)),
                         colorHex = colorHex,
                         parentPitakaId = parentPitakaId,
                         cardStyle = cardStyle
                     )
                 )
+                recordOpeningBalance(pitakaId, startingBalance, code)
+                pitakaId
             }
         }
+    }
+
+    private suspend fun recordOpeningBalance(pitakaId: Long, amount: Double, currency: String) {
+        if (amount == 0.0) return
+        val entry = LedgerEntry(
+            type = LedgerType.OPENING_BALANCE,
+            amount = amount,
+            currency = currency,
+            name = "Opening balance",
+            pitakaId = pitakaId
+        )
+        ledgerDao.insertEntry(entry)
+        applyEffect(entry)
     }
 
     suspend fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
@@ -95,6 +119,10 @@ class PitakaRepository(private val db: AppDatabase) {
             if (parentPitakaId != null) {
                 val parent = pitakaDao.getPitaka(parentPitakaId) ?: error("Parent Pitaka not found.")
                 require(parent.archivedAt == null) { "Cannot assign an archived Pitaka as parent." }
+                require(parent.parentPitakaId == null) { "A sub-Pitaka cannot contain another sub-Pitaka." }
+                require(pitakaDao.countChildren(pitakaId) == 0) {
+                    "A parent Pitaka cannot become a sub-Pitaka while it still has children."
+                }
                 // A parent is a logical container. Re-parenting is therefore allowed only
                 // when it does not turn a financially active Pitaka into a child of itself
                 // through an ancestor cycle.
@@ -115,14 +143,13 @@ class PitakaRepository(private val db: AppDatabase) {
             require(existing.archivedAt == null) { "Cannot edit an archived Pitaka." }
             val code = currency.trim().uppercase()
             require(name.trim().isNotBlank()) { "Pitaka name cannot be blank." }
+            require(pitakaDao.countByNormalizedName(name, pitakaId) == 0) { "A Pitaka with this name already exists." }
             require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
             val balances = CurrencyBalances.parse(existing.currencyBalances)
-            require(code == existing.currency.uppercase() || (balances[code] ?: 0.0) == 0.0) {
-                "Cannot change the primary currency while that currency has a non-zero balance. Move or reconcile the balance first."
-            }
             pitakaDao.updatePitaka(existing.copy(
                 name = name.trim(),
                 currency = code,
+                currentAmount = balances[code] ?: 0.0,
                 colorHex = colorHex,
                 cardStyle = cardStyle,
                 currencyBalances = if (balances.isEmpty() && existing.currentAmount != 0.0)
@@ -156,8 +183,23 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun deletePitakaCascade(pitaka: Pitaka) {
         db.withTransaction {
-            require(ledgerDao.countEntriesForPitaka(pitaka.id) == 0) { "This Pitaka has transaction history. Archive it instead of deleting it." }
-            require(pitakaDao.countChildren(pitaka.id) == 0) { "Remove or reassign child Pitakas before deleting this parent." }
+            val children = pitakaDao.countChildren(pitaka.id)
+            if (children > 0) {
+                require(ledgerDao.countEntriesForPitaka(pitaka.id) == 0) {
+                    "Move this parent's direct transaction history to a sub-Pitaka before deleting it."
+                }
+                require(CurrencyBalances.parse(pitaka.currencyBalances).values.all { kotlin.math.abs(it) < 1e-9 }) {
+                    "Move this parent's direct balances to a sub-Pitaka before deleting it."
+                }
+                pitakaDao.detachChildren(pitaka.id)
+            } else {
+                val entries = ledgerDao.getEntriesForPitakaOnce(pitaka.id)
+                entries.forEach { entry ->
+                    reverseEffect(entry)
+                    ledgerDao.deleteEntry(entry)
+                }
+                requireNonNegativeBalances(entries, excludedPitakaId = pitaka.id)
+            }
             pitakaDao.deletePitaka(pitaka)
         }
     }
@@ -170,8 +212,7 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun adjustPitakaBalanceManually(pitakaId: Long, newBalance: Double, note: String, currency: String? = null) {
         db.withTransaction {
             require(newBalance.isFinite() && newBalance >= 0) { "Adjusted balance must be a non-negative finite number." }
-            val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
-            require(pitaka.archivedAt == null) { "Cannot adjust an archived Pitaka." }
+            val pitaka = requireTransactionLeaf(pitakaId)
             val code = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
             require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
             val current = CurrencyBalances.parse(pitaka.currencyBalances)[code] ?: 0.0
@@ -197,6 +238,7 @@ class PitakaRepository(private val db: AppDatabase) {
     // ---- Goals ----
 
     fun observeGoals(): Flow<List<GoalWithProgress>> = goalDao.observeGoalsWithProgress()
+    fun observeAllGoals(): Flow<List<GoalWithProgress>> = goalDao.observeAllGoalsWithProgress()
 
     fun observeTotalProgressForType(type: GoalType): Flow<Double> = goalDao.observeTotalProgressForType(type)
 
@@ -206,20 +248,27 @@ class PitakaRepository(private val db: AppDatabase) {
         name: String,
         type: GoalType,
         targetAmount: Double,
-        targetDate: Long,
+        targetDate: Long?,
         colorHex: String?,
         cardStyle: String = "solid",
-        currency: String = "PHP"
+        currency: String = "PHP",
+        targets: Map<String, Double> = mapOf(currency to targetAmount)
     ): Long {
         val code = currency.trim().uppercase().ifBlank { "PHP" }
         require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
         require(targetAmount > 0 && targetAmount.isFinite()) { "Goal target must be a positive finite number." }
+        val normalizedTargets = targets.mapKeys { it.key.trim().uppercase() }
+        require(normalizedTargets.isNotEmpty() && normalizedTargets.all { (targetCode, amount) ->
+            targetCode.length == 3 && targetCode.all { it in 'A'..'Z' } && amount > 0 && amount.isFinite()
+        }) { "Every Goal target must have a valid currency and positive amount." }
+        require(goalDao.countByNormalizedName(name) == 0) { "A Goal with this name already exists." }
         return goalDao.insertGoal(
             Goal(
                 name = name.trim().ifBlank { error("Goal name cannot be blank.") },
                 type = type,
                 targetAmount = targetAmount,
                 currency = code,
+                targetBalances = CurrencyBalances.encode(normalizedTargets),
                 targetDate = targetDate,
                 colorHex = colorHex,
                 cardStyle = cardStyle,
@@ -233,25 +282,30 @@ class PitakaRepository(private val db: AppDatabase) {
         name: String,
         type: GoalType,
         targetAmount: Double,
-        targetDate: Long,
+        targetDate: Long?,
         colorHex: String?,
         cardStyle: String = "solid",
-        currency: String? = null
+        currency: String? = null,
+        targets: Map<String, Double>? = null
     ) {
         val existing = goalDao.getGoal(goalId) ?: return
         require(existing.archivedAt == null) { "Cannot edit an archived Goal." }
         val code = (currency?.trim()?.uppercase()?.ifBlank { null } ?: existing.currency.uppercase())
         require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
         require(targetAmount > 0 && targetAmount.isFinite()) { "Goal target must be a positive finite number." }
+        require(goalDao.countByNormalizedName(name, goalId) == 0) { "A Goal with this name already exists." }
+        val normalizedTargets = targets?.mapKeys { it.key.trim().uppercase() }
+            ?: CurrencyBalances.parse(existing.targetBalances)
+        require(normalizedTargets.isNotEmpty() && normalizedTargets.all { (targetCode, amount) ->
+            targetCode.length == 3 && targetCode.all { it in 'A'..'Z' } && amount > 0 && amount.isFinite()
+        }) { "Every Goal target must have a valid currency and positive amount." }
         val balances = CurrencyBalances.parse(existing.currencyBalances)
-        require(code == existing.currency || (balances[code] ?: 0.0) == 0.0) {
-            "Cannot change the goal currency while that currency has a non-zero balance. Move or reconcile the balance first."
-        }
         goalDao.updateGoal(
             existing.copy(
                 name = name.trim().ifBlank { error("Goal name cannot be blank.") },
                 type = type,
                 targetAmount = targetAmount,
+                targetBalances = CurrencyBalances.encode(normalizedTargets),
                 currency = code,
                 targetDate = targetDate,
                 colorHex = colorHex,
@@ -261,11 +315,6 @@ class PitakaRepository(private val db: AppDatabase) {
         )
     }
 
-    /**
-     * Deletes a Goal but deliberately leaves its GOAL_CONTRIBUTION ledger rows alone — that
-     * money genuinely left its source Pitaka and should stay reflected in that Pitaka's
-     * history; only the goal-progress tracking for it goes away.
-     */
     suspend fun archiveGoal(goalId: Long) {
         val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
         require(goal.archivedAt == null) { "Goal is already archived." }
@@ -278,31 +327,54 @@ class PitakaRepository(private val db: AppDatabase) {
         goalDao.updateGoal(goal.copy(archivedAt = null))
     }
 
-    suspend fun deleteGoal(goal: Goal) {
-        require(goal.archivedAt != null) { "Archive the Goal before permanent deletion." }
-        require(goalDao.countContributions(goal.id) == 0) { "This Goal has contribution history. It cannot be permanently deleted." }
-        goalDao.deleteGoal(goal)
+    suspend fun deleteGoal(goal: Goal, refundPitakaId: Long? = null) {
+        db.withTransaction {
+            val entries = ledgerDao.getEntriesForGoalOnce(goal.id)
+            val hasMissingContributionSource = entries.any { entry ->
+                entry.type == LedgerType.GOAL_CONTRIBUTION &&
+                    entry.pitakaId?.let { pitakaDao.getPitaka(it) } == null
+            }
+            val refundPitaka = if (hasMissingContributionSource) {
+                requireNotNull(refundPitakaId) { "Select a Pitaka for contributions whose original source no longer exists." }
+                requireTransactionLeaf(refundPitakaId, "Refund Pitaka")
+            } else null
+            entries.forEach { entry ->
+                val reversibleEntry = if (
+                    entry.type == LedgerType.GOAL_CONTRIBUTION &&
+                    entry.pitakaId?.let { pitakaDao.getPitaka(it) } == null
+                ) entry.copy(pitakaId = refundPitaka!!.id) else entry
+                reverseEffect(reversibleEntry)
+                ledgerDao.deleteEntry(entry)
+            }
+            requireNonNegativeBalances(entries)
+            goalDao.deleteGoal(goal)
+        }
     }
 
     // ---- Expense funnels ----
     fun observeExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAll()
-    suspend fun getSystemUnclassifiedFunnel(): ExpenseFunnel {
-        return funnelDao.getByName("Unclassified Expense") ?: funnelDao.insertAndReturn(ExpenseFunnel(name = "Unclassified Expense", limit = 0.0, currency = "PHP", currencyBalances = "PHP=0", isSystem = true)).let { funnelDao.get(it)!! }
+    fun observeAllExpenseFunnels(): Flow<List<ExpenseFunnel>> = funnelDao.observeAllIncludingArchived()
+    suspend fun getGeneralExpensesFunnel(): ExpenseFunnel {
+        return funnelDao.getByName("General Expenses")
+            ?: funnelDao.insertAndReturn(ExpenseFunnel(name = "General Expenses", limit = 0.0, currency = "PHP", currencyBalances = "PHP=0", isSystem = true)).let { funnelDao.get(it)!! }
     }
     fun observeFunnelSpent(funnelId: Long): Flow<Double> = funnelDao.observeSpent(funnelId)
 
     fun observeGoalProgressByCurrency(goalId: Long): Flow<Map<String, Double>> =
         ledgerDao.observeAllEntries().map { entries ->
             entries.asSequence()
-                .filter { it.type == LedgerType.GOAL_CONTRIBUTION && it.goalId == goalId }
+                .filter { it.type in setOf(LedgerType.GOAL_CONTRIBUTION, LedgerType.GOAL_WITHDRAWAL, LedgerType.GOAL_EXPENSE) && it.goalId == goalId }
                 .groupBy { (it.goalCurrency ?: it.currency).uppercase() }
-                .mapValues { (_, rows) -> rows.sumOf { it.goalAmount ?: it.amount } }
+                .mapValues { (_, rows) -> rows.sumOf {
+                    val amount = it.goalAmount ?: it.amount
+                    if (it.type == LedgerType.GOAL_CONTRIBUTION) amount else -amount
+                } }
         }
 
     fun observeFunnelSpentByCurrency(funnelId: Long): Flow<Map<String, Double>> =
         ledgerDao.observeAllEntries().map { entries ->
             entries.asSequence()
-                .filter { it.type == LedgerType.EXPENSE && it.funnelId == funnelId }
+                .filter { it.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE) && it.funnelId == funnelId }
                 .groupBy { (it.funnelCurrency ?: it.currency).uppercase() }
                 .mapValues { (_, rows) -> rows.sumOf { it.funnelAmount ?: it.amount } }
         }
@@ -319,6 +391,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
         require(limit >= 0 && limit.isFinite()) { "Funnel limit must be a non-negative finite number." }
         require(validFrom == null || validUntil == null || validFrom <= validUntil) { "Funnel start date must not be after its end date." }
+        require(funnelDao.countByNormalizedName(name) == 0) { "An Expense Funnel with this name already exists." }
         return funnelDao.insert(
             ExpenseFunnel(
                 name = name.trim().ifBlank { error("Funnel name cannot be blank.") },
@@ -340,6 +413,7 @@ class PitakaRepository(private val db: AppDatabase) {
             val name = funnel.name.trim()
             val code = funnel.currency.trim().uppercase()
             require(name.isNotBlank()) { "Funnel name cannot be blank." }
+            require(funnelDao.countByNormalizedName(name, funnel.id) == 0) { "An Expense Funnel with this name already exists." }
             require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
             require(funnel.limit >= 0 && funnel.limit.isFinite()) { "Funnel limit must be a non-negative finite number." }
             require(funnel.validFrom == null || funnel.validUntil == null || funnel.validFrom <= funnel.validUntil) {
@@ -348,11 +422,6 @@ class PitakaRepository(private val db: AppDatabase) {
             val balances = CurrencyBalances.parse(existing.currencyBalances)
             require(code == existing.currency.uppercase() || (balances[code] ?: 0.0) == 0.0) {
                 "Cannot change the funnel currency while that currency has a non-zero balance. Move or reconcile the balance first."
-            }
-            if (code.equals(existing.currency, ignoreCase = true)) {
-                require((balances[code] ?: 0.0) <= funnel.limit + 1e-9) {
-                    "Funnel limit cannot be set below its existing spending."
-                }
             }
             funnelDao.update(existing.copy(
                 name = name,
@@ -379,10 +448,22 @@ class PitakaRepository(private val db: AppDatabase) {
     }
 
     suspend fun deleteExpenseFunnel(funnel: ExpenseFunnel) {
-        require(!funnel.isSystem) { "System expense funnels cannot be deleted." }
-        require(funnel.archivedAt != null) { "Archive the expense funnel before permanent deletion." }
-        require(funnelDao.countExpenses(funnel.id) == 0) { "This funnel has expense history. It cannot be permanently deleted." }
-        funnelDao.delete(funnel)
+        db.withTransaction {
+            require(!funnel.isSystem) { "System expense funnels cannot be deleted." }
+            val general = getGeneralExpensesFunnel()
+            val reassignedBalances = ledgerDao.getExpensesForFunnelOnce(funnel.id).fold(
+                CurrencyBalances.parse(general.currencyBalances) as Map<String, Double>
+            ) { balances, entry ->
+                CurrencyBalances.parse(CurrencyBalances.add(
+                    CurrencyBalances.encode(balances),
+                    entry.funnelCurrency ?: entry.currency,
+                    entry.funnelAmount ?: entry.amount
+                ))
+            }
+            funnelDao.update(general.copy(currencyBalances = CurrencyBalances.encode(reassignedBalances)))
+            ledgerDao.reassignExpenseFunnel(funnel.id, general.id)
+            funnelDao.delete(funnel)
+        }
     }
 
     // ---- Ledger reads ----
@@ -418,187 +499,126 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun deleteEntry(entry: LedgerEntry) {
         db.withTransaction {
             reverseEffect(entry)
+            requireNonNegativeBalances(listOf(entry))
             ledgerDao.deleteEntry(entry)
         }
     }
 
-    /** Edits name/amount/category in place, reversing the old balance effect and applying the new one. */
-    suspend fun updateEntry(oldEntry: LedgerEntry, newName: String, newAmount: Double, newCategory: String?, newPitakaId: Long? = oldEntry.pitakaId) {
+    suspend fun replaceEntry(oldEntry: LedgerEntry, replacement: LedgerEntry) {
+        require(oldEntry.id == replacement.id) { "A transaction replacement must keep the original ID." }
+        require(oldEntry.type == replacement.type) { "Transaction type cannot be changed. Delete and recreate the record instead." }
+        require(oldEntry.type != LedgerType.OPENING_BALANCE) { "Opening balances are corrected with an adjustment." }
+        require(replacement.name.trim().isNotBlank()) { "Transaction name cannot be blank." }
+        require(replacement.amount.isFinite()) { "Transaction amount must be finite." }
+        require(replacement.amount > 0 || replacement.type == LedgerType.ADJUSTMENT) { "Transaction amount must be positive." }
+
         db.withTransaction {
-            require(newName.trim().isNotBlank()) { "Transaction name cannot be blank." }
-            require(newAmount.isFinite()) { "Transaction amount must be finite." }
-            require(newAmount > 0 || oldEntry.type == LedgerType.ADJUSTMENT) { "Transaction amount must be positive." }
-
-            // Reverse first, then validate against the resulting account state. Room rolls
-            // the entire transaction back if any validation fails.
             reverseEffect(oldEntry)
-
-            if (oldEntry.type == LedgerType.INCOME || oldEntry.type == LedgerType.EXPENSE || oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
-                val target = newPitakaId?.let { pitakaDao.getPitaka(it) }
-                require(target != null) { "Target Pitaka not found." }
-                require(target!!.archivedAt == null) { "Cannot edit a transaction onto an archived Pitaka." }
-                val transactionCurrency = oldEntry.currency.trim().uppercase()
-                require(transactionCurrency.length == 3 && transactionCurrency.all { it in 'A'..'Z' }) {
-                    "Existing transaction currency must be exactly 3 letters."
-                }
-                val available = CurrencyBalances.parse(target.currencyBalances)[transactionCurrency] ?: 0.0
-                if (oldEntry.type != LedgerType.INCOME) {
-                    require(available >= newAmount) {
-                        "Insufficient " + oldEntry.currency.uppercase() + " balance in " + target.name + "."
-                    }
-                }
-                if (oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
-                    val goal = oldEntry.goalId?.let { goalDao.getGoal(it) }
-                    require(goal != null) { "Goal not found." }
-                    require(goal!!.archivedAt == null) { "Cannot edit a contribution onto an archived Goal." }
-                }
-            }
-
-            val normalizedCategory = if (oldEntry.type == LedgerType.EXPENSE) canonicalExpenseCategory(newCategory) else null
-            val ratio = AccountingMath.editRatio(oldEntry.amount, newAmount)
-
-            // Allocation amounts are part of the ledger event, not independent balances.
-            // When the transaction amount changes, preserve an explicitly converted
-            // funnel/goal allocation by scaling it with the same transaction ratio.
-            if (oldEntry.type == LedgerType.EXPENSE) {
-                val funnel = oldEntry.funnelId?.let { funnelDao.get(it) }
-                require(funnel != null) { "Expense Funnel not found." }
-                require(funnel.isSystem || funnel.archivedAt == null) {
-                    "Cannot edit an expense allocation against an archived Expense Funnel."
-                }
-                val allocationCurrency = (oldEntry.funnelCurrency ?: oldEntry.currency).uppercase()
-                val existingSpent = CurrencyBalances.parse(funnel.currencyBalances)[allocationCurrency] ?: 0.0
-                val oldAllocation = oldEntry.funnelAmount ?: oldEntry.amount
-                val ratio = AccountingMath.editRatio(oldEntry.amount, newAmount)
-                val newAllocation = AccountingMath.scaleAllocation(oldAllocation, ratio)
-                if (!funnel.isSystem && allocationCurrency.equals(funnel.currency, ignoreCase = true)) {
-                    // reverseEffect(oldEntry) has already removed the old allocation from
-                    // the persisted funnel balance, so existingSpent is the amount left
-                    // after excluding the edited entry.
-                    require(existingSpent >= -1e-9) {
-                        "Funnel balance is inconsistent with its expense history."
-                    }
-                    require(existingSpent + newAllocation <= funnel.limit + 1e-9) {
-                        "Expense exceeds the funnel limit for " + funnel.name + "."
-                    }
-                }
-            }
-            if (oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
-                val goal = oldEntry.goalId?.let { goalDao.getGoal(it) }
-                require(goal != null) { "Goal not found." }
-                val allocationCurrency = (oldEntry.goalCurrency ?: oldEntry.currency).uppercase()
-                val existingProgress = CurrencyBalances.parse(goal.currencyBalances)[allocationCurrency] ?: 0.0
-                val oldAllocation = oldEntry.goalAmount ?: oldEntry.amount
-                val ratio = AccountingMath.editRatio(oldEntry.amount, newAmount)
-                val newAllocation = AccountingMath.scaleAllocation(oldAllocation, ratio)
-                if (allocationCurrency.equals(goal.currency, ignoreCase = true)) {
-                    // reverseEffect(oldEntry) has already removed the old allocation from
-                    // the persisted goal progress, so existingProgress is already the
-                    // progress excluding the edited contribution.
-                    require(existingProgress >= -1e-9) {
-                        "Goal balance is inconsistent with its contribution history."
-                    }
-                    require(existingProgress + newAllocation <= goal.targetAmount + 1e-9) {
-                        "Contribution exceeds the goal target for " + goal.name + "."
-                    }
-                }
-            }
-
-            val updatedFunnelAmount = oldEntry.funnelAmount?.let { oldAllocation ->
-                require(oldAllocation.isFinite()) { "Existing funnel allocation is invalid." }
-                AccountingMath.scaleAllocation(oldAllocation, ratio)
-            }
-            val updatedGoalAmount = oldEntry.goalAmount?.let { oldAllocation ->
-                require(oldAllocation.isFinite()) { "Existing goal allocation is invalid." }
-                AccountingMath.scaleAllocation(oldAllocation, ratio)
-            }
-            // A transfer has two monetary legs. When the source amount is edited,
-            // preserve the original exchange relationship by scaling the destination
-            // amount by the same ratio. This is essential for cross-currency edits;
-            // otherwise reversal removes the old destination amount but re-application
-            // silently restores the stale amount.
-            val updatedSecondaryAmount = if (oldEntry.type == LedgerType.TRANSFER) {
-                oldEntry.secondaryAmount?.let { destinationAmount ->
-                    require(destinationAmount.isFinite()) { "Existing transfer destination amount is invalid." }
-                    AccountingMath.scaleAllocation(destinationAmount, ratio)
-                }
-            } else {
-                oldEntry.secondaryAmount
-            }
-
-            // Historical base-currency snapshots belong to the ledger event. When an
-            // amount is edited, keep the transaction-time rate/base currency but
-            // recompute the stored base amount from the new transaction amount.
-            val updatedAmountInBase = oldEntry.conversionRateToBaseAtTransaction?.let { rate ->
-                require(rate.isFinite() && rate > 0.0) { "Existing historical conversion rate is invalid." }
-                MoneyMath.multiply(newAmount, rate)
-            }
-            val updatedSecondaryAmountInBase = oldEntry.secondaryAmountInBaseAtTransaction?.let { oldBaseAmount ->
-                require(oldBaseAmount.isFinite()) { "Existing historical destination base amount is invalid." }
-                val oldSecondary = oldEntry.secondaryAmount
-                if (oldSecondary != null && oldSecondary != 0.0 && oldEntry.secondaryConversionRateToBaseAtTransaction != null) {
-                    val secondaryRate = oldEntry.secondaryConversionRateToBaseAtTransaction
-                    require(secondaryRate.isFinite() && secondaryRate > 0.0) { "Existing destination historical conversion rate is invalid." }
-                    require(updatedSecondaryAmount != null) { "Historical destination snapshot has no destination amount." }
-                    MoneyMath.multiply(updatedSecondaryAmount, secondaryRate)
-                } else {
-                    AccountingMath.scaleAllocation(oldBaseAmount, ratio)
-                }
-            }
-
-            if (oldEntry.type == LedgerType.TRANSFER) {
-                val fromId = requireNotNull(oldEntry.fromPitakaId) { "Transfer has no source Pitaka." }
-                val toId = requireNotNull(oldEntry.toPitakaId) { "Transfer has no destination Pitaka." }
-                require(fromId != toId) { "Transfer source and destination must differ." }
-                val transferSource = pitakaDao.getPitaka(fromId)
-                val transferDestination = pitakaDao.getPitaka(toId)
-                require(transferSource != null) { "Transfer source Pitaka not found." }
-                require(transferDestination != null) { "Transfer destination Pitaka not found." }
-                require(transferSource!!.archivedAt == null) { "Cannot edit a transfer from an archived Pitaka." }
-                require(transferDestination!!.archivedAt == null) { "Cannot edit a transfer to an archived Pitaka." }
-                val sourceCurrency = oldEntry.currency.trim().uppercase()
-                require(sourceCurrency.length == 3 && sourceCurrency.all { it in 'A'..'Z' }) {
-                    "Transfer source currency must be exactly 3 letters."
-                }
-                val availableSource = CurrencyBalances.parse(transferSource.currencyBalances)[sourceCurrency] ?: 0.0
-                require(availableSource >= newAmount) {
-                    "Insufficient " + sourceCurrency + " balance in " + transferSource.name + "."
-                }
-                if (oldEntry.secondaryCurrency != null) {
-                    val destinationCurrency = oldEntry.secondaryCurrency.trim().uppercase()
-                    require(destinationCurrency.length == 3 && destinationCurrency.all { it in 'A'..'Z' }) {
-                        "Transfer destination currency must be exactly 3 letters."
-                    }
-                    if (!destinationCurrency.equals(sourceCurrency, true)) {
-                        requireNotNull(updatedSecondaryAmount) { "Cross-currency transfer has no destination amount." }
-                    }
-                }
-            }
-
-            if (oldEntry.type == LedgerType.EXPENSE) {
-                val funnelId = requireNotNull(oldEntry.funnelId) { "Expense has no funnel." }
-                require(funnelDao.get(funnelId) != null) { "Expense funnel not found." }
-                requireNotNull(updatedFunnelAmount) { "Expense has no funnel allocation." }
-            }
-            if (oldEntry.type == LedgerType.GOAL_CONTRIBUTION) {
-                val goalId = requireNotNull(oldEntry.goalId) { "Goal contribution has no Goal." }
-                require(goalDao.getGoal(goalId) != null) { "Goal for contribution not found." }
-                requireNotNull(updatedGoalAmount) { "Goal contribution has no goal allocation." }
-            }
-
-            val updated = oldEntry.copy(
-                name = newName.trim(),
-                amount = newAmount,
-                category = normalizedCategory,
-                pitakaId = newPitakaId,
-                funnelAmount = updatedFunnelAmount,
-                goalAmount = updatedGoalAmount,
-                secondaryAmount = updatedSecondaryAmount,
-                amountInBaseAtTransaction = updatedAmountInBase,
-                secondaryAmountInBaseAtTransaction = updatedSecondaryAmountInBase
+            val normalized = replacement.copy(
+                name = replacement.name.trim(),
+                currency = replacement.currency.trim().uppercase(),
+                secondaryCurrency = replacement.secondaryCurrency?.trim()?.uppercase(),
+                funnelCurrency = replacement.funnelCurrency?.trim()?.uppercase(),
+                goalCurrency = replacement.goalCurrency?.trim()?.uppercase(),
+                category = if (replacement.type in setOf(LedgerType.EXPENSE, LedgerType.GOAL_EXPENSE)) {
+                    canonicalExpenseCategory(replacement.category)
+                } else replacement.category
             )
-            ledgerDao.updateEntry(updated)
-            applyEffect(updated)
+            require(normalized.currency.length == 3 && normalized.currency.all { it in 'A'..'Z' }) {
+                "Transaction currency must be exactly 3 letters."
+            }
+
+            when (normalized.type) {
+                LedgerType.INCOME -> requireTransactionLeaf(requireNotNull(normalized.pitakaId))
+                LedgerType.EXPENSE -> {
+                    val source = requireTransactionLeaf(requireNotNull(normalized.pitakaId), "Source Pitaka")
+                    require((CurrencyBalances.parse(source.currencyBalances)[normalized.currency] ?: 0.0) >= normalized.amount) {
+                        "Insufficient ${normalized.currency} balance in ${source.name}."
+                    }
+                    val funnel = funnelDao.get(requireNotNull(normalized.funnelId)) ?: error("Expense Funnel not found.")
+                    require(funnel.archivedAt == null || funnel.isSystem) { "Cannot assign an expense to an archived Funnel." }
+                    require(funnel.validFrom == null || normalized.date >= funnel.validFrom) { "Expense date is before the Funnel validity period." }
+                    require(funnel.validUntil == null || normalized.date <= funnel.validUntil) { "Expense date is after the Funnel validity period." }
+                    require(normalized.funnelAmount?.let { it > 0 && it.isFinite() } == true) { "Funnel amount must be positive." }
+                }
+                LedgerType.TRANSFER -> {
+                    val source = requireTransactionLeaf(requireNotNull(normalized.fromPitakaId), "Source Pitaka")
+                    requireTransactionLeaf(requireNotNull(normalized.toPitakaId), "Destination Pitaka")
+                    require(normalized.fromPitakaId != normalized.toPitakaId) { "Transfer source and destination must differ." }
+                    require((CurrencyBalances.parse(source.currencyBalances)[normalized.currency] ?: 0.0) >= normalized.amount) {
+                        "Insufficient ${normalized.currency} balance in ${source.name}."
+                    }
+                    require(normalized.secondaryAmount?.let { it > 0 && it.isFinite() } != false) { "Destination amount must be positive." }
+                }
+                LedgerType.GOAL_CONTRIBUTION -> {
+                    val source = requireTransactionLeaf(requireNotNull(normalized.pitakaId), "Source Pitaka")
+                    require((CurrencyBalances.parse(source.currencyBalances)[normalized.currency] ?: 0.0) >= normalized.amount) {
+                        "Insufficient ${normalized.currency} balance in ${source.name}."
+                    }
+                    val goal = goalDao.getGoal(requireNotNull(normalized.goalId)) ?: error("Goal not found.")
+                    require(goal.archivedAt == null) { "Cannot contribute to an archived Goal." }
+                    require(normalized.goalAmount?.let { it > 0 && it.isFinite() } == true) { "Goal amount must be positive." }
+                }
+                LedgerType.GOAL_WITHDRAWAL -> {
+                    requireTransactionLeaf(requireNotNull(normalized.pitakaId), "Destination Pitaka")
+                    val goal = goalDao.getGoal(requireNotNull(normalized.goalId)) ?: error("Goal not found.")
+                    require(goal.archivedAt == null) { "Cannot withdraw from an archived Goal." }
+                    val goalCode = normalized.goalCurrency ?: normalized.currency
+                    val goalAmount = normalized.goalAmount ?: normalized.amount
+                    require((CurrencyBalances.parse(goal.currencyBalances)[goalCode] ?: 0.0) >= goalAmount) {
+                        "Insufficient $goalCode balance in ${goal.name}."
+                    }
+                }
+                LedgerType.GOAL_EXPENSE -> {
+                    val goal = goalDao.getGoal(requireNotNull(normalized.goalId)) ?: error("Goal not found.")
+                    require(goal.archivedAt == null) { "Cannot spend from an archived Goal." }
+                    val goalCode = normalized.goalCurrency ?: normalized.currency
+                    val goalAmount = normalized.goalAmount ?: normalized.amount
+                    require((CurrencyBalances.parse(goal.currencyBalances)[goalCode] ?: 0.0) >= goalAmount) {
+                        "Insufficient $goalCode balance in ${goal.name}."
+                    }
+                    require(funnelDao.get(requireNotNull(normalized.funnelId)) != null) { "Expense Funnel not found." }
+                }
+                LedgerType.ADJUSTMENT -> {
+                    val pitaka = requireTransactionLeaf(requireNotNull(normalized.pitakaId))
+                    val available = CurrencyBalances.parse(pitaka.currencyBalances)[normalized.currency] ?: 0.0
+                    require(available + normalized.amount >= 0.0) { "Adjustment would make the Pitaka balance negative." }
+                }
+                LedgerType.OPENING_BALANCE -> error("Opening balances cannot be edited.")
+            }
+
+            val primarySnapshot = historicalConversionSnapshot(normalized.currency, normalized.amount)
+            val secondarySnapshot = normalized.secondaryAmount?.let { amount ->
+                historicalConversionSnapshot(normalized.secondaryCurrency ?: normalized.currency, amount)
+            }
+            val withSnapshots = normalized.copy(
+                conversionRateToBaseAtTransaction = primarySnapshot.first,
+                amountInBaseAtTransaction = primarySnapshot.second,
+                baseCurrencyAtTransaction = primarySnapshot.third,
+                secondaryConversionRateToBaseAtTransaction = secondarySnapshot?.first,
+                secondaryAmountInBaseAtTransaction = secondarySnapshot?.second
+            )
+            ledgerDao.updateEntry(withSnapshots)
+            applyEffect(withSnapshots)
+            requireNonNegativeBalances(listOf(oldEntry, withSnapshots))
+        }
+    }
+
+    private suspend fun requireNonNegativeBalances(entries: List<LedgerEntry>, excludedPitakaId: Long? = null) {
+        entries.flatMap { listOfNotNull(it.pitakaId, it.fromPitakaId, it.toPitakaId) }
+            .distinct()
+            .filter { it != excludedPitakaId }
+            .forEach { pitakaId ->
+                val pitaka = pitakaDao.getPitaka(pitakaId) ?: return@forEach
+                require(CurrencyBalances.parse(pitaka.currencyBalances).values.all { it >= -1e-9 }) {
+                    "This change would make ${pitaka.name} negative. Restore sufficient funds before continuing."
+                }
+            }
+        entries.mapNotNull { it.goalId }.distinct().forEach { goalId ->
+            val goal = goalDao.getGoal(goalId) ?: return@forEach
+            require(CurrencyBalances.parse(goal.currencyBalances).values.all { it >= -1e-9 }) {
+                "This change would make ${goal.name} negative. Reverse later withdrawals or expenses first."
+            }
         }
     }
 
@@ -642,119 +662,21 @@ class PitakaRepository(private val db: AppDatabase) {
 
     suspend fun deleteExchangeRate(code: String) = currencyDao.deleteRate(code)
 
-    // ---- Recurring rules ----
-
-    fun observeRecurringRules(): Flow<List<RecurringRule>> = recurringDao.observeAll()
-
-    suspend fun createRecurringRule(
-        type: LedgerType,
-        name: String,
-        amount: Double,
-        category: String?,
-        pitakaId: Long,
-        dayOfMonth: Int,
-        currency: String? = null
-    ) {
-        require(type == LedgerType.INCOME || type == LedgerType.EXPENSE) { "Only income and expense can recur." }
-        require(name.trim().isNotBlank()) { "Recurring transaction name cannot be blank." }
-        require(amount > 0 && amount.isFinite()) { "Recurring amount must be a positive finite number." }
-        require(dayOfMonth in 1..31) { "Recurring day must be between 1 and 31." }
-        val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
-        require(pitaka.archivedAt == null) { "Cannot create a recurring rule for an archived Pitaka." }
-        val ruleCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
-        require(ruleCurrency.length == 3 && ruleCurrency.all { it in 'A'..'Z' }) {
-            "Recurring currency code must be exactly 3 letters."
-        }
-        recurringDao.insert(
-            RecurringRule(
-                type = type, name = name.trim(), amount = amount, currency = ruleCurrency, category = category,
-                pitakaId = pitakaId, dayOfMonth = dayOfMonth
-            )
-        )
-    }
-
-    suspend fun setRecurringRuleActive(rule: RecurringRule, active: Boolean) {
-        if (active) {
-            val pitaka = pitakaDao.getPitaka(rule.pitakaId) ?: error("Pitaka not found.")
-            require(pitaka.archivedAt == null) { "Cannot activate a recurring rule for an archived Pitaka." }
-            val code = rule.currency.trim().uppercase()
-            require(code.length == 3 && code.all { it in 'A'..'Z' }) {
-                "Recurring currency code must be exactly 3 letters."
-            }
-        }
-        recurringDao.update(rule.copy(active = active))
-    }
-
-    suspend fun deleteRecurringRule(rule: RecurringRule) = recurringDao.delete(rule)
-
-    /**
-     * Called on app start. Posts any active recurring rule whose day-of-month has arrived
-     * and hasn't already been applied this month. No background scheduling — this is a
-     * "catch up next time you open the app" model, which keeps the app fully offline and
-     * dependency-light.
-     */
-    suspend fun applyDueRecurringRules(today: LocalDate = LocalDate.now()) {
-        val currentMonth = YearMonth.from(today).toString()
-        val rules = recurringDao.getActiveRulesOnce()
-        for (rule in rules) {
-            if (rule.lastAppliedMonth == currentMonth) continue
-            require(rule.type == LedgerType.INCOME || rule.type == LedgerType.EXPENSE) {
-                "Recurring rules only support income and expense transactions."
-            }
-            require(rule.name.trim().isNotBlank()) { "Recurring rule name cannot be blank." }
-            require(rule.amount > 0 && rule.amount.isFinite()) { "Recurring rule amount must be a positive finite number." }
-            require(rule.dayOfMonth in 1..31) { "Recurring rule day must be between 1 and 31." }
-            val effectiveDay = rule.dayOfMonth.coerceAtMost(today.lengthOfMonth())
-            if (today.dayOfMonth < effectiveDay) continue
-
-            db.withTransaction {
-                if (recurringDao.claimMonth(rule.id, currentMonth) != 1) return@withTransaction
-
-                val scheduledDate = today.withDayOfMonth(effectiveDay)
-                    .atStartOfDay(java.time.ZoneId.systemDefault())
-                    .toInstant().toEpochMilli()
-                val currency = rule.currency.trim().uppercase()
-                require(currency.length == 3 && currency.all { it in 'A'..'Z' }) { "Recurring rule has an invalid currency." }
-                val recurringPitaka = pitakaDao.getPitaka(rule.pitakaId)
-                require(recurringPitaka != null) { "Pitaka for recurring rule not found." }
-                require(recurringPitaka.archivedAt == null) { "Recurring rule targets an archived Pitaka." }
-                when (rule.type) {
-                    LedgerType.INCOME -> recordIncomeInternal(
-                        rule.pitakaId, rule.name + " (recurring)", rule.amount,
-                        date = scheduledDate, currency = currency
-                    )
-                    LedgerType.EXPENSE -> {
-                        // Recurring expenses intentionally do not guess a funnel currency.
-                        // They use the transaction currency against the system funnel; a
-                        // user-created funnel must be selected explicitly in a normal expense
-                        // flow so cross-currency allocation cannot be silently misclassified.
-                        recordExpenseInternal(
-                            rule.pitakaId, rule.name + " (recurring)", rule.amount,
-                            rule.category, null, currency, date = scheduledDate
-                        )
-                    }
-                    else -> error("Unsupported recurring transaction type.")
-                }
-            }
-        }
-    }
-
     // ---- Money-movement operations (all atomic) ----
 
-    suspend fun recordIncome(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis()) {
+    suspend fun recordIncome(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis(), currency: String? = null) {
         require(name.trim().isNotBlank()) { "Income name cannot be blank." }
         require(amount > 0 && amount.isFinite()) { "Income amount must be a positive finite number" }
         db.withTransaction {
-            val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
-            require(pitaka.archivedAt == null) { "Cannot add income to an archived Pitaka." }
-            val currency = pitaka.currency.uppercase()
-            recordIncomeInternal(pitakaId, name, amount, date, currency)
+            val pitaka = requireTransactionLeaf(pitakaId)
+            val code = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
+            require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Income currency must be exactly 3 letters." }
+            recordIncomeInternal(pitakaId, name, amount, date, code)
         }
     }
 
     private suspend fun recordIncomeInternal(pitakaId: Long, name: String, amount: Double, date: Long = System.currentTimeMillis(), currency: String? = null) {
-        val pitaka = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
-        require(pitaka.archivedAt == null) { "Cannot record income against an archived Pitaka." }
+        val pitaka = requireTransactionLeaf(pitakaId)
         val pitakaCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: pitaka.currency.uppercase()
         require(pitakaCurrency.length == 3 && pitakaCurrency.all { it in 'A'..'Z' }) {
             "Income currency must be exactly 3 letters."
@@ -776,11 +698,10 @@ class PitakaRepository(private val db: AppDatabase) {
             }
         }
         db.withTransaction {
-            val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
-            require(source.archivedAt == null) { "Cannot record an expense from an archived Pitaka." }
+            val source = requireTransactionLeaf(pitakaId, "Source Pitaka")
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             require((CurrencyBalances.parse(source.currencyBalances)[txCurrency] ?: 0.0) >= amount) { "Insufficient ${txCurrency} balance in ${source.name}." }
-            val resolvedFunnel = funnelId ?: getSystemUnclassifiedFunnel().id
+            val resolvedFunnel = funnelId ?: getGeneralExpensesFunnel().id
             val funnel = funnelDao.get(resolvedFunnel)
             require(funnel != null) { "Expense Funnel not found." }
             require(funnel.archivedAt == null || funnel.isSystem) {
@@ -802,12 +723,6 @@ class PitakaRepository(private val db: AppDatabase) {
                     "Expense date is after the funnel validity period."
                 }
             }
-            if (!funnel.isSystem && appliedFunnelCurrency.equals(funnel.currency, ignoreCase = true)) {
-                val existingSpent = CurrencyBalances.parse(funnel.currencyBalances)[funnel.currency.uppercase()] ?: 0.0
-                require(existingSpent + appliedFunnelAmount <= funnel.limit + 1e-9) {
-                    "Expense exceeds the funnel limit for " + funnel.name + "."
-                }
-            }
             recordExpenseInternal(pitakaId, name, amount, canonicalExpenseCategory(category), resolvedFunnel, txCurrency, appliedFunnelAmount, appliedFunnelCurrency, date)
         }
     }
@@ -815,8 +730,7 @@ class PitakaRepository(private val db: AppDatabase) {
     private suspend fun recordExpenseInternal(
         pitakaId: Long, name: String, amount: Double, category: String?, funnelId: Long? = null, currency: String? = null, funnelAmount: Double? = null, funnelCurrency: String? = null, date: Long = System.currentTimeMillis()
     ) {
-        val source = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
-        require(source.archivedAt == null) { "Cannot record an expense from an archived Pitaka." }
+        val source = requireTransactionLeaf(pitakaId, "Source Pitaka")
         val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
         require(txCurrency.length == 3 && txCurrency.all { it in 'A'..'Z' }) {
             "Expense currency must be exactly 3 letters."
@@ -852,10 +766,8 @@ class PitakaRepository(private val db: AppDatabase) {
     ) {
         require(amount > 0 && amount.isFinite()) { "Transfer amount must be a positive finite number" }
         db.withTransaction {
-            val source = pitakaDao.getPitaka(fromPitakaId) ?: error("Source Pitaka not found.")
-            val destination = pitakaDao.getPitaka(toPitakaId) ?: error("Destination Pitaka not found.")
-            require(source.archivedAt == null) { "Cannot transfer from an archived Pitaka." }
-            require(destination.archivedAt == null) { "Cannot transfer to an archived Pitaka." }
+            val source = requireTransactionLeaf(fromPitakaId, "Source Pitaka")
+            val destination = requireTransactionLeaf(toPitakaId, "Destination Pitaka")
             require(fromPitakaId != toPitakaId) { "Source and destination must be different." }
             val sourceCode = sourceCurrency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
             val destinationCode = destinationCurrency?.trim()?.uppercase()?.ifBlank { null } ?: destination.currency.uppercase()
@@ -914,8 +826,7 @@ class PitakaRepository(private val db: AppDatabase) {
     ) {
         require(amount > 0 && amount.isFinite()) { "Contribution amount must be a positive finite number" }
         db.withTransaction {
-            val source = pitakaDao.getPitaka(sourcePitakaId) ?: error("Source Pitaka not found.")
-            require(source.archivedAt == null) { "Cannot contribute from an archived Pitaka." }
+            val source = requireTransactionLeaf(sourcePitakaId, "Source Pitaka")
             val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
             require(goal.archivedAt == null) { "Cannot contribute to an archived Goal." }
             val txCurrency = currency?.trim()?.uppercase()?.ifBlank { null } ?: source.currency.uppercase()
@@ -928,12 +839,6 @@ class PitakaRepository(private val db: AppDatabase) {
             if (!appliedGoalCurrency.equals(goal.currency, ignoreCase = true) && normalizedGoalCurrency == null) {
                 require(false) {
                     "A goal currency must be selected explicitly when the contribution currency differs from the Goal currency."
-                }
-            }
-            if (appliedGoalCurrency.equals(goal.currency, ignoreCase = true)) {
-                val existingProgress = CurrencyBalances.parse(goal.currencyBalances)[goal.currency.uppercase()] ?: 0.0
-                require(existingProgress + appliedGoalAmount <= goal.targetAmount + 1e-9) {
-                    "Contribution exceeds the goal target for " + goal.name + "."
                 }
             }
             val snapshot = historicalConversionSnapshot(txCurrency, amount)
@@ -956,6 +861,98 @@ class PitakaRepository(private val db: AppDatabase) {
         }
     }
 
+    suspend fun withdrawFromGoal(
+        goalId: Long,
+        destinationPitakaId: Long,
+        name: String,
+        goalAmount: Double,
+        goalCurrency: String,
+        destinationAmount: Double = goalAmount,
+        destinationCurrency: String = goalCurrency,
+        date: Long = System.currentTimeMillis()
+    ) {
+        require(name.trim().isNotBlank()) { "Withdrawal name cannot be blank." }
+        require(goalAmount > 0 && goalAmount.isFinite()) { "Withdrawal amount must be positive." }
+        require(destinationAmount > 0 && destinationAmount.isFinite()) { "Destination amount must be positive." }
+        db.withTransaction {
+            val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
+            require(goal.archivedAt == null) { "Cannot withdraw from an archived Goal." }
+            val goalCode = goalCurrency.trim().uppercase()
+            val destinationCode = destinationCurrency.trim().uppercase()
+            require(goalCode.length == 3 && goalCode.all { it in 'A'..'Z' }) { "Goal currency must be exactly 3 letters." }
+            require(destinationCode.length == 3 && destinationCode.all { it in 'A'..'Z' }) { "Destination currency must be exactly 3 letters." }
+            val available = CurrencyBalances.parse(goal.currencyBalances)[goalCode] ?: 0.0
+            require(available >= goalAmount) { "Insufficient $goalCode balance in ${goal.name}." }
+            requireTransactionLeaf(destinationPitakaId, "Destination Pitaka")
+            val goalSnapshot = historicalConversionSnapshot(goalCode, goalAmount)
+            val destinationSnapshot = historicalConversionSnapshot(destinationCode, destinationAmount)
+            val entry = LedgerEntry(
+                type = LedgerType.GOAL_WITHDRAWAL,
+                amount = goalAmount,
+                currency = goalCode,
+                name = name.trim(),
+                pitakaId = destinationPitakaId,
+                goalId = goalId,
+                goalAmount = goalAmount,
+                goalCurrency = goalCode,
+                secondaryAmount = destinationAmount,
+                secondaryCurrency = destinationCode,
+                date = date,
+                conversionRateToBaseAtTransaction = goalSnapshot.first,
+                amountInBaseAtTransaction = goalSnapshot.second,
+                baseCurrencyAtTransaction = goalSnapshot.third,
+                secondaryConversionRateToBaseAtTransaction = destinationSnapshot.first,
+                secondaryAmountInBaseAtTransaction = destinationSnapshot.second
+            )
+            ledgerDao.insertEntry(entry)
+            applyEffect(entry)
+        }
+    }
+
+    suspend fun spendFromGoal(
+        goalId: Long,
+        name: String,
+        amount: Double,
+        currency: String,
+        category: String?,
+        date: Long = System.currentTimeMillis()
+    ) {
+        require(name.trim().isNotBlank()) { "Expense name cannot be blank." }
+        require(amount > 0 && amount.isFinite()) { "Expense amount must be positive." }
+        db.withTransaction {
+            val goal = goalDao.getGoal(goalId) ?: error("Goal not found.")
+            require(goal.archivedAt == null) { "Cannot spend from an archived Goal." }
+            val code = currency.trim().uppercase()
+            val available = CurrencyBalances.parse(goal.currencyBalances)[code] ?: 0.0
+            require(available >= amount) { "Insufficient $code balance in ${goal.name}." }
+            val general = getGeneralExpensesFunnel()
+            val snapshot = historicalConversionSnapshot(code, amount)
+            val entry = LedgerEntry(
+                type = LedgerType.GOAL_EXPENSE,
+                amount = amount,
+                currency = code,
+                name = name.trim(),
+                category = canonicalExpenseCategory(category),
+                goalId = goalId,
+                goalAmount = amount,
+                goalCurrency = code,
+                funnelId = general.id,
+                funnelAmount = amount,
+                funnelCurrency = code,
+                date = date,
+                conversionRateToBaseAtTransaction = snapshot.first,
+                amountInBaseAtTransaction = snapshot.second,
+                baseCurrencyAtTransaction = snapshot.third
+            )
+            ledgerDao.insertEntry(entry)
+            applyEffect(entry)
+            val updated = goalDao.getGoal(goalId) ?: return@withTransaction
+            if (CurrencyBalances.parse(updated.currencyBalances).values.all { kotlin.math.abs(it) < 1e-9 }) {
+                goalDao.updateGoal(updated.copy(archivedAt = System.currentTimeMillis()))
+            }
+        }
+    }
+
     // ---- Balance effect helpers ----
     // applyEffect() is linear in `amount`, so reverseEffect() can just negate amount(s) and
     // re-apply the same formula — this correctly undoes any entry type, including edits.
@@ -973,12 +970,9 @@ class PitakaRepository(private val db: AppDatabase) {
         return Triple(rate, baseAmount, base)
     }
 
-    private suspend fun currencyForRecurring(pitakaId: Long): String =
-        pitakaDao.getPitaka(pitakaId)?.currency?.uppercase() ?: "PHP"
-
     private suspend fun canonicalExpenseCategory(category: String?): String {
         val cleaned = category?.trim().orEmpty()
-        if (cleaned.isEmpty()) return "Uncategorized Expense"
+        if (cleaned.isEmpty()) return "Uncategorized"
         return ledgerDao.findCanonicalExpenseCategory(cleaned) ?: cleaned
     }
 
@@ -986,7 +980,7 @@ class PitakaRepository(private val db: AppDatabase) {
         require(entry.amount.isFinite()) { "Ledger amount must be finite." }
 
         when (entry.type) {
-            LedgerType.INCOME -> {
+            LedgerType.OPENING_BALANCE, LedgerType.INCOME -> {
                 val pitakaId = requireNotNull(entry.pitakaId) { "Income ledger entry has no Pitaka." }
                 require(pitakaDao.getPitaka(pitakaId) != null) { "Pitaka for income ledger entry not found." }
                 adjustBalance(pitakaId, entry.amount, entry.currency)
@@ -1017,6 +1011,42 @@ class PitakaRepository(private val db: AppDatabase) {
                 require(goalAmount.isFinite()) { "Goal allocation must be finite." }
                 goalDao.updateGoal(goal.copy(
                     currencyBalances = CurrencyBalances.add(goal.currencyBalances, goalCurrency, goalAmount)
+                ))
+            }
+            LedgerType.GOAL_WITHDRAWAL -> {
+                val goalId = requireNotNull(entry.goalId) { "Goal withdrawal has no Goal." }
+                val goal = requireNotNull(goalDao.getGoal(goalId)) { "Goal for withdrawal not found." }
+                val goalCurrency = entry.goalCurrency ?: entry.currency
+                val goalAmount = entry.goalAmount ?: entry.amount
+                goalDao.updateGoal(goal.copy(
+                    currencyBalances = CurrencyBalances.add(goal.currencyBalances, goalCurrency, -goalAmount)
+                ))
+
+                val destinationId = requireNotNull(entry.pitakaId) { "Goal withdrawal has no destination Pitaka." }
+                require(pitakaDao.getPitaka(destinationId) != null) { "Destination Pitaka for withdrawal not found." }
+                adjustBalance(
+                    destinationId,
+                    entry.secondaryAmount ?: entry.amount,
+                    entry.secondaryCurrency ?: entry.currency
+                )
+            }
+            LedgerType.GOAL_EXPENSE -> {
+                val goalId = requireNotNull(entry.goalId) { "Goal expense has no Goal." }
+                val goal = requireNotNull(goalDao.getGoal(goalId)) { "Goal for expense not found." }
+                val goalCurrency = entry.goalCurrency ?: entry.currency
+                val goalAmount = entry.goalAmount ?: entry.amount
+                goalDao.updateGoal(goal.copy(
+                    currencyBalances = CurrencyBalances.add(goal.currencyBalances, goalCurrency, -goalAmount)
+                ))
+
+                val funnelId = requireNotNull(entry.funnelId) { "Goal expense has no Expense Funnel." }
+                val funnel = requireNotNull(funnelDao.get(funnelId)) { "Expense Funnel for goal expense not found." }
+                funnelDao.update(funnel.copy(
+                    currencyBalances = CurrencyBalances.add(
+                        funnel.currencyBalances,
+                        entry.funnelCurrency ?: entry.currency,
+                        entry.funnelAmount ?: entry.amount
+                    )
                 ))
             }
             LedgerType.ADJUSTMENT -> {

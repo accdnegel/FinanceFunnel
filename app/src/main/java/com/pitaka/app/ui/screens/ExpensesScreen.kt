@@ -14,8 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pitaka.app.data.ExpenseFunnel
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.ui.components.EditEntryDialog
 import com.pitaka.app.ui.components.HealthBar
-import com.pitaka.app.ui.components.BatikCardSurface
 import com.pitaka.app.ui.components.dateFormat
 import java.time.YearMonth
 import java.util.Date
@@ -25,20 +25,41 @@ import java.util.Date
 fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpenFunnel:(Long)->Unit){
     val expenses by viewModel.allExpenses.collectAsState(initial=emptyList())
     val funnels by viewModel.expenseFunnels.collectAsState(initial=emptyList())
+    val allFunnels by viewModel.allExpenseFunnelsIncludingArchived.collectAsState(initial=emptyList())
     val categories by viewModel.expenseCategories.collectAsState(initial=emptyList())
     val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
+    val goals by viewModel.goals.collectAsState(initial=emptyList())
+    val budget by viewModel.currentMonthBudget.collectAsState(initial=null)
+    val monthSpent by viewModel.currentMonthExpenseTotal.collectAsState(initial=0.0)
     var editing by remember { mutableStateOf<com.pitaka.app.data.LedgerEntry?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
+    val visibleFunnels=if(showArchived)allFunnels else funnels
     val month=YearMonth.now().toString()
-    val thisMonth=expenses.filter{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(month)}
-    Scaffold(topBar={TopAppBar(title={Text("Spending")},actions={IconButton(onClick=onOpenBudgetHistory){Icon(Icons.Default.History,"Budget history")}})}){padding->
+    val thisMonth=expenses.filter{runCatching{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(month)}.getOrDefault(false)}
+    Scaffold(topBar={TopAppBar(title={Text("Spending")},actions={TextButton({showArchived=!showArchived}){Text(if(showArchived)"Active" else "Archived")};IconButton(onClick=onOpenBudgetHistory){Icon(Icons.Default.History,"Budget history")}})}){padding->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)){
+            Text("Monthly Expense Limit",style=MaterialTheme.typography.titleMedium)
+            budget?.let { current ->
+                val remaining=current.limit-monthSpent
+                Card(Modifier.fillMaxWidth().padding(vertical=8.dp)){Column(Modifier.padding(14.dp)){
+                    Text("Spent ${"%,.2f".format(monthSpent)} / ${"%,.2f".format(current.limit)}")
+                    Text("Valid through ${YearMonth.now().atEndOfMonth()}", style=MaterialTheme.typography.bodySmall)
+                    Text(if(remaining>=0) "${"%,.2f".format(remaining)} remaining" else "${"%,.2f".format(-remaining)} over limit",color=if(remaining>=0)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                    if(current.limit>0) HealthBar((remaining/current.limit).toFloat().coerceIn(0f,1f))
+                }}
+            } ?: Text("No limit set. Use Budget history to configure one.",color=MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Expense Funnels",style=MaterialTheme.typography.titleMedium)
-            if(funnels.isEmpty())Text("No funnels yet. Use the global + button to create one.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+            if(visibleFunnels.isEmpty())Text("No funnels yet. Use the global + button to create one.",color=MaterialTheme.colorScheme.onSurfaceVariant)
             LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(10.dp),contentPadding=PaddingValues(vertical=10.dp)){
-                items(funnels,key={it.id}){f->
+                items(visibleFunnels,key={it.id}){f->
                     val spent=expenses.filter{it.funnelId==f.id && it.funnelCurrency.equals(f.currency,true)}.sumOf{it.funnelAmount ?: it.amount};val remaining=f.limit-spent
-                    BatikCardSurface(f.cardStyle,com.pitaka.app.ui.theme.parseHexColor(f.colorHex) ?: MaterialTheme.colorScheme.primary,Modifier.fillMaxWidth().clickable{onOpenFunnel(f.id)}){
-                        Column(Modifier.padding(14.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(f.name,style=MaterialTheme.typography.titleMedium);Text(if(f.isSystem) "System funnel" else f.currency+" "+"%,.2f".format(remaining)+" left")};Text(if(f.isSystem) "Spent "+f.currency+" "+"%,.2f".format(spent)+" (no limit)" else "Spent "+f.currency+" "+"%,.2f".format(spent)+" / "+"%,.2f".format(f.limit),style=MaterialTheme.typography.bodySmall);if(f.limit>0)HealthBar(((remaining/f.limit).toFloat()).coerceIn(0f,1f));Text("Tap for full history",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)}}
+                    ListItem(
+                        headlineContent={Text(f.name,style=MaterialTheme.typography.titleMedium)},
+                        supportingContent={Column{Text(if(f.isSystem) "Spent ${f.currency} ${"%,.2f".format(spent)} (no limit)" else "Spent ${f.currency} ${"%,.2f".format(spent)} / ${"%,.2f".format(f.limit)}");if(f.limit>0)HealthBar(((remaining/f.limit).toFloat()).coerceIn(0f,1f))}},
+                        trailingContent={Text(if(f.isSystem) "Unlimited" else if(remaining>=0) "${f.currency} ${"%,.2f".format(remaining)} left" else "${f.currency} ${"%,.2f".format(-remaining)} over",color=if(!f.isSystem&&remaining<0)MaterialTheme.colorScheme.error else LocalContentColor.current)},
+                        modifier=Modifier.fillMaxWidth().clickable{onOpenFunnel(f.id)}
+                    )
+                    HorizontalDivider()
                 }
             }
             HorizontalDivider()
@@ -47,15 +68,20 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
             thisMonth.take(10).forEach{entry->
                 var masked by remember(entry.id){mutableStateOf(false)}
                 Row(Modifier.fillMaxWidth().padding(vertical=7.dp),horizontalArrangement=Arrangement.SpaceBetween){
-                    Column(Modifier.weight(1f)){Text(entry.name);Text((entry.category?:"Uncategorized Expense")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                    Column(Modifier.weight(1f)){Text(entry.name);Text((entry.category?:"Uncategorized")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                     Row{Text(if(masked)"••••••" else entry.currency+" "+"%,.2f".format(entry.amount),color=MaterialTheme.colorScheme.error);IconButton({masked=!masked}){Icon(if(masked)Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mask")};TextButton({editing=entry}){Text("Edit")}}
                 }
             }
         }
     }
     editing?.let { entry ->
-        EditExpenseDialog(entry,pitakas,categories,{name,amount,category,pitakaId->
-            viewModel.updateEntry(entry,name,amount,category,pitakaId);editing=null
-        },{editing=null})
+        EditEntryDialog(
+            entry=entry,
+            pitakas=pitakas.filter{candidate->pitakas.none{it.parentPitakaId==candidate.id}},
+            goals=goals,
+            funnels=funnels,
+            onSave={replacement->viewModel.replaceEntry(entry,replacement,onSuccess={editing=null})},
+            onDismiss={editing=null}
+        )
     }
 }

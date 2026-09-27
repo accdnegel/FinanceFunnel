@@ -8,8 +8,8 @@ needs an internet connection to work.
 
 - **Pitakas** — your real fund sources (bank accounts, cash, e-wallets). Each has a live
   balance and a "last updated" timestamp. You can transfer money between them.
-- **Goals** — Savings or Investment targets ("funnels"/"piggy banks"). Contributing to a
-  Goal pulls money out of a Pitaka, just like an expense would.
+- **Goals** — Multi-currency Savings or Investment targets. Contributions reclassify
+  liquid Pitaka funds as non-liquid assets; withdrawals reclassify them back.
 - **Expenses** — categorized spending, always charged to a specific Pitaka, checked against
   a Monthly Max Expense limit you set.
 
@@ -27,6 +27,8 @@ Same as before — no Android SDK is required on your end if you use GitHub Acti
 3. Download the APK from the run's **Artifacts** tab.
 
 Or locally with Android Studio: open the folder, let Gradle sync, then **Build → Build APK(s)**.
+From a Java 17 command line with an Android SDK installed, run `gradlew.bat test` on Windows
+or `./gradlew test` on macOS/Linux.
 
 ## Branding
 
@@ -43,7 +45,7 @@ is pulled from the same palette.
   Liquid / Savings / Investments so you can see all three at a glance.
 - Deleting a ledger entry (income, expense, transfer, or contribution) reverses its effect
   on the relevant Pitaka balance(s) automatically.
-- Database schema is pre-release (v1); no migrations have been needed yet.
+- The Room database is schema v12 with explicit migrations from supported v4+ databases.
 
 
 ## Expense funnels
@@ -62,6 +64,6 @@ The UI uses the Pitaka logo palette and Batik-inspired card color presets. The f
 - Ledger entries retain their transaction currency.
 - Cross-currency transfers use the destination currency for the destination balance.
 - Amount masking is available in transaction histories.
-- Recurring rules are applied on app launch when due.
-- The database currently uses destructive migration fallback; replace this with explicit migrations before production release.
+- Monthly limits and Expense Funnel limits are soft limits and may show overspending.
+- Destructive fallback is limited to obsolete v1-v3 databases; supported v4+ databases use explicit migrations.
 - Exchange rates are manually maintained and offline.

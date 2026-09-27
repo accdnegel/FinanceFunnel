@@ -6,9 +6,9 @@ import androidx.room.*
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Pitaka::class, Goal::class, LedgerEntry::class, MonthlyBudget::class, ExpenseFunnel::class, CurrencySettings::class, ExchangeRate::class, RecurringRule::class],
-    version = 11,
-    exportSchema = false
+    entities = [Pitaka::class, Goal::class, LedgerEntry::class, MonthlyBudget::class, ExpenseFunnel::class, CurrencySettings::class, ExchangeRate::class],
+    version = 12,
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -18,7 +18,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun monthlyBudgetDao(): MonthlyBudgetDao
     abstract fun currencyDao(): CurrencyDao
     abstract fun expenseFunnelDao(): ExpenseFunnelDao
-    abstract fun recurringRuleDao(): RecurringRuleDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -119,14 +118,58 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE goals_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        targetAmount REAL NOT NULL,
+                        currency TEXT NOT NULL,
+                        targetBalances TEXT NOT NULL,
+                        currencyBalances TEXT NOT NULL,
+                        targetDate INTEGER,
+                        colorHex TEXT,
+                        cardStyle TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        archivedAt INTEGER
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO goals_new (
+                        id, name, type, targetAmount, currency, targetBalances,
+                        currencyBalances, targetDate, colorHex, cardStyle, createdAt, archivedAt
+                    )
+                    SELECT id, name, type, targetAmount, currency,
+                           currency || '=' || CAST(targetAmount AS TEXT),
+                           currencyBalances, targetDate, colorHex, cardStyle, createdAt, archivedAt
+                    FROM goals
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE goals")
+                db.execSQL("ALTER TABLE goals_new RENAME TO goals")
+                db.execSQL("UPDATE expense_funnels SET name = 'General Expenses' WHERE isSystem = 1")
+                db.execSQL("DROP TABLE IF EXISTS recurring_rules")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pitaka.db")
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 // Versions 1–3 predate the current migration chain. Only those obsolete
                 // schemas may be recreated; every supported v4+ database must migrate
                 // normally so existing financial data is never silently wiped.
                 .fallbackToDestructiveMigrationFrom(1, 2, 3)
                 .build().also { INSTANCE = it }
+        }
+
+        fun closeInstance() = synchronized(this) {
+            INSTANCE?.close()
+            INSTANCE = null
         }
     }
 }

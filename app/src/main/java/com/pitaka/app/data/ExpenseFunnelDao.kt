@@ -11,8 +11,10 @@ interface ExpenseFunnelDao {
 
     @Query("SELECT * FROM expense_funnels WHERE archivedAt IS NULL ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<ExpenseFunnel>>
+    @Query("SELECT * FROM expense_funnels ORDER BY name COLLATE NOCASE")
+    fun observeAllIncludingArchived(): Flow<List<ExpenseFunnel>>
 
-    @Query("SELECT COUNT(*) FROM ledger_entries WHERE funnelId = :id AND type = 'EXPENSE'")
+    @Query("SELECT COUNT(*) FROM ledger_entries WHERE funnelId = :id AND type IN ('EXPENSE', 'GOAL_EXPENSE')")
     suspend fun countExpenses(id: Long): Int
 
     @Query("SELECT * FROM expense_funnels WHERE id = :id")
@@ -27,11 +29,14 @@ interface ExpenseFunnelDao {
     @Query("""
         SELECT COALESCE(SUM(COALESCE(l.funnelAmount, l.amount)), 0)
         FROM ledger_entries l
-        WHERE l.type = 'EXPENSE'
+        WHERE l.type IN ('EXPENSE', 'GOAL_EXPENSE')
           AND l.funnelId = :funnelId
           AND COALESCE(l.funnelCurrency, l.currency) = (
               SELECT currency FROM expense_funnels WHERE id = :funnelId
           )
     """)
     fun observeSpent(funnelId: Long): Flow<Double>
+
+    @Query("SELECT COUNT(*) FROM expense_funnels WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND id != :excludeId")
+    suspend fun countByNormalizedName(name: String, excludeId: Long = 0): Int
 }
