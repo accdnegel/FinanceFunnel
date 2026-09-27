@@ -314,8 +314,8 @@ class PitakaViewModel(application: Application) : AndroidViewModel(application) 
         launchOperation({ repository.setPitakaParent(pitakaId, parentPitakaId) })
     }
 
-    fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid", onSuccess: (() -> Unit)? = null) {
-        launchOperation({ repository.updatePitakaMeta(pitakaId, name, currency, colorHex, cardStyle) }, onSuccess)
+    fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid", parentPitakaId: Long? = null, onSuccess: (() -> Unit)? = null) {
+        launchOperation({ repository.updatePitakaMeta(pitakaId, name, currency, colorHex, cardStyle, parentPitakaId) }, onSuccess)
     }
 
     fun archivePitaka(pitakaId: Long, onSuccess: (() -> Unit)? = null) {

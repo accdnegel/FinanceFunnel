@@ -21,13 +21,14 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
     var currency by remember { mutableStateOf("PHP") }
     var selectedColor by remember { mutableStateOf<String?>(null) }
     var parentId by remember { mutableStateOf(parentPitakaId) }
+    var originalParentId by remember { mutableStateOf(parentPitakaId) }
     var loaded by remember { mutableStateOf(pitakaId == null) }
     var showFirstChildConfirm by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(pitakaId) {
         if (pitakaId != null) viewModel.getPitaka(pitakaId)?.let { p ->
-            name=p.name; currency=p.currency; selectedColor=p.colorHex; parentId=p.parentPitakaId
+            name=p.name; currency=p.currency; selectedColor=p.colorHex; parentId=p.parentPitakaId; originalParentId=p.parentPitakaId
         }
         loaded=true
     }
@@ -59,17 +60,16 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
                 else if(pitakaId == null && (startingBalance.isNotBlank() && (startingBalance.toDoubleOrNull() == null || balance < 0))) validationError = "Enter a valid non-negative starting balance."
                 else {
                     validationError = null
-                    if(pitakaId==null){
-                        val parent = parentId?.let { id -> pitakas.find { it.id == id } }
-                        val stored = parent?.let { CurrencyBalances.parse(it.currencyBalances) }.orEmpty()
-                        val hasExistingBalance = parent != null && (stored.values.any { it != 0.0 } || (stored.isEmpty() && parent.currentAmount != 0.0))
-                        val firstChild = parent != null && pitakas.none { it.parentPitakaId == parent.id }
-                        if(firstChild && hasExistingBalance) showFirstChildConfirm = true
-                        else {
+                    val parent = parentId?.let { id -> pitakas.find { it.id == id } }
+                    val stored = parent?.let { CurrencyBalances.parse(it.currencyBalances) }.orEmpty()
+                    val hasExistingBalance = parent != null && (stored.values.any { it != 0.0 } || (stored.isEmpty() && parent.currentAmount != 0.0))
+                    val firstChild = parent != null && pitakas.none { it.parentPitakaId == parent.id }
+                    val requiresConversionConfirmation = firstChild && hasExistingBalance && (pitakaId == null || parentId != originalParentId)
+                    if(requiresConversionConfirmation) showFirstChildConfirm = true
+                    else if(pitakaId==null){
                             viewModel.createPitaka(name,balance,currency,selectedColor,parentId,"solid",onSuccess=onDone)
-                        }
                     } else {
-                        viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,"solid",onSuccess=onDone)
+                        viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,"solid",parentId,onSuccess=onDone)
                     }
                 }
             },modifier=Modifier.fillMaxWidth()){Text(if(pitakaId==null)"Create Pitaka" else "Save Changes")}
@@ -83,7 +83,7 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
             title = { Text("Convert this Pitaka into a parent?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("This will create the first sub-Pitaka under the selected Pitaka.")
+                    Text(if (pitakaId == null) "This will create the first sub-Pitaka under the selected Pitaka." else "This will make this Pitaka the first sub-Pitaka under the selected parent.")
                     if (balances.isNotEmpty()) {
                         Text("Existing balance: " + balances.entries.joinToString(" • ") { it.key + " " + "%,.2f".format(it.value) })
                     }
@@ -93,7 +93,8 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
             confirmButton = {
                 TextButton(onClick = {
                     showFirstChildConfirm = false
-                    viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,"solid",onSuccess=onDone)
+                    if (pitakaId == null) viewModel.createPitaka(name,startingBalance.toDoubleOrNull()?:0.0,currency,selectedColor,parentId,"solid",onSuccess=onDone)
+                    else viewModel.updatePitakaMeta(pitakaId,name,currency,selectedColor,"solid",parentId,onSuccess=onDone)
                 }) { Text("Continue") }
             },
             dismissButton = { TextButton(onClick = { showFirstChildConfirm = false }) { Text("Cancel") } }

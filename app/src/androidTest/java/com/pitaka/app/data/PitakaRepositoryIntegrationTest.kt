@@ -75,4 +75,28 @@ class PitakaRepositoryIntegrationTest {
         assertNull(repository.getGoal(goalId))
         assertEquals(0, database.ledgerDao().getEntriesForGoalOnce(goalId).size)
     }
+
+    @Test
+    fun reclassifyingExistingPitakaPreservesParentBalancesAndLedgerHistory() = runBlocking {
+        val parentId = repository.createPitaka("Accounts", 100.0, "PHP", null)
+        val childId = repository.createPitaka("Travel wallet", 25.0, "USD", null)
+
+        repository.updatePitakaMeta(
+            pitakaId = childId,
+            name = "Travel wallet",
+            currency = "USD",
+            colorHex = null,
+            parentPitakaId = parentId
+        )
+
+        val parent = requireNotNull(database.pitakaDao().getPitaka(parentId))
+        val child = requireNotNull(database.pitakaDao().getPitaka(childId))
+        val childBalances = CurrencyBalances.parse(child.currencyBalances)
+        assertEquals(parentId, child.parentPitakaId)
+        assertEquals(0.0, parent.currentAmount, 1e-9)
+        assertEquals(25.0, childBalances["USD"]!!, 1e-9)
+        assertEquals(100.0, childBalances["PHP"]!!, 1e-9)
+        assertEquals(2, database.ledgerDao().getEntriesForPitakaOnce(childId).size)
+        assertEquals(0, database.ledgerDao().getEntriesForPitakaOnce(parentId).size)
+    }
 }

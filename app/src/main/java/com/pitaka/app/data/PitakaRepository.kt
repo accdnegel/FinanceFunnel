@@ -113,31 +113,12 @@ class PitakaRepository(private val db: AppDatabase) {
     suspend fun setPitakaParent(pitakaId: Long, parentPitakaId: Long?) {
         db.withTransaction {
             val p = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
-            require(p.archivedAt == null) { "Cannot change the hierarchy of an archived Pitaka." }
-            require(parentPitakaId == null || parentPitakaId != pitakaId) { "A Pitaka cannot be its own parent." }
-
-            if (parentPitakaId != null) {
-                val parent = pitakaDao.getPitaka(parentPitakaId) ?: error("Parent Pitaka not found.")
-                require(parent.archivedAt == null) { "Cannot assign an archived Pitaka as parent." }
-                require(parent.parentPitakaId == null) { "A sub-Pitaka cannot contain another sub-Pitaka." }
-                require(pitakaDao.countChildren(pitakaId) == 0) {
-                    "A parent Pitaka cannot become a sub-Pitaka while it still has children."
-                }
-                // A parent is a logical container. Re-parenting is therefore allowed only
-                // when it does not turn a financially active Pitaka into a child of itself
-                // through an ancestor cycle.
-                var cursor: Long? = parent.id
-                while (cursor != null) {
-                    require(cursor != pitakaId) { "This parent selection would create a hierarchy cycle." }
-                    cursor = pitakaDao.getPitaka(cursor)?.parentPitakaId
-                }
-            }
-            pitakaDao.updatePitaka(p.copy(parentPitakaId = parentPitakaId))
+            reparentPitaka(p, parentPitakaId)
         }
     }
 
-    /** Metadata-only edit (name/currency/color) — never touches the balance. */
-    suspend fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid") {
+    /** Atomically updates metadata and hierarchy, preserving balances during first-child conversion. */
+    suspend fun updatePitakaMeta(pitakaId: Long, name: String, currency: String, colorHex: String?, cardStyle: String = "solid", parentPitakaId: Long? = null) {
         db.withTransaction {
             val existing = pitakaDao.getPitaka(pitakaId) ?: error("Pitaka not found.")
             require(existing.archivedAt == null) { "Cannot edit an archived Pitaka." }
@@ -145,18 +126,59 @@ class PitakaRepository(private val db: AppDatabase) {
             require(name.trim().isNotBlank()) { "Pitaka name cannot be blank." }
             require(pitakaDao.countByNormalizedName(name, pitakaId) == 0) { "A Pitaka with this name already exists." }
             require(code.length == 3 && code.all { it in 'A'..'Z' }) { "Currency code must be exactly 3 letters." }
-            val balances = CurrencyBalances.parse(existing.currencyBalances)
-            pitakaDao.updatePitaka(existing.copy(
+            val reparented = reparentPitaka(existing, parentPitakaId)
+            val balances = CurrencyBalances.parse(reparented.currencyBalances)
+            pitakaDao.updatePitaka(reparented.copy(
                 name = name.trim(),
                 currency = code,
                 currentAmount = balances[code] ?: 0.0,
                 colorHex = colorHex,
                 cardStyle = cardStyle,
-                currencyBalances = if (balances.isEmpty() && existing.currentAmount != 0.0)
-                    CurrencyBalances.encode(mapOf(code to existing.currentAmount))
-                else existing.currencyBalances
+                currencyBalances = if (balances.isEmpty() && reparented.currentAmount != 0.0)
+                    CurrencyBalances.encode(mapOf(code to reparented.currentAmount))
+                else reparented.currencyBalances
             ))
         }
+    }
+
+    private suspend fun reparentPitaka(pitaka: Pitaka, parentPitakaId: Long?): Pitaka {
+        require(pitaka.archivedAt == null) { "Cannot change the hierarchy of an archived Pitaka." }
+        require(parentPitakaId == null || parentPitakaId != pitaka.id) { "A Pitaka cannot be its own parent." }
+        if (parentPitakaId == pitaka.parentPitakaId) return pitaka
+
+        val parent = parentPitakaId?.let { pitakaDao.getPitaka(it) }
+        require(parentPitakaId == null || parent != null) { "Parent Pitaka not found." }
+        if (parent != null) {
+            require(parent.archivedAt == null) { "Cannot assign an archived Pitaka as parent." }
+            require(parent.parentPitakaId == null) { "A sub-Pitaka cannot contain another sub-Pitaka." }
+            require(pitakaDao.countChildren(pitaka.id) == 0) {
+                "A parent Pitaka cannot become a sub-Pitaka while it still has children."
+            }
+        }
+
+        var updated = pitaka.copy(parentPitakaId = parentPitakaId)
+        if (parent != null && pitakaDao.countChildren(parent.id) == 0) {
+            val mergedBalances = CurrencyBalances.parse(updated.currencyBalances)
+            CurrencyBalances.parse(parent.currencyBalances).forEach { (currency, amount) ->
+                mergedBalances[currency] = MoneyMath.add(mergedBalances[currency] ?: 0.0, amount)
+            }
+            if (mergedBalances.isEmpty() && parent.currentAmount != 0.0) {
+                mergedBalances[parent.currency.uppercase()] = parent.currentAmount
+            }
+            updated = updated.copy(
+                currentAmount = mergedBalances[updated.currency.uppercase()] ?: 0.0,
+                currencyBalances = CurrencyBalances.encode(mergedBalances),
+                lastUpdated = System.currentTimeMillis()
+            )
+            ledgerDao.reassignPitakaReferences(parent.id, pitaka.id)
+            pitakaDao.updatePitaka(parent.copy(
+                currentAmount = 0.0,
+                currencyBalances = CurrencyBalances.encode(emptyMap()),
+                lastUpdated = System.currentTimeMillis()
+            ))
+        }
+        pitakaDao.updatePitaka(updated)
+        return updated
     }
 
     /** Archives a Pitaka without deleting its ledger history or balances. */
