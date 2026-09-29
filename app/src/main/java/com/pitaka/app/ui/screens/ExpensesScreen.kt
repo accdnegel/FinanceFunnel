@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -33,6 +35,7 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
     val monthSpent by viewModel.currentMonthExpenseTotal.collectAsState(initial=0.0)
     var editing by remember { mutableStateOf<com.pitaka.app.data.LedgerEntry?>(null) }
     var showArchived by remember { mutableStateOf(false) }
+    var expensesExpanded by remember { mutableStateOf(false) }
     val visibleFunnels=if(showArchived)allFunnels else funnels
     val month=YearMonth.now().toString()
     val thisMonth=expenses.filter{runCatching{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(month)}.getOrDefault(false)}
@@ -63,13 +66,30 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
                 }
             }
             HorizontalDivider()
-            Text("This Month's Expenses",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=10.dp))
-            if(thisMonth.isEmpty())Text("No expenses logged this month.",color=MaterialTheme.colorScheme.onSurfaceVariant)
-            thisMonth.take(10).forEach{entry->
-                var masked by remember(entry.id){mutableStateOf(false)}
-                Row(Modifier.fillMaxWidth().padding(vertical=7.dp),horizontalArrangement=Arrangement.SpaceBetween){
-                    Column(Modifier.weight(1f)){Text(entry.name);Text((entry.category?:"Uncategorized")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                    Row{Text(if(masked)"••••••" else entry.currency+" "+"%,.2f".format(entry.amount),color=MaterialTheme.colorScheme.error);IconButton({masked=!masked}){Icon(if(masked)Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mask")};TextButton({editing=entry}){Text("Edit")}}
+            Row(
+                Modifier.fillMaxWidth().clickable { expensesExpanded = !expensesExpanded }.padding(top=10.dp, bottom=6.dp),
+                horizontalArrangement=Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("This Month's Expenses",style=MaterialTheme.typography.titleMedium)
+                    Text("${thisMonth.size} transaction${if(thisMonth.size==1)"" else "s"}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(if(expensesExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,if(expensesExpanded) "Collapse expenses" else "Expand expenses")
+            }
+            if(expensesExpanded) {
+                if(thisMonth.isEmpty())Text("No expenses logged this month.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+                else LazyColumn(
+                    Modifier.fillMaxWidth().heightIn(max=240.dp),
+                    verticalArrangement=Arrangement.spacedBy(2.dp)
+                ) {
+                    items(thisMonth,key={it.id}){entry->
+                        var masked by remember(entry.id){mutableStateOf(false)}
+                        Row(Modifier.fillMaxWidth().padding(vertical=7.dp),horizontalArrangement=Arrangement.SpaceBetween){
+                            Column(Modifier.weight(1f)){Text(entry.name);Text((entry.category?:"Uncategorized")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                            Row{Text(if(masked)"••••••" else entry.currency+" "+"%,.2f".format(entry.amount),color=MaterialTheme.colorScheme.error);IconButton({masked=!masked}){Icon(if(masked)Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mask")};TextButton({editing=entry}){Text("Edit")}}
+                        }
+                        HorizontalDivider()
+                    }
                 }
             }
         }
