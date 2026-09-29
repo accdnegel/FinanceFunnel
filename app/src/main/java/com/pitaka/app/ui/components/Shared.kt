@@ -28,12 +28,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.layout.onSizeChanged
 import com.pitaka.app.data.*
 import com.pitaka.app.data.commonCurrencies
 import com.pitaka.app.ui.theme.batikColorPalette
@@ -60,23 +61,39 @@ fun AdaptiveText(
     minFontSize: TextUnit = 10.sp
 ) {
     val initialFontSize = if (style.fontSize.isSpecified) style.fontSize else 14.sp
-    var measuredWidth by remember { mutableIntStateOf(0) }
-    var fontSize by remember(text, initialFontSize, minFontSize, measuredWidth) { mutableStateOf(initialFontSize) }
+    val textMeasurer = rememberTextMeasurer()
 
-    Text(
-        text = text,
-        modifier = modifier.onSizeChanged { measuredWidth = it.width },
-        style = style.copy(fontSize = fontSize),
-        color = color,
-        fontWeight = fontWeight,
-        maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis,
-        onTextLayout = { result ->
-            if (result.hasVisualOverflow && fontSize > minFontSize) {
-                fontSize = (fontSize.value - 1f).coerceAtLeast(minFontSize.value).sp
+    BoxWithConstraints(modifier = modifier) {
+        val availableWidth = constraints.maxWidth
+        val resolvedFontSize = remember(text, style, fontWeight, initialFontSize, minFontSize, maxLines, availableWidth) {
+            if (availableWidth == Constraints.Infinity) {
+                initialFontSize
+            } else {
+                var candidate = initialFontSize
+                while (candidate > minFontSize) {
+                    val result = textMeasurer.measure(
+                        text = text,
+                        style = style.copy(fontSize = candidate, fontWeight = fontWeight ?: style.fontWeight),
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = maxLines,
+                        constraints = Constraints(maxWidth = availableWidth)
+                    )
+                    if (!result.hasVisualOverflow) break
+                    candidate = (candidate.value - 1f).coerceAtLeast(minFontSize.value).sp
+                }
+                candidate
             }
         }
-    )
+
+        Text(
+            text = text,
+            style = style.copy(fontSize = resolvedFontSize),
+            color = color,
+            fontWeight = fontWeight,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

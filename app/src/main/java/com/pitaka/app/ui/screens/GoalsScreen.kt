@@ -88,7 +88,7 @@ private fun GoalListItem(goal: GoalWithProgress, onClick: () -> Unit) {
     val complete = targets.isNotEmpty() && ratios.all { it >= 1.0 }
 
     ListItem(
-        headlineContent = { AdaptiveText(goal.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+        headlineContent = { AdaptiveText(goal.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2) },
         supportingContent = {
             Column {
                 AdaptiveText(
