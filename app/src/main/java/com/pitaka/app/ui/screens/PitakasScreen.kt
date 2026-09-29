@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.ui.components.AdaptiveText
 import com.pitaka.app.ui.theme.parseHexColor
 
 /**
@@ -59,10 +60,10 @@ fun PitakasScreen(
                     val childCount = pitakas.count { it.parentPitakaId == pitaka.id }
                     val accent = parseHexColor(pitaka.colorHex) ?: MaterialTheme.colorScheme.primary
                     ListItem(
-                        headlineContent = { Text(pitaka.name, fontWeight = FontWeight.Bold) },
+                        headlineContent = { AdaptiveText(pitaka.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                         supportingContent = {
                             Column {
-                                Text(viewModel.effectivePitakaBalances(pitaka.id, pitakas).displayLines())
+                                AdaptiveText(viewModel.effectivePitakaBalances(pitaka.id, pitakas).displayLines(), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                                 if (childCount > 0) Text("$childCount sub-Pitaka${if (childCount == 1) "" else "s"}")
                             }
                         },

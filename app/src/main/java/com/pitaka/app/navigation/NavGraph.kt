@@ -5,10 +5,15 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.navigation.*
 import androidx.navigation.compose.*
@@ -33,7 +38,7 @@ private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PI
  val operationError by viewModel.operationError.collectAsState();val snackbarHostState=remember{SnackbarHostState()}
  LaunchedEffect(operationError){operationError?.let{snackbarHostState.showSnackbar(it);viewModel.clearOperationError()}}
  Scaffold(snackbarHost={SnackbarHost(snackbarHostState)},bottomBar={if(tabs.any{it.route==route})NavigationBar{tabs.forEach{t->NavigationBarItem(selected=route==t.route,onClick={nav.navigate(t.route){popUpTo(Routes.HOME){saveState=true};launchSingleTop=true;restoreState=true}},icon={Icon(t.icon,t.label)},label={Text(t.label)})}}},
- floatingActionButton={if(tabs.any{it.route==route})FloatingActionButton(onClick={showAdd=true}){Icon(Icons.Default.Add,"Add")}}){padding->
+ floatingActionButton={if(tabs.any{it.route==route})DraggableAddButton { showAdd=true }} ){padding->
   NavHost(nav,Routes.HOME,Modifier.padding(padding)){
    composable(Routes.HOME){HomeScreen(viewModel,{nav.navigate(Routes.CURRENCY_SETTINGS)},{c->nav.navigate(Routes.categoryDetail(c))},{id->nav.navigate(Routes.pitakaDetail(id))})}
     composable(Routes.PITAKAS){PitakasScreen(viewModel,{nav.navigate(Routes.CREATE_PITAKA)},{nav.navigate(Routes.TRANSFER)},{nav.navigate(Routes.pitakaDetail(it))})}
@@ -56,4 +61,29 @@ private val tabs=listOf(Tab(Routes.HOME,"Home",Icons.Default.Home),Tab(Routes.PI
   }
  }
     if(showAdd)ModalBottomSheet(onDismissRequest={showAdd=false}){Column(Modifier.padding(24.dp)){Text("Add",style=MaterialTheme.typography.headlineSmall);Spacer(Modifier.padding(4.dp));if(route==Routes.PITAKAS||route==Routes.HOME)TextButton({showAdd=false;nav.navigate(Routes.CREATE_PITAKA)}){Text("Pitaka")};if(route==Routes.GOALS||route==Routes.HOME)TextButton({showAdd=false;nav.navigate(Routes.CREATE_GOAL)}){Text("Goal")};TextButton({showAdd=false;nav.navigate(Routes.CREATE_INCOME)}){Text("Income")};TextButton({showAdd=false;nav.navigate(Routes.CREATE_EXPENSE)}){Text("Expense")};TextButton({showAdd=false;nav.navigate(Routes.CREATE_FUNNEL)}){Text("Expense Funnel")};Spacer(Modifier.height(24.dp))}}
+}
+
+@Composable
+private fun DraggableAddButton(onClick: () -> Unit) {
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val horizontalLimit = with(density) { (configuration.screenWidthDp.dp - 88.dp).coerceAtLeast(0.dp).toPx() }
+    val verticalLimit = with(density) { (configuration.screenHeightDp.dp - 200.dp).coerceAtLeast(0.dp).toPx() }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
+
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = Modifier
+            .offset { IntOffset(offsetX.toInt(), offsetY.toInt()) }
+            .pointerInput(horizontalLimit, verticalLimit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    offsetX = (offsetX + dragAmount.x).coerceIn(-horizontalLimit, 0f)
+                    offsetY = (offsetY + dragAmount.y).coerceIn(-verticalLimit, 0f)
+                }
+            }
+    ) {
+        Icon(Icons.Default.Add, "Add")
+    }
 }

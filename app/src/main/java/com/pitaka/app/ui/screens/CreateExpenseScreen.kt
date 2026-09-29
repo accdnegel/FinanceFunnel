@@ -55,7 +55,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
 @Composable private fun FunnelDropdown(funnels:List<ExpenseFunnel>,selected:ExpenseFunnel?,onSelected:(ExpenseFunnel?)->Unit){
     var open by remember{mutableStateOf(false)}
     ExposedDropdownMenuBox(open,{open=!open}){
-        OutlinedTextField(value=selected?.name?:"General Expenses",onValueChange={},readOnly=true,label={Text("Expense funnel")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
+        OutlinedTextField(value=selected?.name?:"General Expenses",onValueChange={},readOnly=true,singleLine=true,label={Text("Expense funnel")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
         ExposedDropdownMenu(open,{open=false}){DropdownMenuItem(text={Text("General Expenses")},onClick={onSelected(null);open=false});funnels.filter{!it.isSystem}.forEach{f->DropdownMenuItem(text={Text(f.name)},onClick={onSelected(f);open=false})}}
     }
 }
@@ -63,7 +63,7 @@ fun CreateExpenseScreen(viewModel: PitakaViewModel,onDone:()->Unit){
 @Composable private fun CreateExpensePitakaDropdown(label:String,pitakas:List<Pitaka>,selected:Pitaka?,onSelected:(Pitaka)->Unit){
     var open by remember{mutableStateOf(false)}
     ExposedDropdownMenuBox(open,{open=!open}){
-        OutlinedTextField(value=selected?.name?:"Select Pitaka",onValueChange={},readOnly=true,label={Text(label)},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
+        OutlinedTextField(value=selected?.name?:"Select Pitaka",onValueChange={},readOnly=true,singleLine=true,label={Text(label)},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
         ExposedDropdownMenu(open,{open=false}){pitakas.forEach{p->DropdownMenuItem(text={Text(p.name)},onClick={onSelected(p);open=false})}}
     }
 }

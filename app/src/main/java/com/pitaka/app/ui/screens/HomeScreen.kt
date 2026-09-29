@@ -24,6 +24,7 @@ import com.pitaka.app.data.CategorySpend
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
+import com.pitaka.app.ui.components.AdaptiveText
 import com.pitaka.app.util.buildLedgerCsv
 import com.pitaka.app.util.exportAndShareCsv
 import com.pitaka.app.util.DatabaseBackup
@@ -108,7 +109,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
                 breakdown.forEachIndexed { i,item ->
                     Row(Modifier.fillMaxWidth().clickable{onOpenCategory(item.name)}.padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
                         Box(Modifier.size(10.dp).background(chartColors[i%chartColors.size],RoundedCornerShape(5.dp)))
-                        Spacer(Modifier.width(10.dp)); Text(item.name,Modifier.weight(1f)); Text(currency+" "+"%,.2f".format(item.total),fontWeight=FontWeight.SemiBold)
+                        Spacer(Modifier.width(10.dp)); AdaptiveText(item.name,Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium); AdaptiveText(currency+" "+"%,.2f".format(item.total),modifier=Modifier.widthIn(max=110.dp),style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.SemiBold)
                     }
                 }
             }
@@ -123,7 +124,7 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
             } ?: Text("No monthly limit configured.",color=Color.Gray)
             SectionTitle("Spending by Expense Funnel")
             if(funnelBreakdown.isEmpty()) Text("No funnel spending for ${monthLabel(selectedMonth)}.",color=Color.Gray)
-            else { CategoryPie(funnelBreakdown); funnelBreakdown.forEachIndexed{i,item->Row(Modifier.fillMaxWidth().padding(vertical=6.dp)){Box(Modifier.size(10.dp).background(chartColors[i%chartColors.size],RoundedCornerShape(5.dp)));Spacer(Modifier.width(10.dp));Text(item.name,Modifier.weight(1f));Text("$currency ${"%,.2f".format(item.total)}")}} }
+            else { CategoryPie(funnelBreakdown); funnelBreakdown.forEachIndexed{i,item->Row(Modifier.fillMaxWidth().padding(vertical=6.dp)){Box(Modifier.size(10.dp).background(chartColors[i%chartColors.size],RoundedCornerShape(5.dp)));Spacer(Modifier.width(10.dp));AdaptiveText(item.name,Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium);AdaptiveText("$currency ${"%,.2f".format(item.total)}",modifier=Modifier.widthIn(max=110.dp),style=MaterialTheme.typography.bodyMedium)}} }
             SectionTitle("Cash Inflow / Outflow")
             val monthExpenses=allExpenses.filter{runCatching{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(selectedMonth)}.getOrDefault(false)}
             val monthIncome=income.find{it.month==selectedMonth}?.total ?: 0.0
@@ -138,12 +139,12 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
 @Composable private fun MonthSelector(months:List<String>,selected:String,onSelect:(String)->Unit){
     var open by remember{mutableStateOf(false)}
     ExposedDropdownMenuBox(open,{open=!open},Modifier.fillMaxWidth()){
-        OutlinedTextField(value=monthLabel(selected),onValueChange={},readOnly=true,label={Text("Month")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
+        OutlinedTextField(value=monthLabel(selected),onValueChange={},readOnly=true,singleLine=true,label={Text("Month")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(open)},modifier=Modifier.menuAnchor().fillMaxWidth())
         ExposedDropdownMenu(open,{open=false}){months.distinct().sorted().reversed().forEach{m->DropdownMenuItem(text={Text(monthLabel(m))},onClick={onSelect(m);open=false})}}
     }
 }
-@Composable private fun NetRow(label:String,value:Double,currency:String,expanded:Boolean,onClick:()->Unit)=Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(vertical=8.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(if(expanded)"▾ $label" else "▸ $label");Text(currency+" "+"%,.2f".format(value),fontWeight=FontWeight.SemiBold)}
-@Composable private fun AssetRow(name:String,balance:String,modifier:Modifier=Modifier)=Text("    "+name+"  •  "+balance,style=MaterialTheme.typography.bodySmall,color=Color.Gray,modifier=modifier.padding(vertical=3.dp))
+@Composable private fun NetRow(label:String,value:Double,currency:String,expanded:Boolean,onClick:()->Unit)=Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){AdaptiveText(if(expanded)"▾ $label" else "▸ $label",Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium);AdaptiveText(currency+" "+"%,.2f".format(value),modifier=Modifier.widthIn(max=130.dp),style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.SemiBold)}
+@Composable private fun AssetRow(name:String,balance:String,modifier:Modifier=Modifier)=Column(modifier.fillMaxWidth().padding(start=16.dp,top=3.dp,bottom=3.dp)){AdaptiveText(name,style=MaterialTheme.typography.bodySmall,color=Color.Gray);AdaptiveText(balance,style=MaterialTheme.typography.bodySmall,color=Color.Gray,maxLines=2)}
 @Composable private fun CombinedMonthlyChart(income:List<com.pitaka.app.data.MonthlyAmount>,expense:List<com.pitaka.app.data.MonthlyAmount>){
     val keys=(income.map{it.month}+expense.map{it.month}).distinct().sorted().takeLast(8)
     if(keys.isEmpty()){Text("No monthly data yet.",color=Color.Gray);return}
@@ -153,10 +154,10 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
             Row(Modifier.height(140.dp),verticalAlignment=Alignment.Bottom,horizontalArrangement=Arrangement.spacedBy(2.dp)){
                 Box(Modifier.width(10.dp).height(((income.find{x->x.month==m}?.total?:0.0)/maxVal*120).dp.coerceAtLeast(2.dp)).background(Color(0xFF1E8E5A),RoundedCornerShape(3.dp)))
                 Box(Modifier.width(10.dp).height(((expense.find{x->x.month==m}?.total?:0.0)/maxVal*120).dp.coerceAtLeast(2.dp)).background(Color(0xFFD64545),RoundedCornerShape(3.dp)))
-            };Text(monthLabel(m).substringBefore(" "),style=MaterialTheme.typography.labelSmall)
+            };AdaptiveText(monthLabel(m).substringBefore(" ").take(3),style=MaterialTheme.typography.labelSmall,minFontSize=9.sp)
         }}
     }
-    Row(horizontalArrangement=Arrangement.spacedBy(16.dp)){Text("● Income / Assets",color=Color(0xFF1E8E5A),style=MaterialTheme.typography.labelSmall);Text("● Expenses",color=Color(0xFFD64545),style=MaterialTheme.typography.labelSmall)}
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){AdaptiveText("● Income / Assets",Modifier.weight(1f),color=Color(0xFF1E8E5A),style=MaterialTheme.typography.labelSmall);AdaptiveText("● Expenses",Modifier.weight(1f),color=Color(0xFFD64545),style=MaterialTheme.typography.labelSmall)}
 }
 @Composable private fun CategoryPie(items:List<CategorySpend>){
     val total=items.sumOf{it.total}.coerceAtLeast(.01)
@@ -175,10 +176,10 @@ fun HomeScreen(viewModel: PitakaViewModel, onOpenCurrencySettings: () -> Unit, o
 }
 @Composable private fun FlowColumn(title:String,total:Double,items:List<com.pitaka.app.data.LedgerEntry>,currency:String,color:Color,expanded:Boolean,modifier:Modifier){
     Column(modifier){
-        Text(title,fontWeight=FontWeight.Bold)
-        Text(currency+" "+"%,.2f".format(total),color=color,fontWeight=FontWeight.Bold)
+        AdaptiveText(title,style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.Bold)
+        AdaptiveText(currency+" "+"%,.2f".format(total),style=MaterialTheme.typography.bodyMedium,color=color,fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        (if(expanded)items else items.take(4)).forEach{Text(it.name+" • "+currency+" "+"%,.2f".format(it.amount),style=MaterialTheme.typography.bodySmall,modifier=Modifier.padding(vertical=2.dp))}
+        (if(expanded)items else items.take(4)).forEach{AdaptiveText(it.name+" • "+currency+" "+"%,.2f".format(it.amount),style=MaterialTheme.typography.bodySmall,maxLines=2,modifier=Modifier.padding(vertical=2.dp))}
         if(items.size>4&&!expanded)Text("+"+(items.size-4)+" more",style=MaterialTheme.typography.labelSmall,color=Color.Gray)
     }
 }

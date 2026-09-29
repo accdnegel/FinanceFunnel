@@ -19,6 +19,7 @@ import com.pitaka.app.data.CurrencyBalances
 import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.HealthBar
+import com.pitaka.app.ui.components.AdaptiveText
 import com.pitaka.app.ui.components.dateFormat
 import com.pitaka.app.ui.theme.healthColor
 import com.pitaka.app.ui.theme.parseHexColor
@@ -87,12 +88,14 @@ private fun GoalListItem(goal: GoalWithProgress, onClick: () -> Unit) {
     val complete = targets.isNotEmpty() && ratios.all { it >= 1.0 }
 
     ListItem(
-        headlineContent = { Text(goal.name, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+        headlineContent = { AdaptiveText(goal.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
         supportingContent = {
             Column {
-                Text(
+                AdaptiveText(
                     progress.displayLines() + " / " + targets.displayLines(),
-                    fontWeight = FontWeight.SemiBold
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2
                 )
                 Text(goal.targetDate?.let { "Target: ${dateFormat.format(Date(it))}" } ?: "No target date", color = Color.Gray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(6.dp))
@@ -100,7 +103,7 @@ private fun GoalListItem(goal: GoalWithProgress, onClick: () -> Unit) {
             }
         },
         leadingContent = { Box(Modifier.width(6.dp).height(48.dp).background(accentColor)) },
-        trailingContent = { Text(if (complete) "Completed" else if (isInvestment) "Investment" else "Savings") },
+        trailingContent = { AdaptiveText(if (complete) "Completed" else if (isInvestment) "Investment" else "Savings", style = MaterialTheme.typography.labelMedium, minFontSize = 9.sp) },
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     )
 }

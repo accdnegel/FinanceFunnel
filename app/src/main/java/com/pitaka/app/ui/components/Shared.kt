@@ -26,7 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.onSizeChanged
 import com.pitaka.app.data.*
 import com.pitaka.app.data.commonCurrencies
 import com.pitaka.app.ui.theme.batikColorPalette
@@ -41,6 +48,36 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.pitaka.app.R
+
+@Composable
+fun AdaptiveText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+    maxLines: Int = 1,
+    minFontSize: TextUnit = 10.sp
+) {
+    val initialFontSize = if (style.fontSize.isSpecified) style.fontSize else 14.sp
+    var measuredWidth by remember { mutableIntStateOf(0) }
+    var fontSize by remember(text, initialFontSize, minFontSize, measuredWidth) { mutableStateOf(initialFontSize) }
+
+    Text(
+        text = text,
+        modifier = modifier.onSizeChanged { measuredWidth = it.width },
+        style = style.copy(fontSize = fontSize),
+        color = color,
+        fontWeight = fontWeight,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { result ->
+            if (result.hasVisualOverflow && fontSize > minFontSize) {
+                fontSize = (fontSize.value - 1f).coerceAtLeast(minFontSize.value).sp
+            }
+        }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +98,7 @@ fun PitakaDropdown(
             readOnly = true,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
+            singleLine = true,
             modifier = Modifier.menuAnchor().fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -339,6 +377,7 @@ private fun EntityDropdown(label: String, items: List<Pair<Long, String>>, selec
             readOnly = true,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+            singleLine = true,
             modifier = Modifier.menuAnchor().fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {

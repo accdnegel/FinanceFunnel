@@ -30,6 +30,7 @@ import com.pitaka.app.data.CurrencyBalances
 import com.pitaka.app.data.displayLines
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.AdjustBalanceDialog
+import com.pitaka.app.ui.components.AdaptiveText
 import com.pitaka.app.ui.components.ConfirmDeleteDialog
 import com.pitaka.app.ui.components.EditEntryDialog
 import com.pitaka.app.ui.components.dateFormat
@@ -90,7 +91,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(pitaka?.name ?: "") },
+                title = { AdaptiveText(pitaka?.name ?: "", style = MaterialTheme.typography.titleLarge, minFontSize = 12.sp) },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
                     IconButton(onClick = { showAdjustDialog = true }) {
@@ -120,11 +121,12 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                         .background(accentColor.copy(alpha = 0.12f))
                         .padding(16.dp)
                 ) {
-                    Text(
+                    AdaptiveText(
                         viewModel.effectivePitakaBalances(p.id, allPitakas).displayLines(),
                         style = MaterialTheme.typography.headlineMedium,
                         color = accentColor,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2
                     )
                     Text("Last updated: ${dateFormat.format(Date(p.lastUpdated))}", color = Color.Gray)
                 }
@@ -141,8 +143,8 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                     childPitakas.forEach { child ->
                         val childColor = parseHexColor(child.colorHex) ?: accentColor
                         ListItem(
-                            headlineContent = { Text(child.name, fontWeight = FontWeight.Bold) },
-                            supportingContent = { Text(viewModel.effectivePitakaBalances(child.id, allPitakas).displayLines()) },
+                            headlineContent = { AdaptiveText(child.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+                            supportingContent = { AdaptiveText(viewModel.effectivePitakaBalances(child.id, allPitakas).displayLines(), style = MaterialTheme.typography.bodyMedium, maxLines = 2) },
                             leadingContent = { Box(Modifier.width(6.dp).height(42.dp).background(childColor)) },
                             trailingContent = { Text("Open") },
                             modifier = Modifier.fillMaxWidth().clickable { onOpenChild(child.id) }
@@ -284,21 +286,15 @@ private fun LedgerRow(
     var masked by remember { mutableStateOf(false) }
     val (label, signedAmount, color) = describeEntry(entry, pitakaId, currency)
     val editable = entry.type != LedgerType.OPENING_BALANCE
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(entry.name, fontWeight = FontWeight.Medium)
-            Text(
-                "$label  •  ${dateFormat.format(Date(entry.date))}",
-                color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (masked) "••••••" else signedAmount, color = color, fontWeight = FontWeight.SemiBold)
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        AdaptiveText(entry.name, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+        AdaptiveText(
+            "$label  •  ${dateFormat.format(Date(entry.date))}",
+            color = Color.Gray,
+            style = MaterialTheme.typography.bodySmall
+        )
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AdaptiveText(if (masked) "••••••" else signedAmount, modifier = Modifier.weight(1f), color = color, fontWeight = FontWeight.SemiBold)
             IconButton(onClick = { masked = !masked }) {
                 Icon(if (masked) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (masked) "Show amount" else "Hide amount")
             }

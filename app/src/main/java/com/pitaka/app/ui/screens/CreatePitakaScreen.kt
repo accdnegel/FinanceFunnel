@@ -43,7 +43,7 @@ fun CreatePitakaScreen(viewModel: PitakaViewModel, pitakaId: Long? = null, paren
             if(pitakas.isNotEmpty()){
                 var expanded by remember{mutableStateOf(false)}
                 ExposedDropdownMenuBox(expanded,{expanded=!expanded}){
-                    OutlinedTextField(value=pitakas.find{it.id==parentId}?.name ?: "No parent (top level)",onValueChange={},readOnly=true,label={Text("Parent Pitaka (optional)")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(expanded)},modifier=Modifier.menuAnchor().fillMaxWidth())
+                    OutlinedTextField(value=pitakas.find{it.id==parentId}?.name ?: "No parent (top level)",onValueChange={},readOnly=true,singleLine=true,label={Text("Parent Pitaka (optional)")},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(expanded)},modifier=Modifier.menuAnchor().fillMaxWidth())
                     ExposedDropdownMenu(expanded,{expanded=false}){
                         DropdownMenuItem(text={Text("No parent (top level)")},onClick={parentId=null;expanded=false})
                         pitakas.filter{it.id!=pitakaId && it.parentPitakaId==null}.forEach{p->DropdownMenuItem(text={Text(p.name)},onClick={parentId=p.id;expanded=false})}

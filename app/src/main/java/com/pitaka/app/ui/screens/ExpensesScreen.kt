@@ -14,9 +14,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.pitaka.app.data.ExpenseFunnel
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.EditEntryDialog
+import com.pitaka.app.ui.components.AdaptiveText
 import com.pitaka.app.ui.components.HealthBar
 import com.pitaka.app.ui.components.dateFormat
 import java.time.YearMonth
@@ -57,9 +59,9 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
                 items(visibleFunnels,key={it.id}){f->
                     val spent=expenses.filter{it.funnelId==f.id && it.funnelCurrency.equals(f.currency,true)}.sumOf{it.funnelAmount ?: it.amount};val remaining=f.limit-spent
                     ListItem(
-                        headlineContent={Text(f.name,style=MaterialTheme.typography.titleMedium)},
-                        supportingContent={Column{Text(if(f.isSystem) "Spent ${f.currency} ${"%,.2f".format(spent)} (no limit)" else "Spent ${f.currency} ${"%,.2f".format(spent)} / ${"%,.2f".format(f.limit)}");if(f.limit>0)HealthBar(((remaining/f.limit).toFloat()).coerceIn(0f,1f))}},
-                        trailingContent={Text(if(f.isSystem) "Unlimited" else if(remaining>=0) "${f.currency} ${"%,.2f".format(remaining)} left" else "${f.currency} ${"%,.2f".format(-remaining)} over",color=if(!f.isSystem&&remaining<0)MaterialTheme.colorScheme.error else LocalContentColor.current)},
+                        headlineContent={AdaptiveText(f.name,style=MaterialTheme.typography.titleMedium)},
+                        supportingContent={Column{AdaptiveText(if(f.isSystem) "Spent ${f.currency} ${"%,.2f".format(spent)} (no limit)" else "Spent ${f.currency} ${"%,.2f".format(spent)} / ${"%,.2f".format(f.limit)}",style=MaterialTheme.typography.bodyMedium,maxLines=2);if(f.limit>0)HealthBar(((remaining/f.limit).toFloat()).coerceIn(0f,1f))}},
+                        trailingContent={AdaptiveText(if(f.isSystem) "Unlimited" else if(remaining>=0) "${f.currency} ${"%,.2f".format(remaining)} left" else "${f.currency} ${"%,.2f".format(-remaining)} over",modifier=Modifier.widthIn(max=96.dp),style=MaterialTheme.typography.labelMedium,color=if(!f.isSystem&&remaining<0)MaterialTheme.colorScheme.error else LocalContentColor.current,maxLines=2,minFontSize=9.sp)},
                         modifier=Modifier.fillMaxWidth().clickable{onOpenFunnel(f.id)}
                     )
                     HorizontalDivider()
@@ -85,8 +87,8 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
                     items(thisMonth,key={it.id}){entry->
                         var masked by remember(entry.id){mutableStateOf(false)}
                         Row(Modifier.fillMaxWidth().padding(vertical=7.dp),horizontalArrangement=Arrangement.SpaceBetween){
-                            Column(Modifier.weight(1f)){Text(entry.name);Text((entry.category?:"Uncategorized")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                            Row{Text(if(masked)"••••••" else entry.currency+" "+"%,.2f".format(entry.amount),color=MaterialTheme.colorScheme.error);IconButton({masked=!masked}){Icon(if(masked)Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mask")};TextButton({editing=entry}){Text("Edit")}}
+                            Column(Modifier.weight(1f)){AdaptiveText(entry.name,style=MaterialTheme.typography.bodyMedium);AdaptiveText((entry.category?:"Uncategorized")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                            Row{AdaptiveText(if(masked)"••••••" else entry.currency+" "+"%,.2f".format(entry.amount),modifier=Modifier.widthIn(max=96.dp),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.error,minFontSize=9.sp);IconButton({masked=!masked}){Icon(if(masked)Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mask")};TextButton({editing=entry}){Text("Edit")}}
                         }
                         HorizontalDivider()
                     }

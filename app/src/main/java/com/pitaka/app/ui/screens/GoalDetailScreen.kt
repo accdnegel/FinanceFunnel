@@ -1,9 +1,9 @@
 package com.pitaka.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.pitaka.app.data.CurrencyBalances
 import com.pitaka.app.data.Goal
 import com.pitaka.app.data.GoalType
@@ -30,6 +31,7 @@ import com.pitaka.app.data.LedgerType
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.PitakaDropdown
+import com.pitaka.app.ui.components.AdaptiveText
 import com.pitaka.app.ui.components.CurrencyDropdown
 import com.pitaka.app.ui.components.ConfirmDeleteDialog
 import com.pitaka.app.ui.components.EditEntryDialog
@@ -94,7 +96,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(goal?.name ?: "") },
+                title = { AdaptiveText(goal?.name ?: "", style = MaterialTheme.typography.titleLarge, minFontSize = 12.sp) },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
                     IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "Edit Goal") }
@@ -105,7 +107,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp)) {
             goal?.let { g ->
                 Column(
                     modifier = Modifier
@@ -114,13 +116,14 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                         .background(accentColor.copy(alpha = 0.12f))
                         .padding(16.dp)
                 ) {
-                    Text(
+                    AdaptiveText(
                         if (maskedBalance) "••••••" else CurrencyBalances.parse(g.currencyBalances).displayLines().ifBlank { "${g.currency} 0.00" },
                         style = MaterialTheme.typography.headlineSmall,
                         color = accentColor,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2
                     )
-                    Text("Targets: ${CurrencyBalances.parse(g.targetBalances).displayLines()}")
+                    AdaptiveText("Targets: ${CurrencyBalances.parse(g.targetBalances).displayLines()}", style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                     Text(g.targetDate?.let { "Target date: ${dateFormat.format(Date(it))}" } ?: "No target date", color = Color.Gray)
                     if (completed) Text("Completed", color = accentColor, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(10.dp))
@@ -212,20 +215,16 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("Contribution History", fontWeight = FontWeight.Bold)
-            LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                items(entries, key = { it.id }) { entry ->
+            if (entries.isEmpty()) {
+                Text("No Goal activity yet.", color = Color.Gray, modifier = Modifier.padding(vertical = 12.dp))
+            } else {
+                entries.forEach { entry ->
                     var masked by remember(entry.id) { mutableStateOf(false) }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(entry.name, fontWeight = FontWeight.Medium)
-                            Text(dateFormat.format(Date(entry.date)), color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (masked) "••••••" else "${entry.currency} ${"%,.2f".format(entry.amount)}")
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                        AdaptiveText(entry.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text(dateFormat.format(Date(entry.date)), color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            AdaptiveText(if (masked) "••••••" else "${entry.currency} ${"%,.2f".format(entry.amount)}", modifier = Modifier.weight(1f))
                             IconButton(onClick = { editingEntry = entry }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
                             }
@@ -237,6 +236,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
                     HorizontalDivider()
                 }
             }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
