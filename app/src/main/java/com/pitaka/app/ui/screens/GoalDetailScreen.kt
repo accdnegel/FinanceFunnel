@@ -29,6 +29,7 @@ import com.pitaka.app.data.displayLines
 import com.pitaka.app.data.LedgerEntry
 import com.pitaka.app.data.LedgerType
 import com.pitaka.app.data.Pitaka
+import com.pitaka.app.data.sourcePitakaId
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.PitakaDropdown
 import com.pitaka.app.ui.components.AdaptiveText
@@ -36,6 +37,7 @@ import com.pitaka.app.ui.components.CurrencyDropdown
 import com.pitaka.app.ui.components.ConfirmDeleteDialog
 import com.pitaka.app.ui.components.EditEntryDialog
 import com.pitaka.app.ui.components.HealthBar
+import com.pitaka.app.ui.components.PitakaSourceFilter
 import com.pitaka.app.ui.components.dateFormat
 import com.pitaka.app.ui.theme.healthColor
 import com.pitaka.app.ui.theme.parseHexColor
@@ -74,6 +76,7 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
     var actionCategory by remember { mutableStateOf("") }
     var destinationAmount by remember { mutableStateOf("") }
     var refundPitaka by remember { mutableStateOf<Pitaka?>(null) }
+    var selectedSourcePitakaId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(goalId) { goal = viewModel.getGoal(goalId) }
     LaunchedEffect(leafPitakas) { if (sourcePitaka == null && leafPitakas.isNotEmpty()) { sourcePitaka = leafPitakas.first(); selectedSourceCurrency = leafPitakas.first().currency } }
@@ -92,6 +95,8 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
     val missingContributionSource = entries.any { entry ->
         entry.type == LedgerType.GOAL_CONTRIBUTION && allPitakas.none { it.id == entry.pitakaId }
     }
+    val sourcePitakas = allPitakas.filter { pitaka -> entries.any { it.sourcePitakaId() == pitaka.id } }
+    val filteredEntries = selectedSourcePitakaId?.let { sourceId -> entries.filter { it.sourcePitakaId() == sourceId } } ?: entries
 
     Scaffold(
         topBar = {
@@ -215,14 +220,17 @@ fun GoalDetailScreen(viewModel: PitakaViewModel, goalId: Long, onBack: () -> Uni
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("Contribution History", fontWeight = FontWeight.Bold)
-            if (entries.isEmpty()) {
-                Text("No Goal activity yet.", color = Color.Gray, modifier = Modifier.padding(vertical = 12.dp))
+            PitakaSourceFilter(sourcePitakas, selectedSourcePitakaId, { selectedSourcePitakaId = it })
+            if (filteredEntries.isEmpty()) {
+                Text(if (entries.isEmpty()) "No Goal activity yet." else "No Goal contributions from this Pitaka.", color = Color.Gray, modifier = Modifier.padding(vertical = 12.dp))
             } else {
-                entries.forEach { entry ->
+                filteredEntries.forEach { entry ->
                     var masked by remember(entry.id) { mutableStateOf(false) }
+                    val sourceName = entry.sourcePitakaId()?.let { sourceId -> allPitakas.find { it.id == sourceId }?.name ?: "Deleted Pitaka" }
                     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                         AdaptiveText(entry.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         Text(dateFormat.format(Date(entry.date)), color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                        sourceName?.let { AdaptiveText("From Pitaka: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             AdaptiveText(if (masked) "••••••" else "${entry.currency} ${"%,.2f".format(entry.amount)}", modifier = Modifier.weight(1f))
                             IconButton(onClick = { editingEntry = entry }) {

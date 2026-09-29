@@ -29,6 +29,7 @@ import com.pitaka.app.data.LedgerType
 import com.pitaka.app.data.Pitaka
 import com.pitaka.app.data.CurrencyBalances
 import com.pitaka.app.data.displayLines
+import com.pitaka.app.data.sourcePitakaId
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.AdjustBalanceDialog
 import com.pitaka.app.ui.components.AdaptiveText
@@ -228,6 +229,7 @@ fun PitakaDetailScreen(viewModel: PitakaViewModel, pitakaId: Long, onBack: () ->
                         entry = entry,
                         pitakaId = pitakaId,
                         currency = currency,
+                        pitakas = allPitakas,
                         onEdit = { editingEntry = entry },
                         onDelete = { viewModel.deleteEntry(entry) }
                     )
@@ -281,12 +283,14 @@ private fun LedgerRow(
     entry: LedgerEntry,
     pitakaId: Long,
     currency: String,
+    pitakas: List<Pitaka>,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var masked by remember { mutableStateOf(false) }
     val (label, signedAmount, color) = describeEntry(entry, pitakaId, currency)
     val editable = entry.type != LedgerType.OPENING_BALANCE
+    val sourceName = entry.sourcePitakaId()?.let { sourceId -> pitakas.find { it.id == sourceId }?.name ?: "Deleted Pitaka" }
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         AdaptiveText(entry.name, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
         AdaptiveText(
@@ -294,6 +298,7 @@ private fun LedgerRow(
             color = Color.Gray,
             style = MaterialTheme.typography.bodySmall
         )
+        sourceName?.let { AdaptiveText("From Pitaka: $it", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AdaptiveText(if (masked) "••••••" else signedAmount, modifier = Modifier.weight(1f), color = color, fontWeight = FontWeight.SemiBold)
             IconButton(onClick = { masked = !masked }) {

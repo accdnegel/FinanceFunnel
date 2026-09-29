@@ -54,3 +54,9 @@ data class LedgerEntry(
     val secondaryConversionRateToBaseAtTransaction: Double? = null,
     val secondaryAmountInBaseAtTransaction: Double? = null
 )
+
+fun LedgerEntry.sourcePitakaId(): Long? = when (type) {
+    LedgerType.EXPENSE, LedgerType.GOAL_CONTRIBUTION -> pitakaId
+    LedgerType.TRANSFER -> fromPitakaId
+    else -> null
+}

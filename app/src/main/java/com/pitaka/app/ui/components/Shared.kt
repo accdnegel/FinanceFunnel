@@ -96,6 +96,36 @@ fun AdaptiveText(
     }
 }
 
+@Composable
+fun PitakaSourceFilter(
+    pitakas: List<Pitaka>,
+    selectedPitakaId: Long?,
+    onSelected: (Long?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (pitakas.isEmpty()) return
+
+    Column(modifier) {
+        Text("Filter by source Pitaka", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            item {
+                FilterChip(
+                    selected = selectedPitakaId == null,
+                    onClick = { onSelected(null) },
+                    label = { Text("All") }
+                )
+            }
+            items(pitakas, key = { it.id }) { pitaka ->
+                FilterChip(
+                    selected = selectedPitakaId == pitaka.id,
+                    onClick = { onSelected(pitaka.id) },
+                    label = { AdaptiveText(pitaka.name, modifier = Modifier.widthIn(max = 160.dp), style = MaterialTheme.typography.labelLarge) }
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PitakaDropdown(

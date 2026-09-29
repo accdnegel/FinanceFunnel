@@ -16,10 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pitaka.app.data.ExpenseFunnel
+import com.pitaka.app.data.sourcePitakaId
 import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.EditEntryDialog
 import com.pitaka.app.ui.components.AdaptiveText
 import com.pitaka.app.ui.components.HealthBar
+import com.pitaka.app.ui.components.PitakaSourceFilter
 import com.pitaka.app.ui.components.dateFormat
 import java.time.YearMonth
 import java.util.Date
@@ -32,15 +34,19 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
     val allFunnels by viewModel.allExpenseFunnelsIncludingArchived.collectAsState(initial=emptyList())
     val categories by viewModel.expenseCategories.collectAsState(initial=emptyList())
     val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
+    val allPitakas by viewModel.allPitakasIncludingArchived.collectAsState(initial=emptyList())
     val goals by viewModel.goals.collectAsState(initial=emptyList())
     val budget by viewModel.currentMonthBudget.collectAsState(initial=null)
     val monthSpent by viewModel.currentMonthExpenseTotal.collectAsState(initial=0.0)
     var editing by remember { mutableStateOf<com.pitaka.app.data.LedgerEntry?>(null) }
     var showArchived by remember { mutableStateOf(false) }
     var expensesExpanded by remember { mutableStateOf(false) }
+    var selectedSourcePitakaId by remember { mutableStateOf<Long?>(null) }
     val visibleFunnels=if(showArchived)allFunnels else funnels
     val month=YearMonth.now().toString()
     val thisMonth=expenses.filter{runCatching{java.time.Instant.ofEpochMilli(it.date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString().startsWith(month)}.getOrDefault(false)}
+    val sourcePitakas=allPitakas.filter{pitaka->thisMonth.any{it.sourcePitakaId()==pitaka.id}}
+    val filteredThisMonth=selectedSourcePitakaId?.let{sourceId->thisMonth.filter{it.sourcePitakaId()==sourceId}}?:thisMonth
     Scaffold(topBar={TopAppBar(title={Text("Spending")},actions={TextButton({showArchived=!showArchived}){Text(if(showArchived)"Active" else "Archived")};IconButton(onClick=onOpenBudgetHistory){Icon(Icons.Default.History,"Budget history")}})}){padding->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)){
             Text("Monthly Expense Limit",style=MaterialTheme.typography.titleMedium)
@@ -74,20 +80,22 @@ fun ExpensesScreen(viewModel: PitakaViewModel,onOpenBudgetHistory:()->Unit,onOpe
             ) {
                 Column {
                     Text("This Month's Expenses",style=MaterialTheme.typography.titleMedium)
-                    Text("${thisMonth.size} transaction${if(thisMonth.size==1)"" else "s"}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if(selectedSourcePitakaId==null) "${thisMonth.size} transaction${if(thisMonth.size==1)"" else "s"}" else "${filteredThisMonth.size} of ${thisMonth.size} transactions",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(if(expensesExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,if(expensesExpanded) "Collapse expenses" else "Expand expenses")
             }
             if(expensesExpanded) {
-                if(thisMonth.isEmpty())Text("No expenses logged this month.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+                PitakaSourceFilter(sourcePitakas,selectedSourcePitakaId,{selectedSourcePitakaId=it},Modifier.padding(bottom=6.dp))
+                if(filteredThisMonth.isEmpty())Text(if(thisMonth.isEmpty()) "No expenses logged this month." else "No expenses charged to this Pitaka this month.",color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else LazyColumn(
                     Modifier.fillMaxWidth().heightIn(max=240.dp),
                     verticalArrangement=Arrangement.spacedBy(2.dp)
                 ) {
-                    items(thisMonth,key={it.id}){entry->
+                    items(filteredThisMonth,key={it.id}){entry->
                         var masked by remember(entry.id){mutableStateOf(false)}
+                        val sourceName=allPitakas.find{it.id==entry.sourcePitakaId()}?.name?:"Deleted Pitaka"
                         Row(Modifier.fillMaxWidth().padding(vertical=7.dp),horizontalArrangement=Arrangement.SpaceBetween){
-                            Column(Modifier.weight(1f)){AdaptiveText(entry.name,style=MaterialTheme.typography.bodyMedium);AdaptiveText((entry.category?:"Uncategorized")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                            Column(Modifier.weight(1f)){AdaptiveText(entry.name,style=MaterialTheme.typography.bodyMedium);AdaptiveText((entry.category?:"Uncategorized")+" • "+dateFormat.format(Date(entry.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);AdaptiveText("Charged to: $sourceName",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                             Row{AdaptiveText(if(masked)"••••••" else entry.currency+" "+"%,.2f".format(entry.amount),modifier=Modifier.widthIn(max=96.dp),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.error,minFontSize=9.sp);IconButton({masked=!masked}){Icon(if(masked)Icons.Default.VisibilityOff else Icons.Default.Visibility,"Mask")};TextButton({editing=entry}){Text("Edit")}}
                         }
                         HorizontalDivider()

@@ -17,7 +17,9 @@ import com.pitaka.app.ui.PitakaViewModel
 import com.pitaka.app.ui.components.dateFormat
 import com.pitaka.app.ui.components.EditEntryDialog
 import com.pitaka.app.ui.components.AdaptiveText
+import com.pitaka.app.ui.components.PitakaSourceFilter
 import com.pitaka.app.data.LedgerEntry
+import com.pitaka.app.data.sourcePitakaId
 import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,10 +30,14 @@ fun FunnelDetailScreen(viewModel: PitakaViewModel,funnelId:Long,onBack:()->Unit)
     val funnel=funnels.find{it.id==funnelId}
     val entries by viewModel.observeExpensesForFunnel(funnelId).collectAsState(initial=emptyList())
     val pitakas by viewModel.pitakas.collectAsState(initial=emptyList())
+    val allPitakas by viewModel.allPitakasIncludingArchived.collectAsState(initial=emptyList())
     val goals by viewModel.goals.collectAsState(initial=emptyList())
     val leafPitakas=pitakas.filter{candidate->pitakas.none{it.parentPitakaId==candidate.id}}
     var showDelete by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<LedgerEntry?>(null) }
+    var selectedSourcePitakaId by remember { mutableStateOf<Long?>(null) }
+    val sourcePitakas=allPitakas.filter{pitaka->entries.any{it.sourcePitakaId()==pitaka.id}}
+    val filteredEntries=selectedSourcePitakaId?.let{sourceId->entries.filter{it.sourcePitakaId()==sourceId}}?:entries
     Scaffold(topBar={TopAppBar(title={AdaptiveText(funnel?.name?:"Expense Funnel",style=MaterialTheme.typography.titleLarge,minFontSize=12.sp)},navigationIcon={TextButton(onClick=onBack){Text("Back")}},actions={if(funnel?.isSystem==false){if(funnel.archivedAt==null)IconButton({viewModel.archiveExpenseFunnel(funnelId,onBack)}){Icon(Icons.Default.Archive,"Archive")}else IconButton({viewModel.restoreExpenseFunnel(funnelId)}){Icon(Icons.Default.Unarchive,"Restore")};IconButton({showDelete=true}){Icon(Icons.Default.Delete,"Delete")}}})}){padding->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)){
             funnel?.let{current->
@@ -46,7 +52,12 @@ fun FunnelDetailScreen(viewModel: PitakaViewModel,funnelId:Long,onBack:()->Unit)
                 }}
             }
             Text("Full history",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(vertical=12.dp))
-            LazyColumn{items(entries,key={it.id}){e->Column(Modifier.fillMaxWidth().padding(vertical=7.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column(Modifier.weight(1f)){AdaptiveText(e.name,style=MaterialTheme.typography.bodyMedium);AdaptiveText(e.currency+" "+"%,.2f".format(e.amount),style=MaterialTheme.typography.bodySmall)};Row{IconButton({editingEntry=e}){Icon(Icons.Default.Edit,"Edit")};IconButton({viewModel.deleteEntry(e)}){Icon(Icons.Default.Delete,"Delete")}}};AdaptiveText((e.category?:"Uncategorized")+" • "+dateFormat.format(Date(e.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);HorizontalDivider()}}}
+            PitakaSourceFilter(sourcePitakas,selectedSourcePitakaId,{selectedSourcePitakaId=it})
+            if(filteredEntries.isEmpty()) Text(if(entries.isEmpty()) "No expenses in this funnel yet." else "No expenses charged to this Pitaka.",color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.padding(vertical=12.dp))
+            else LazyColumn{items(filteredEntries,key={it.id}){e->
+                val sourceName=e.sourcePitakaId()?.let{sourceId->allPitakas.find{it.id==sourceId}?.name?:"Deleted Pitaka"}
+                Column(Modifier.fillMaxWidth().padding(vertical=7.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column(Modifier.weight(1f)){AdaptiveText(e.name,style=MaterialTheme.typography.bodyMedium);AdaptiveText(e.currency+" "+"%,.2f".format(e.amount),style=MaterialTheme.typography.bodySmall)};Row{IconButton({editingEntry=e}){Icon(Icons.Default.Edit,"Edit")};IconButton({viewModel.deleteEntry(e)}){Icon(Icons.Default.Delete,"Delete")}}};AdaptiveText((e.category?:"Uncategorized")+" • "+dateFormat.format(Date(e.date)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);sourceName?.let{AdaptiveText("Charged to: $it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};HorizontalDivider()}
+            }}
         }
     }
     if(showDelete&&funnel!=null) com.pitaka.app.ui.components.ConfirmDeleteDialog("Delete this Expense Funnel?","Its expenses will be preserved and moved to General Expenses.",{viewModel.deleteExpenseFunnel(funnel,onSuccess=onBack);showDelete=false},{showDelete=false})
